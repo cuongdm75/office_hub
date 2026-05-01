@@ -1216,7 +1216,7 @@ mod tests {
         let mut agent = AnalystAgent::new(); // tolerance = 0.01%
         let mut params = HashMap::new();
         params.insert("intended_value".into(), serde_json::json!(1_000_000.0));
-        params.insert("actual_value".into(), serde_json::json!(1_000_000.0001));
+        params.insert("actual_value".into(), serde_json::json!(1_000_000.000_1));
         let task = make_task_with_params("hard_truth_verify", params);
         let result = agent.execute(task).await;
         assert!(result.is_ok());

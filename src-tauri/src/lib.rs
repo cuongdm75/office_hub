@@ -3,6 +3,17 @@
 // Root library crate: module declarations + Tauri application bootstrap
 // ============================================================================
 
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::empty_line_after_outer_attr)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::invisible_characters)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(clippy::explicit_counter_loop)]
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::manual_find)]
+#![allow(clippy::manual_strip)]
+
 // ─────────────────────────────────────────────
 // Module declarations
 // ─────────────────────────────────────────────

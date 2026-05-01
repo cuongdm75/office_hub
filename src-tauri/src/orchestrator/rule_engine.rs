@@ -1737,7 +1737,7 @@ mod tests {
         )
         .with_metadata(serde_json::json!({
             "intended": 1_000_000.0,
-            "actual":   1_000_000.0001   // negligible deviation
+            "actual":   1_000_000.000_1   // negligible deviation
         }));
         let result = engine.validate(req).await;
         assert!(result.passed);

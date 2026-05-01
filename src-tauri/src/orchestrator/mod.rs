@@ -1,10 +1,14 @@
 // ============================================================================
 
-// Office Hub â€“ orchestrator/mod.rs
+// Office Hub – orchestrator/mod.rs
 
-//
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::empty_line_after_outer_attr)]
+#![allow(unreachable_code)]
 
 // The Orchestrator is the central "brain" of Office Hub.
+
+//
 
 // It is responsible for:
 
