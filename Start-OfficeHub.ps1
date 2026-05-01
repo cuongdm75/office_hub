@@ -82,57 +82,18 @@ if ($listening) {
     Write-Fail "Backend failed to start on port 9001"
 }
 
-# ─── STEP 3: Start Vite dev server ──────────────────────────
-Write-Step "Step 3: Starting Add-in Dev Server (https://localhost:3000)..."
 
-# Kill old Vite on port 3000
-$oldPid = (netstat -ano 2>$null | Select-String "3000.*LISTENING" | ForEach-Object { ($_ -split "\s+")[-1] } | Select-Object -First 1)
-if ($oldPid) {
-    Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
-}
-
-# Start Vite in background
-$npmJob = Start-Job -ScriptBlock {
-    param($dir)
-    Set-Location $dir
-    npm run dev 2>&1
-} -ArgumentList $AddinDir
-
-Start-Sleep -Seconds 5
-
-# Verify port 3000 is up
-$port3000 = netstat -ano 2>$null | Select-String "3000.*LISTENING"
-if ($port3000) {
-    Write-OK "Dev server running on https://localhost:3000"
-} else {
-    Write-Fail "Dev server failed to start. Check npm run dev manually."
-}
-
-# ─── STEP 4: Verify HTTPS reachable ─────────────────────────
-Write-Step "Step 4: Verifying HTTPS connectivity..."
-try {
-    Add-Type -AssemblyName System.Net.Http
-    $handler = New-Object System.Net.Http.HttpClientHandler
-    $client  = New-Object System.Net.Http.HttpClient($handler)
-    $task    = $client.GetAsync("https://localhost:3000/")
-    $task.Wait(5000) | Out-Null
-    if ($task.Result.StatusCode -eq "OK") {
-        Write-OK "https://localhost:3000/ accessible ✓"
-    }
-} catch {
-    Write-Fail "HTTPS check failed: $_"
-    Write-Info "Office won't load the add-in if localhost is not HTTPS-accessible"
-}
-
-# ─── STEP 5: Summary ─────────────────────────────────────────
+# ─── STEP 3: Summary ─────────────────────────────────────────
 Write-Host "`n============================================" -ForegroundColor White
 Write-Host "  Office Hub is ready!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor White
 Write-Host "  Backend  : ws://localhost:9001"
-Write-Host "  Add-in UI: https://localhost:3000"
+Write-Host "  Add-in UI: https://localhost:3000 (built-in)"
 Write-Host ""
-Write-Host "  If Outlook/Word icon is missing:"
-Write-Host "    → Restart the Office app after running this script"
-Write-Host "    → Or run: npx office-addin-debugging start outlook-manifest.xml desktop --prod"
+Write-Host "  The add-in HTTPS server is now embedded in Office Hub."
+Write-Host "  No need to run `npm run dev` separately."
+Write-Host ""
+Write-Host "  If Outlook/Word ribbon icon is missing:"
+Write-Host "    → Restart the Office app once after the first run"
+Write-Host "    → Or re-run office-addin/Setup-OfficeAddin.ps1"
 Write-Host "============================================`n" -ForegroundColor White

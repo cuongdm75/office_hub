@@ -35,7 +35,7 @@
     "targets": "all",
     "icon": ["icons/icon.ico", "icons/icon.png"],
     "createUpdaterArtifacts": false,
-    "resources": ["../rules/*", "../workflows/*"],
+    "resources": ["../rules/*", "../workflows/*", "../office-addin/dist/**/*"],
     "externalBin": [],
     "copyright": "",
     "category": "Productivity",

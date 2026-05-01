@@ -117,7 +117,8 @@ notify = "6.1"
 tokio-cron-scheduler = "0.13" # Updated to 0.13 as it's the newer stable version
 tokio-util = { version = "0.7", features = ["rt", "io", "codec"] }
 axum = { version = "0.8.9", features = ["multipart", "http1", "tokio"] }
-tower-http = { version = "0.6.8", features = ["fs", "cors"] }
+tower-http = { version = "0.6.8", features = ["fs", "cors", "set-header"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 async-stream = "0.3"   # generator-style SSE stream macro
 automerge = "0.9.0"
 polars = { version = "0.45", features = ["lazy", "sql", "json", "csv", "strings", "dtype-datetime"] }

@@ -42,6 +42,10 @@ pub mod commands;
 /// HTTP Server for static file serving to mobile client.
 pub mod http_server;
 
+/// HTTPS server that serves the pre-built Office Web Add-in UI on port 3000.
+/// Replaces the separate Node.js/Vite dev-server process.
+pub mod addin_server;
+
 /// System layer: tray icon, startup registration, OS integrations.
 pub mod system;
 
@@ -705,6 +709,20 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 crate::sse_server::start_hybrid_server(sse_port, hybrid_state_owned, orchestrator_for_hybrid).await;
             });
+
+            // Start built-in HTTPS server for Office Web Add-in (port 3000)
+            // Resolves dist dir from Tauri resource_dir (release) or workspace path (dev).
+            let resource_dir = app_handle.path().resource_dir().ok();
+            if let Some(dist_dir) = crate::addin_server::resolve_dist_dir(resource_dir) {
+                tauri::async_runtime::spawn(async move {
+                    crate::addin_server::start_addin_server(dist_dir).await;
+                });
+            } else {
+                tracing::warn!(
+                    "Add-in HTTPS server: could not locate office-addin/dist/. \
+                     Run `npm run build` in office-addin/ then restart Office Hub."
+                );
+            }
 
             let workflow_engine = Arc::clone(&state.workflow_engine);
             let app_handle_clone = app_handle.clone();
