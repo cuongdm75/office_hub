@@ -359,6 +359,7 @@ impl PlanRunner {
         }
     }
 
+    #[allow(dead_code)]
     fn handle_decision(&self, decision: MonitorDecision, plan_exec: &PlanExecution) {
         match decision {
             MonitorDecision::Continue => {}

@@ -143,11 +143,6 @@ impl ExcelApplication {
         // Here we copy to clipboard. Note: This destroys user's clipboard content!
         used_range.invoke_method("Copy", vec![])?;
 
-        let mut text = String::new();
-        // Read clipboard using a simple API or just rely on terminal commands/crates?
-        // Since we don't have a clipboard crate in dependencies easily accessible without checking Cargo.toml,
-        // let's create a temp workbook, paste, SaveAs CSV.
-
         let workbooks = self.app.get_property_obj("Workbooks")?;
         let new_wb = workbooks.invoke_method("Add", vec![])?;
         let new_wb_obj = ComObject::new(IDispatch::try_from(&new_wb)?);
@@ -166,7 +161,7 @@ impl ExcelApplication {
         new_wb_obj.invoke_method("SaveAs", vec![var_bstr(&temp_csv), var_i4(6)])?;
         new_wb_obj.invoke_method("Close", vec![var_bool(false)])?;
 
-        text = std::fs::read_to_string(&temp_csv).unwrap_or_default();
+        let text = std::fs::read_to_string(&temp_csv).unwrap_or_default();
         let _ = std::fs::remove_file(&temp_csv);
 
         Ok(text)

@@ -1,6 +1,6 @@
-// ============================================================================
+﻿// ============================================================================
 
-// Office Hub – orchestrator/mod.rs
+// Office Hub â€“ orchestrator/mod.rs
 
 //
 
@@ -71,25 +71,25 @@ use self::rule_engine::{RuleEngine, ValidationRequest, ValidationTarget};
 
 use self::session::{SessionId, SessionStore, SessionSummary};
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Re-exports for convenience
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Re-exports
 
 // Note: Intent and SessionId are already imported via use self::... above
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// OrchestratorHandle – cheap, cloneable handle used in commands.rs
+// OrchestratorHandle â€“ cheap, cloneable handle used in commands.rs
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// A cheaply cloneable, thread-safe handle to the `Orchestrator`.
 
-/// Wraps the inner struct in `Arc<RwLock<…>>`.
+/// Wraps the inner struct in `Arc<RwLock<â€¦>>`.
 
 /// All public methods take `&self` and acquire locks internally.
 
@@ -219,7 +219,7 @@ impl OrchestratorHandle {
         inner.mcp_broker.register_internal_server(server).await;
     }
 
-    /// Process a user chat message end-to-end (classify → route → execute → validate).
+    /// Process a user chat message end-to-end (classify â†’ route â†’ execute â†’ validate).
 
     pub async fn process_message(
         &self,
@@ -237,10 +237,10 @@ impl OrchestratorHandle {
 
     /// [Phase 1] Process message using Native Tool Calling via genai crate.
     ///
-    /// Đây là Hybrid ReAct Loop mới:
-    /// - MCP Tools → Native `genai::Tool` (không cần JSON Schema thủ công)
-    /// - Legacy Agents → `call_legacy_agent` bridge tool
-    /// - Fallback: nếu genai bridge thất bại, tự động dùng `process_message` cũ
+    /// ÄÃ¢y lÃ  Hybrid ReAct Loop má»›i:
+    /// - MCP Tools â†’ Native `genai::Tool` (khÃ´ng cáº§n JSON Schema thá»§ cÃ´ng)
+    /// - Legacy Agents â†’ `call_legacy_agent` bridge tool
+    /// - Fallback: náº¿u genai bridge tháº¥t báº¡i, tá»± Ä‘á»™ng dÃ¹ng `process_message` cÅ©
     pub async fn process_message_native(
         &self,
         session_id: &str,
@@ -471,11 +471,11 @@ impl OrchestratorHandle {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Orchestrator – inner struct
+// Orchestrator â€“ inner struct
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Core orchestrator.  Holds all sub-systems and coordinates their interactions.
 
@@ -561,11 +561,11 @@ impl Orchestrator {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // Core processing pipeline
 
-    // ────────────────────────────────────────────────────────────────────────�        // ── 2. Build Agent Tool Prompt ──────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ï¿½        // â”€â”€ 2. Build Agent Tool Prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     #[instrument(skip(self, message), fields(session = session_id))]
     pub async fn process_message(
@@ -579,7 +579,7 @@ impl Orchestrator {
         let started_at = Utc::now();
         self.metrics.total_requests += 1;
 
-        // ── 1. Retrieve Session ───────────────────────────────────────────────
+        // â”€â”€ 1. Retrieve Session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let session_clone = {
             let mut session = self
                 .session_store
@@ -594,8 +594,8 @@ impl Orchestrator {
             session.clone()
         };
 
-        // ── 2. Build Agent Tool Prompt ──────────────────────────────────────────
-        // Inject TOÀN BỘ catalog: MCP tools + Agent tool schemas để LLM không cần search mù.
+        // â”€â”€ 2. Build Agent Tool Prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Inject TOÃ€N Bá»˜ catalog: MCP tools + Agent tool schemas Ä‘á»ƒ LLM khÃ´ng cáº§n search mÃ¹.
         // == 2. Build Agent Tool Prompt (Legacy Fallback Mode) ====================
         // NOTE: Legacy pipeline chi con la fallback khi native pipeline that bai.
         // Inject compact list (ten + mo ta ngan) thay vi full JSON schema de giam token.
@@ -658,12 +658,12 @@ impl Orchestrator {
                                     let filename =
                                         path.file_name().unwrap_or_default().to_string_lossy();
                                     project_policy_content.push_str(&format!(
-                                        "\n--- Mở đầu Policy: {} ---\n",
+                                        "\n--- Má»Ÿ Ä‘áº§u Policy: {} ---\n",
                                         filename
                                     ));
                                     project_policy_content.push_str(&content);
                                     project_policy_content.push_str(&format!(
-                                        "\n--- Kết thúc Policy: {} ---\n",
+                                        "\n--- Káº¿t thÃºc Policy: {} ---\n",
                                         filename
                                     ));
                                 }
@@ -679,12 +679,12 @@ impl Orchestrator {
                 let policies_prompt = if project_policy_content.is_empty() {
                     String::new()
                 } else {
-                    format!("\n[PROJECT POLICIES]\nDưới đây là các Policy riêng của dự án này, BẮT BUỘC phải tuân thủ (ưu tiên cao hơn Global Policy nếu có xung đột, trừ khi Global Policy đánh dấu là 'Bắt buộc'):\n{}", project_policy_content)
+                    format!("\n[PROJECT POLICIES]\nDÆ°á»›i Ä‘Ã¢y lÃ  cÃ¡c Policy riÃªng cá»§a dá»± Ã¡n nÃ y, Báº®T BUá»˜C pháº£i tuÃ¢n thá»§ (Æ°u tiÃªn cao hÆ¡n Global Policy náº¿u cÃ³ xung Ä‘á»™t, trá»« khi Global Policy Ä‘Ã¡nh dáº¥u lÃ  'Báº¯t buá»™c'):\n{}", project_policy_content)
                 };
 
-                format!("\n[QUAN TRỌNG: WORKSPACE CONTEXT]\nBạn đang hoạt động trong workspace có ID là: '{}'. Thư mục gốc của workspace này trên ổ đĩa là: `{}`.\n- Dữ liệu đầu vào (file tải lên, ghi âm...) nằm trong thư mục `{}/docs/inbox/`.\n- Kết quả xử lý (file báo cáo, xuất ra) BẮT BUỘC lưu vào thư mục `{}/docs/outbox/`.\n- Nếu người dùng nhắc đến dự án khác (VD: 'Với dự án Beta...'), hãy gọi agent_id = 'orchestrator', action = 'set_active_project' với tham số `project_name` để chuyển ngữ cảnh sang dự án đó.\n- Khi dùng tool `search_memory`, BẮT BUỘC thêm tiền tố `[{}]` vào từ khóa tìm kiếm (VD: `[{}] quy trình mua hàng`).\nKhi gọi các tool tạo file (như `office_master`), bạn phải truyền đường dẫn lưu file tuyệt đối vào thư mục outbox này.\nKhi gọi bất kỳ MCP tool nào liên quan đến dữ liệu (như knowledge, policy...), BẠN BẮT BUỘC phải truyền thêm tham số `\"workspace_id\": \"{}\"` vào arguments của tool.\n{}", wid, root_str, root_str, root_str, wid, wid, wid, policies_prompt)
+                format!("\n[QUAN TRá»ŒNG: WORKSPACE CONTEXT]\nBáº¡n Ä‘ang hoáº¡t Ä‘á»™ng trong workspace cÃ³ ID lÃ : '{}'. ThÆ° má»¥c gá»‘c cá»§a workspace nÃ y trÃªn á»• Ä‘Ä©a lÃ : `{}`.\n- Dá»¯ liá»‡u Ä‘áº§u vÃ o (file táº£i lÃªn, ghi Ã¢m...) náº±m trong thÆ° má»¥c `{}/docs/inbox/`.\n- Káº¿t quáº£ xá»­ lÃ½ (file bÃ¡o cÃ¡o, xuáº¥t ra) Báº®T BUá»˜C lÆ°u vÃ o thÆ° má»¥c `{}/docs/outbox/`.\n- Náº¿u ngÆ°á»i dÃ¹ng nháº¯c Ä‘áº¿n dá»± Ã¡n khÃ¡c (VD: 'Vá»›i dá»± Ã¡n Beta...'), hÃ£y gá»i agent_id = 'orchestrator', action = 'set_active_project' vá»›i tham sá»‘ `project_name` Ä‘á»ƒ chuyá»ƒn ngá»¯ cáº£nh sang dá»± Ã¡n Ä‘Ã³.\n- Khi dÃ¹ng tool `search_memory`, Báº®T BUá»˜C thÃªm tiá»n tá»‘ `[{}]` vÃ o tá»« khÃ³a tÃ¬m kiáº¿m (VD: `[{}] quy trÃ¬nh mua hÃ ng`).\nKhi gá»i cÃ¡c tool táº¡o file (nhÆ° `office_master`), báº¡n pháº£i truyá»n Ä‘Æ°á»ng dáº«n lÆ°u file tuyá»‡t Ä‘á»‘i vÃ o thÆ° má»¥c outbox nÃ y.\nKhi gá»i báº¥t ká»³ MCP tool nÃ o liÃªn quan Ä‘áº¿n dá»¯ liá»‡u (nhÆ° knowledge, policy...), Báº N Báº®T BUá»˜C pháº£i truyá»n thÃªm tham sá»‘ `\"workspace_id\": \"{}\"` vÃ o arguments cá»§a tool.\n{}", wid, root_str, root_str, root_str, wid, wid, wid, policies_prompt)
             } else {
-                format!("\n[QUAN TRỌNG: WORKSPACE CONTEXT]\nBạn đang hoạt động trong workspace có ID là: '{}'.\n- Nếu người dùng nhắc đến dự án khác (VD: 'Với dự án Beta...'), hãy gọi agent_id = 'orchestrator', action = 'set_active_project' với tham số `project_name` để chuyển ngữ cảnh sang dự án đó.\n- Khi dùng tool `search_memory`, BẮT BUỘC thêm tiền tố `[{}]` vào từ khóa tìm kiếm.\nKhi gọi bất kỳ MCP tool nào liên quan đến dữ liệu (như knowledge, policy...), BẠN BẮT BUỘC phải truyền thêm tham số `\"workspace_id\": \"{}\"` vào arguments của tool.\n", wid, wid, wid)
+                format!("\n[QUAN TRá»ŒNG: WORKSPACE CONTEXT]\nBáº¡n Ä‘ang hoáº¡t Ä‘á»™ng trong workspace cÃ³ ID lÃ : '{}'.\n- Náº¿u ngÆ°á»i dÃ¹ng nháº¯c Ä‘áº¿n dá»± Ã¡n khÃ¡c (VD: 'Vá»›i dá»± Ã¡n Beta...'), hÃ£y gá»i agent_id = 'orchestrator', action = 'set_active_project' vá»›i tham sá»‘ `project_name` Ä‘á»ƒ chuyá»ƒn ngá»¯ cáº£nh sang dá»± Ã¡n Ä‘Ã³.\n- Khi dÃ¹ng tool `search_memory`, Báº®T BUá»˜C thÃªm tiá»n tá»‘ `[{}]` vÃ o tá»« khÃ³a tÃ¬m kiáº¿m.\nKhi gá»i báº¥t ká»³ MCP tool nÃ o liÃªn quan Ä‘áº¿n dá»¯ liá»‡u (nhÆ° knowledge, policy...), Báº N Báº®T BUá»˜C pháº£i truyá»n thÃªm tham sá»‘ `\"workspace_id\": \"{}\"` vÃ o arguments cá»§a tool.\n", wid, wid, wid)
             }
         } else {
             String::new()
@@ -735,37 +735,37 @@ impl Orchestrator {
         });
 
         let system_prompt = format!(
-            "Bạn là Office Hub Orchestrator, một trợ lý điều phối Agent.\n\
+            "Báº¡n lÃ  Office Hub Orchestrator, má»™t trá»£ lÃ½ Ä‘iá»u phá»‘i Agent.\n\
              \n[AVAILABLE MCP TOOLS]\n\
-             Bạn có thể dùng các MCP Tools sau đây để tra cứu Policy, Memory, Knowledge hoặc gọi plugin:\n\
+             Báº¡n cÃ³ thá»ƒ dÃ¹ng cÃ¡c MCP Tools sau Ä‘Ã¢y Ä‘á»ƒ tra cá»©u Policy, Memory, Knowledge hoáº·c gá»i plugin:\n\
              {mcp_tools_desc}\n\
              \n[AVAILABLE SKILLS/AGENTS]\n\
-             Bạn có thể gọi các Agents sau đây để thực hiện nhiệm vụ:\n\
+             Báº¡n cÃ³ thá»ƒ gá»i cÃ¡c Agents sau Ä‘Ã¢y Ä‘á»ƒ thá»±c hiá»‡n nhiá»‡m vá»¥:\n\
              {tools_desc}\n\
-             [QUAN TRỌNG: TRÍ NHỚ DÀI HẠN]\n\
-             Hệ thống KHÔNG tự động nhồi ngữ cảnh cũ vào cuộc hội thoại để tiết kiệm token. Nếu câu hỏi của người dùng ám chỉ đến sự kiện, quyết định, hoặc thông tin trong quá khứ (VD: 'lần trước', 'hôm qua', 'phương án đã chốt'), BẠN BẮT BUỘC PHẢI DÙNG MCP Tool `search_memory` (agent_id = 'mcp_broker') để lấy lại trí nhớ trước khi trả lời.\n\
+             [QUAN TRá»ŒNG: TRÃ NHá»š DÃ€I Háº N]\n\
+             Há»‡ thá»‘ng KHÃ”NG tá»± Ä‘á»™ng nhá»“i ngá»¯ cáº£nh cÅ© vÃ o cuá»™c há»™i thoáº¡i Ä‘á»ƒ tiáº¿t kiá»‡m token. Náº¿u cÃ¢u há»i cá»§a ngÆ°á»i dÃ¹ng Ã¡m chá»‰ Ä‘áº¿n sá»± kiá»‡n, quyáº¿t Ä‘á»‹nh, hoáº·c thÃ´ng tin trong quÃ¡ khá»© (VD: 'láº§n trÆ°á»›c', 'hÃ´m qua', 'phÆ°Æ¡ng Ã¡n Ä‘Ã£ chá»‘t'), Báº N Báº®T BUá»˜C PHáº¢I DÃ™NG MCP Tool `search_memory` (agent_id = 'mcp_broker') Ä‘á»ƒ láº¥y láº¡i trÃ­ nhá»› trÆ°á»›c khi tráº£ lá»i.\n\
              \n\
-             [QUAN TRỌNG: TUÂN THỦ POLICY VÀ RULE]\n\
-             Trước khi bắt đầu bất kỳ tác vụ nào (ví dụ: tạo file Word, viết báo cáo, lập trình, hay thay đổi hệ thống), BẠN BẮT BUỘC phải gọi MCP Tool `list_policies` hoặc `query_policy` (agent_id = 'mcp_broker') để kiểm tra xem hệ thống có quy định (rule/policy) nào cần tuân thủ không.\n\
+             [QUAN TRá»ŒNG: TUÃ‚N THá»¦ POLICY VÃ€ RULE]\n\
+             TrÆ°á»›c khi báº¯t Ä‘áº§u báº¥t ká»³ tÃ¡c vá»¥ nÃ o (vÃ­ dá»¥: táº¡o file Word, viáº¿t bÃ¡o cÃ¡o, láº­p trÃ¬nh, hay thay Ä‘á»•i há»‡ thá»‘ng), Báº N Báº®T BUá»˜C pháº£i gá»i MCP Tool `list_policies` hoáº·c `query_policy` (agent_id = 'mcp_broker') Ä‘á»ƒ kiá»ƒm tra xem há»‡ thá»‘ng cÃ³ quy Ä‘á»‹nh (rule/policy) nÃ o cáº§n tuÃ¢n thá»§ khÃ´ng.\n\
              \n\
-             [QUAN TRỌNG: GỘP THÔNG TIN TỪ NHIỀU FILE]\n\
-             Nếu người dùng yêu cầu tổng hợp báo cáo từ một thư mục, hãy sử dụng MCP Tool `read_folder_files` (agent_id = 'mcp_broker') để lấy nội dung tất cả file, sau đó gọi agent (VD: `office_master`) để tạo báo cáo. Nếu các tool không phụ thuộc nhau, bạn có thể gọi đồng thời nhiều tools/agents trong một mảng `agent_calls` để chúng chạy song song.\n\
+             [QUAN TRá»ŒNG: Gá»˜P THÃ”NG TIN Tá»ª NHIá»€U FILE]\n\
+             Náº¿u ngÆ°á»i dÃ¹ng yÃªu cáº§u tá»•ng há»£p bÃ¡o cÃ¡o tá»« má»™t thÆ° má»¥c, hÃ£y sá»­ dá»¥ng MCP Tool `read_folder_files` (agent_id = 'mcp_broker') Ä‘á»ƒ láº¥y ná»™i dung táº¥t cáº£ file, sau Ä‘Ã³ gá»i agent (VD: `office_master`) Ä‘á»ƒ táº¡o bÃ¡o cÃ¡o. Náº¿u cÃ¡c tool khÃ´ng phá»¥ thuá»™c nhau, báº¡n cÃ³ thá»ƒ gá»i Ä‘á»“ng thá»i nhiá»u tools/agents trong má»™t máº£ng `agent_calls` Ä‘á»ƒ chÃºng cháº¡y song song.\n\
              \n\
-             [QUAN TRỌNG: CẬP NHẬT FILE ĐÃ TẠO]\n\
-             Nếu người dùng yêu cầu cập nhật/chỉnh sửa một file đã tạo trước đó, BẠN BẮT BUỘC phải xem lại lịch sử hội thoại, tìm ĐÚNG tên file cũ và truyền chính xác tên đó vào tham số của Agent/Tool. KHÔNG ĐƯỢC tạo file mới.\n\
+             [QUAN TRá»ŒNG: Cáº¬P NHáº¬T FILE ÄÃƒ Táº O]\n\
+             Náº¿u ngÆ°á»i dÃ¹ng yÃªu cáº§u cáº­p nháº­t/chá»‰nh sá»­a má»™t file Ä‘Ã£ táº¡o trÆ°á»›c Ä‘Ã³, Báº N Báº®T BUá»˜C pháº£i xem láº¡i lá»‹ch sá»­ há»™i thoáº¡i, tÃ¬m ÄÃšNG tÃªn file cÅ© vÃ  truyá»n chÃ­nh xÃ¡c tÃªn Ä‘Ã³ vÃ o tham sá»‘ cá»§a Agent/Tool. KHÃ”NG ÄÆ¯á»¢C táº¡o file má»›i.\n\
              \n\
-             [QUAN TRỌNG: CÀI ĐẶT SKILL TỪ FILE ZIP]\n\
-             Nếu người dùng yêu cầu cài đặt skill từ file đính kèm (zip), BẮT BUỘC gọi Agent `converter` với action `analyze_and_convert_zip_skill` và truyền đường dẫn file vào `zip_path`. Công cụ này sẽ tự động phân tích mã nguồn, map dependencies và convert skill đó cho bạn. KHÔNG sử dụng tool `write_skill` vì nội dung file dài sẽ làm hỏng cấu trúc JSON.\n\
+             [QUAN TRá»ŒNG: CÃ€I Äáº¶T SKILL Tá»ª FILE ZIP]\n\
+             Náº¿u ngÆ°á»i dÃ¹ng yÃªu cáº§u cÃ i Ä‘áº·t skill tá»« file Ä‘Ã­nh kÃ¨m (zip), Báº®T BUá»˜C gá»i Agent `converter` vá»›i action `analyze_and_convert_zip_skill` vÃ  truyá»n Ä‘Æ°á»ng dáº«n file vÃ o `zip_path`. CÃ´ng cá»¥ nÃ y sáº½ tá»± Ä‘á»™ng phÃ¢n tÃ­ch mÃ£ nguá»“n, map dependencies vÃ  convert skill Ä‘Ã³ cho báº¡n. KHÃ”NG sá»­ dá»¥ng tool `write_skill` vÃ¬ ná»™i dung file dÃ i sáº½ lÃ m há»ng cáº¥u trÃºc JSON.\n\
              \n\
-             [QUAN TRỌNG: TỰ TIẾN HÓA & TẠO TOOL (SELF-EVOLUTION)]\n\
-             Nếu bạn nhận được một yêu cầu không có sẵn công cụ xử lý (kể cả sau khi đã dùng `search_available_tools`), hãy đánh giá xem tác vụ đó có mang tính quy trình lặp đi lặp lại (reusable workflow/automation) hay không. Nếu CÓ, BẠN CÓ QUYỀN TỰ TẠO RA CÔNG CỤ MỚI bằng cách gọi MCP Tool `write_skill` (agent_id = 'mcp_broker'). \n\
-             Tham số của `write_skill` (BẠN ĐƯỢC DÙNG MÀ KHÔNG CẦN SEARCH): \n\
-             - `skill_name` (chuỗi kebab-case, BẮT BUỘC có tiền tố `auto-`, VD: `auto-csv-formatter`). \n\
-             - `description` (mô tả chức năng của tool). \n\
-             - `parameters` (object chứa định nghĩa properties theo chuẩn JSON Schema). \n\
-             - `instructions` (nội dung hướng dẫn chi tiết bằng Markdown để hệ thống biết cách thực thi). \n\
-             Ngay sau khi tool `write_skill` trả về thành công, tool sẽ tự động có mặt trên hệ thống. Hãy GỌI LẠI CHÍNH TOOL ĐÓ ở turn tiếp theo để giải quyết yêu cầu ban đầu của user!\n\
-             Lưu ý: Đối với các tác vụ một lần (one-off), hãy tự xử lý bằng code python/powershell (qua win32) hoặc từ chối, KHÔNG được tạo tool rác.\n\
+             [QUAN TRá»ŒNG: Tá»° TIáº¾N HÃ“A & Táº O TOOL (SELF-EVOLUTION)]\n\
+             Náº¿u báº¡n nháº­n Ä‘Æ°á»£c má»™t yÃªu cáº§u khÃ´ng cÃ³ sáºµn cÃ´ng cá»¥ xá»­ lÃ½ (ká»ƒ cáº£ sau khi Ä‘Ã£ dÃ¹ng `search_available_tools`), hÃ£y Ä‘Ã¡nh giÃ¡ xem tÃ¡c vá»¥ Ä‘Ã³ cÃ³ mang tÃ­nh quy trÃ¬nh láº·p Ä‘i láº·p láº¡i (reusable workflow/automation) hay khÃ´ng. Náº¿u CÃ“, Báº N CÃ“ QUYá»€N Tá»° Táº O RA CÃ”NG Cá»¤ Má»šI báº±ng cÃ¡ch gá»i MCP Tool `write_skill` (agent_id = 'mcp_broker'). \n\
+             Tham sá»‘ cá»§a `write_skill` (Báº N ÄÆ¯á»¢C DÃ™NG MÃ€ KHÃ”NG Cáº¦N SEARCH): \n\
+             - `skill_name` (chuá»—i kebab-case, Báº®T BUá»˜C cÃ³ tiá»n tá»‘ `auto-`, VD: `auto-csv-formatter`). \n\
+             - `description` (mÃ´ táº£ chá»©c nÄƒng cá»§a tool). \n\
+             - `parameters` (object chá»©a Ä‘á»‹nh nghÄ©a properties theo chuáº©n JSON Schema). \n\
+             - `instructions` (ná»™i dung hÆ°á»›ng dáº«n chi tiáº¿t báº±ng Markdown Ä‘á»ƒ há»‡ thá»‘ng biáº¿t cÃ¡ch thá»±c thi). \n\
+             Ngay sau khi tool `write_skill` tráº£ vá» thÃ nh cÃ´ng, tool sáº½ tá»± Ä‘á»™ng cÃ³ máº·t trÃªn há»‡ thá»‘ng. HÃ£y Gá»ŒI Láº I CHÃNH TOOL ÄÃ“ á»Ÿ turn tiáº¿p theo Ä‘á»ƒ giáº£i quyáº¿t yÃªu cáº§u ban Ä‘áº§u cá»§a user!\n\
+             LÆ°u Ã½: Äá»‘i vá»›i cÃ¡c tÃ¡c vá»¥ má»™t láº§n (one-off), hÃ£y tá»± xá»­ lÃ½ báº±ng code python/powershell (qua win32) hoáº·c tá»« chá»‘i, KHÃ”NG Ä‘Æ°á»£c táº¡o tool rÃ¡c.\n\
              \n\
              [NGHIEN CUU WEB - OBSCURA ENGINE]\n\
              He thong tich hop Obscura headless browser (V8, stealth mode). KHONG can Chrome/Edge mo. Dung khi can doc web:\n\
@@ -774,10 +774,10 @@ impl Orchestrator {
              - search_web (agent_id='mcp_broker'): Tim kiem va tra ve danh sach URLs lien quan.\n\
              WORKFLOW CHUAN: search_web -> lay URLs -> web_scrape_parallel -> doc song song -> tong hop ket qua.\n\
              {workspace_instruction}\n\
-             Nếu bạn cần dùng Agent hoặc Tool, hãy trả về danh sách agent_calls với agent_id (với Agent) hoặc tên tool (với MCP Tool) và action, kèm parameters dưới dạng JSON.\n\
-             Lưu ý: Đối với MCP Tools, bắt buộc đặt agent_id = 'mcp_broker' và action = tên của tool.\n\
-             Nếu câu hỏi chỉ là trò chuyện thông thường hoặc bạn đã có đủ thông tin, hãy điền vào direct_response.\n\
-             Luôn đưa ra 'thought' giải thích quá trình suy luận của bạn.\n\
+             Náº¿u báº¡n cáº§n dÃ¹ng Agent hoáº·c Tool, hÃ£y tráº£ vá» danh sÃ¡ch agent_calls vá»›i agent_id (vá»›i Agent) hoáº·c tÃªn tool (vá»›i MCP Tool) vÃ  action, kÃ¨m parameters dÆ°á»›i dáº¡ng JSON.\n\
+             LÆ°u Ã½: Äá»‘i vá»›i MCP Tools, báº¯t buá»™c Ä‘áº·t agent_id = 'mcp_broker' vÃ  action = tÃªn cá»§a tool.\n\
+             Náº¿u cÃ¢u há»i chá»‰ lÃ  trÃ² chuyá»‡n thÃ´ng thÆ°á»ng hoáº·c báº¡n Ä‘Ã£ cÃ³ Ä‘á»§ thÃ´ng tin, hÃ£y Ä‘iá»n vÃ o direct_response.\n\
+             LuÃ´n Ä‘Æ°a ra 'thought' giáº£i thÃ­ch quÃ¡ trÃ¬nh suy luáº­n cá»§a báº¡n.\n\
              \n\
              IMPORTANT: Your ENTIRE output MUST be a valid JSON object matching the requested schema. Do NOT wrap the JSON in Markdown formatting (no `json). Do NOT output bullet points. Output ONLY the raw JSON object.\n\
              \n\
@@ -814,7 +814,7 @@ impl Orchestrator {
         }
 
         let context_str = if let Some(path) = context_file {
-            format!("\n[Ngữ cảnh file đang mở: {}]\n", path)
+            format!("\n[Ngá»¯ cáº£nh file Ä‘ang má»Ÿ: {}]\n", path)
         } else {
             String::new()
         };
@@ -865,13 +865,12 @@ impl Orchestrator {
                         let mut end_idx = content_start;
                         let bytes = accumulated_json.as_bytes();
                         let mut escaped = false;
-                        let mut found_end = false;
 
                         while end_idx < bytes.len() {
                             if bytes[end_idx] == b'\\' && !escaped {
                                 escaped = true;
                             } else if bytes[end_idx] == b'\"' && !escaped {
-                                found_end = true;
+                                break;
                                 break;
                             } else {
                                 escaped = false;
@@ -1057,7 +1056,7 @@ impl Orchestrator {
                     }
 
                     if ready_calls.is_empty() {
-                        turn_content.push_str("⚠️ Lỗi lập lịch DAG: Phát hiện vòng lặp hoặc dependency không tồn tại.\n\n");
+                        turn_content.push_str("âš ï¸ Lá»—i láº­p lá»‹ch DAG: PhÃ¡t hiá»‡n vÃ²ng láº·p hoáº·c dependency khÃ´ng tá»“n táº¡i.\n\n");
                         all_committed = false;
                         break;
                     }
@@ -1102,7 +1101,7 @@ impl Orchestrator {
 
                         futures.push(async move {
                             if is_set_project {
-                                return (agent_id.clone(), task_id_opt, true, format!("Đã chuyển ngữ cảnh sang dự án '{}'. Các câu trả lời tiếp theo sẽ dùng trí nhớ và file của dự án này.\n\n", proj_clone), 0, None);
+                                return (agent_id.clone(), task_id_opt, true, format!("ÄÃ£ chuyá»ƒn ngá»¯ cáº£nh sang dá»± Ã¡n '{}'. CÃ¡c cÃ¢u tráº£ lá»i tiáº¿p theo sáº½ dÃ¹ng trÃ­ nhá»› vÃ  file cá»§a dá»± Ã¡n nÃ y.\n\n", proj_clone), 0, None);
                             }
 
                             info!(agent = %agent_id, action = %action, "Dispatching to agent");
@@ -1114,7 +1113,7 @@ impl Orchestrator {
                                     step_id: agent_id.clone(),
                                     step_name: agent_id.clone(),
                                     status: crate::workflow::RunStatus::Running,
-                                    message: Some(format!("{} đang {}", agent_id, action)),
+                                    message: Some(format!("{} Ä‘ang {}", agent_id, action)),
                                     updated_at: chrono::Utc::now(),
                                 });
                             }
@@ -1132,12 +1131,12 @@ impl Orchestrator {
                                                 desc.push_str(&format!("  Schema: {}\n\n", serde_json::to_string(&tool.input_schema).unwrap_or_default()));
                                             }
                                             if desc.is_empty() {
-                                                "Không tìm thấy công cụ nào phù hợp với yêu cầu.".to_string()
+                                                "KhÃ´ng tÃ¬m tháº¥y cÃ´ng cá»¥ nÃ o phÃ¹ há»£p vá»›i yÃªu cáº§u.".to_string()
                                             } else {
-                                                format!("Danh sách công cụ phù hợp:\n{}", desc)
+                                                format!("Danh sÃ¡ch cÃ´ng cá»¥ phÃ¹ há»£p:\n{}", desc)
                                             }
                                         }
-                                        Err(e) => format!("Lỗi khi tìm kiếm công cụ: {}", e),
+                                        Err(e) => format!("Lá»—i khi tÃ¬m kiáº¿m cÃ´ng cá»¥: {}", e),
                                     };
                                     return (agent_id.clone(), task_id_opt, false, format!("MCP Tool '{}' result:\n{}\n\n", action, result), 0, None);
                                 }
@@ -1149,7 +1148,7 @@ impl Orchestrator {
 
                                 if requires_hitl {
                                     let hitl_req = crate::orchestrator::HitlRequestBuilder {
-                                        description: format!("Yêu cầu phê duyệt gọi hệ thống Win32: '{}'", action),
+                                        description: format!("YÃªu cáº§u phÃª duyá»‡t gá»i há»‡ thá»‘ng Win32: '{}'", action),
                                         risk_level: crate::orchestrator::HitlRiskLevel::High,
                                         payload: Some(params.clone()),
                                     };
@@ -1170,7 +1169,7 @@ impl Orchestrator {
                                                 step_id: agent_id.clone(),
                                                 step_name: agent_id.clone(),
                                                 status: if result.is_error { crate::workflow::RunStatus::Failed } else { crate::workflow::RunStatus::Success },
-                                                message: Some(format!("MCP {} {}", action, if result.is_error { "lỗi" } else { "hoàn tất" })),
+                                                message: Some(format!("MCP {} {}", action, if result.is_error { "lá»—i" } else { "hoÃ n táº¥t" })),
                                                 updated_at: chrono::Utc::now(),
                                             });
                                         }
@@ -1198,7 +1197,7 @@ impl Orchestrator {
                                                 step_id: agent_id.clone(),
                                                 step_name: agent_id.clone(),
                                                 status: crate::workflow::RunStatus::Failed,
-                                                message: Some(format!("Lỗi gọi MCP {}: {}", action, e)),
+                                                message: Some(format!("Lá»—i gá»i MCP {}: {}", action, e)),
                                                 updated_at: chrono::Utc::now(),
                                             });
                                         }
@@ -1217,11 +1216,11 @@ impl Orchestrator {
                                             step_id: agent_id.clone(),
                                             step_name: agent_id.clone(),
                                             status: crate::workflow::RunStatus::Failed,
-                                            message: Some(format!("Agent '{}' không tồn tại", agent_id)),
+                                            message: Some(format!("Agent '{}' khÃ´ng tá»“n táº¡i", agent_id)),
                                             updated_at: chrono::Utc::now(),
                                         });
                                     }
-                                    return (agent_id.clone(), task_id_opt, false, format!("⚠️ Lỗi: Agent '{}' not found in registry\n\n", agent_id), 0, None);
+                                    return (agent_id.clone(), task_id_opt, false, format!("âš ï¸ Lá»—i: Agent '{}' not found in registry\n\n", agent_id), 0, None);
                                 }
                             };
 
@@ -1232,7 +1231,7 @@ impl Orchestrator {
 
                             if requires_hitl {
                                 let hitl_req = crate::orchestrator::HitlRequestBuilder {
-                                    description: format!("Yêu cầu phê duyệt hành động '{}' cho agent '{}'.", action, agent_id),
+                                    description: format!("YÃªu cáº§u phÃª duyá»‡t hÃ nh Ä‘á»™ng '{}' cho agent '{}'.", action, agent_id),
                                     risk_level: crate::orchestrator::HitlRiskLevel::High,
                                     payload: Some(params.clone()),
                                 };
@@ -1272,7 +1271,7 @@ impl Orchestrator {
                                     step_id: agent_id.clone(),
                                     step_name: agent_id.clone(),
                                     status: if agent_result.is_ok() { crate::workflow::RunStatus::Success } else { crate::workflow::RunStatus::Failed },
-                                    message: Some(format!("{} {}", agent_id, if agent_result.is_ok() { "hoàn tất" } else { "lỗi" })),
+                                    message: Some(format!("{} {}", agent_id, if agent_result.is_ok() { "hoÃ n táº¥t" } else { "lá»—i" })),
                                     updated_at: chrono::Utc::now(),
                                 });
                             }
@@ -1281,7 +1280,7 @@ impl Orchestrator {
                                 Ok(out) => (agent_id.clone(), task_id_opt, out.committed, format!("{}\n\n", out.content), out.tokens_used.unwrap_or(0), out.metadata),
                                 Err(e) => {
                                     error!(error = %e, agent = %agent_id, "Agent execution failed");
-                                    (agent_id.clone(), task_id_opt, false, format!("⚠️ Lỗi khi gọi agent {}: {}\n\n", agent_id, e), 0, None)
+                                    (agent_id.clone(), task_id_opt, false, format!("âš ï¸ Lá»—i khi gá»i agent {}: {}\n\n", agent_id, e), 0, None)
                                 }
                             }
                         });
@@ -1312,11 +1311,11 @@ impl Orchestrator {
                         resp.content.clone(),
                     ));
 
-                    let mut combined_content = format!("Kết quả thực thi từ Agent (Chưa hoàn tất, hãy phân tích và đưa ra quyết định tiếp theo hoặc trả lời trực tiếp):\n{}", turn_content);
+                    let mut combined_content = format!("Káº¿t quáº£ thá»±c thi tá»« Agent (ChÆ°a hoÃ n táº¥t, hÃ£y phÃ¢n tÃ­ch vÃ  Ä‘Æ°a ra quyáº¿t Ä‘á»‹nh tiáº¿p theo hoáº·c tráº£ lá»i trá»±c tiáº¿p):\n{}", turn_content);
                     if !turn_metadata.is_empty() {
                         let meta_str =
                             serde_json::to_string_pretty(&turn_metadata).unwrap_or_default();
-                        combined_content.push_str(&format!("\nMetadata từ Agent:\n{}", meta_str));
+                        combined_content.push_str(&format!("\nMetadata tá»« Agent:\n{}", meta_str));
                     }
 
                     // Append the tool results (and metadata) as User (from the environment)
@@ -1340,13 +1339,13 @@ impl Orchestrator {
                 );
                 break;
             } else {
-                final_content = "Tôi không chắc chắn phải làm gì.".to_string();
+                final_content = "TÃ´i khÃ´ng cháº¯c cháº¯n pháº£i lÃ m gÃ¬.".to_string();
 
                 break;
             }
         }
 
-        // ── 5. Rule Engine Validation ─────────────────────────────────────────
+        // â”€â”€ 5. Rule Engine Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         let validation_request = ValidationRequest::new(
             main_agent.clone(),
@@ -1379,7 +1378,7 @@ impl Orchestrator {
             }
         }
 
-        // ── 6. Session update ─────────────────────────────────────────────────
+        // â”€â”€ 6. Session update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         let auto_handoff_enabled = self
             .llm_gateway
@@ -1418,12 +1417,12 @@ impl Orchestrator {
             }
         }
 
-        // ── 6.5 Generate Topic ID for New Sessions ────────────────────────────
+        // â”€â”€ 6.5 Generate Topic ID for New Sessions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         if is_first_turn {
             let prompt = format!(
 
-                "Tạo một cụm từ ngắn (2-4 từ) đại diện cho chủ đề của yêu cầu sau: '{}'. Chỉ trả về chủ đề, không giải thích.",
+                "Táº¡o má»™t cá»¥m tá»« ngáº¯n (2-4 tá»«) Ä‘áº¡i diá»‡n cho chá»§ Ä‘á» cá»§a yÃªu cáº§u sau: '{}'. Chá»‰ tráº£ vá» chá»§ Ä‘á», khÃ´ng giáº£i thÃ­ch.",
 
                 message
 
@@ -1446,7 +1445,7 @@ impl Orchestrator {
             }
         }
 
-        // ── 7. Build response ─────────────────────────────────────────────────
+        // â”€â”€ 7. Build response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         let duration_ms = (Utc::now() - started_at).num_milliseconds() as u64;
 
@@ -1506,13 +1505,13 @@ impl Orchestrator {
         })
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // Session summarisation (anti-drift / context-window management)
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// Perform an automatic handoff when the context window reaches 80% capacity.
     /// It prompts the LLM to write a handoff markdown file, saves it, clears the
@@ -1529,15 +1528,15 @@ impl Orchestrator {
             session.messages.iter().cloned().collect::<Vec<_>>()
         };
 
-        let system_prompt = "Bạn là AI tự động tạo tài liệu Handoff (chuyển giao). \
-                             Context đã đạt ngưỡng giới hạn bộ nhớ. Hãy tóm tắt lại tác vụ đang thực hiện một cách cực kỳ chi tiết, \
-                             bao gồm:\n\
-                             1. Mục tiêu công việc cốt lõi\n\
-                             2. Những việc đã làm xong (bao gồm file nào đã sửa, logic gì đã thêm)\n\
-                             3. Những việc còn dang dở\n\
-                             4. Bối cảnh quan trọng cần ghi nhớ\n\
-                             5. Bước tiếp theo CẦN LÀM NGAY (Next Steps).\n\n\
-                             Viết dưới định dạng Markdown chuyên nghiệp. Output duy nhất của bạn là file Handoff này.";
+        let system_prompt = "Báº¡n lÃ  AI tá»± Ä‘á»™ng táº¡o tÃ i liá»‡u Handoff (chuyá»ƒn giao). \
+                             Context Ä‘Ã£ Ä‘áº¡t ngÆ°á»¡ng giá»›i háº¡n bá»™ nhá»›. HÃ£y tÃ³m táº¯t láº¡i tÃ¡c vá»¥ Ä‘ang thá»±c hiá»‡n má»™t cÃ¡ch cá»±c ká»³ chi tiáº¿t, \
+                             bao gá»“m:\n\
+                             1. Má»¥c tiÃªu cÃ´ng viá»‡c cá»‘t lÃµi\n\
+                             2. Nhá»¯ng viá»‡c Ä‘Ã£ lÃ m xong (bao gá»“m file nÃ o Ä‘Ã£ sá»­a, logic gÃ¬ Ä‘Ã£ thÃªm)\n\
+                             3. Nhá»¯ng viá»‡c cÃ²n dang dá»Ÿ\n\
+                             4. Bá»‘i cáº£nh quan trá»ng cáº§n ghi nhá»›\n\
+                             5. BÆ°á»›c tiáº¿p theo Cáº¦N LÃ€M NGAY (Next Steps).\n\n\
+                             Viáº¿t dÆ°á»›i Ä‘á»‹nh dáº¡ng Markdown chuyÃªn nghiá»‡p. Output duy nháº¥t cá»§a báº¡n lÃ  file Handoff nÃ y.";
 
         let mut conversation = String::new();
         for msg in messages {
@@ -1548,7 +1547,7 @@ impl Orchestrator {
         let req = crate::llm_gateway::LlmRequest::new(vec![
             crate::llm_gateway::LlmMessage::system(system_prompt),
             crate::llm_gateway::LlmMessage::user(format!(
-                "Lịch sử hội thoại trước khi bị reset:\n\n{}\n\nHãy tạo file Handoff.",
+                "Lá»‹ch sá»­ há»™i thoáº¡i trÆ°á»›c khi bá»‹ reset:\n\n{}\n\nHÃ£y táº¡o file Handoff.",
                 conversation
             )),
         ])
@@ -1587,8 +1586,8 @@ impl Orchestrator {
 
             session.clear_history();
             session.add_turn(
-                "[Hệ thống tự động reset context]".to_string(),
-                format!("Đã đạt giới hạn context. Hệ thống đã xoá lịch sử chat và lưu trạng thái công việc tại file Handoff: `{}`. \n\nHãy sử dụng tool `view_file` (hoặc `read_knowledge` nếu có) để đọc file này và lấy lại bối cảnh làm việc trước khi tiếp tục nhiệm vụ tiếp theo.", handoff_path.display()),
+                "[Há»‡ thá»‘ng tá»± Ä‘á»™ng reset context]".to_string(),
+                format!("ÄÃ£ Ä‘áº¡t giá»›i háº¡n context. Há»‡ thá»‘ng Ä‘Ã£ xoÃ¡ lá»‹ch sá»­ chat vÃ  lÆ°u tráº¡ng thÃ¡i cÃ´ng viá»‡c táº¡i file Handoff: `{}`. \n\nHÃ£y sá»­ dá»¥ng tool `view_file` (hoáº·c `read_knowledge` náº¿u cÃ³) Ä‘á»ƒ Ä‘á»c file nÃ y vÃ  láº¥y láº¡i bá»‘i cáº£nh lÃ m viá»‡c trÆ°á»›c khi tiáº¿p tá»¥c nhiá»‡m vá»¥ tiáº¿p theo.", handoff_path.display()),
                 "System_Handoff".to_string(),
                 crate::agents::AgentId::custom("system"),
             );
@@ -1663,11 +1662,11 @@ impl Orchestrator {
         Ok(())
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // System health check
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// Check that all required system components are available:
 
@@ -1742,17 +1741,17 @@ impl Orchestrator {
         false // UIA is Windows-only
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // [Phase 1] Native Tool Calling ReAct Loop
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    /// ReAct loop mới sử dụng Native Tool Calling qua genai crate.
+    /// ReAct loop má»›i sá»­ dá»¥ng Native Tool Calling qua genai crate.
     ///
-    /// Kiến trúc Hybrid:
-    /// - MCP Tools (search_memory, read_file...) → đăng ký trực tiếp làm genai Tool
-    /// - Legacy Agents (office_master, outlook...) → `call_legacy_agent` bridge tool
+    /// Kiáº¿n trÃºc Hybrid:
+    /// - MCP Tools (search_memory, read_file...) â†’ Ä‘Äƒng kÃ½ trá»±c tiáº¿p lÃ m genai Tool
+    /// - Legacy Agents (office_master, outlook...) â†’ `call_legacy_agent` bridge tool
     ///
-    /// Nếu genai bridge không có API key hoặc lỗi, tự động fallback về `process_message` cũ.
+    /// Náº¿u genai bridge khÃ´ng cÃ³ API key hoáº·c lá»—i, tá»± Ä‘á»™ng fallback vá» `process_message` cÅ©.
     #[instrument(skip(self, message), fields(session = session_id))]
     pub async fn process_message_native(
         &mut self,
@@ -1767,17 +1766,17 @@ impl Orchestrator {
 
         let started_at = std::time::Instant::now();
 
-        // ── Tạo bridge ────────────────────────────────────────────────────────
+        // â”€â”€ Táº¡o bridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let bridge = {
             let llm = self.llm_gateway.read().await;
             llm.create_genai_bridge_reasoning().await
         };
 
-        // ── Build danh sách MCP Tools ─────────────────────────────────────────
-        // Lấy top N tools phù hợp nhất (search_memory, list_policies + query tools)
+        // â”€â”€ Build danh sÃ¡ch MCP Tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Láº¥y top N tools phÃ¹ há»£p nháº¥t (search_memory, list_policies + query tools)
         let mut mcp_tools: Vec<McpTool> = Vec::new();
 
-        // 1. Luôn bao gồm core tools
+        // 1. LuÃ´n bao gá»“m core tools
         if let Ok(core) = self
             .mcp_broker
             .search_tools("search_memory list_policies fs_move_file", 8)
@@ -1794,17 +1793,17 @@ impl Orchestrator {
             }
         }
 
-        // 2. Thêm `search_available_tools` synthetic tool nếu chưa có
+        // 2. ThÃªm `search_available_tools` synthetic tool náº¿u chÆ°a cÃ³
         let has_search_tools = mcp_tools.iter().any(|t| t.name == "search_available_tools");
         if !has_search_tools {
             mcp_tools.push(McpTool {
                 name: "search_available_tools".to_string(),
-                description: "Tìm kiếm và nạp thêm công cụ (MCP Tool / Agent) phù hợp với tác vụ. GỌI tool này khi không có tool phù hợp.".to_string(),
+                description: "TÃ¬m kiáº¿m vÃ  náº¡p thÃªm cÃ´ng cá»¥ (MCP Tool / Agent) phÃ¹ há»£p vá»›i tÃ¡c vá»¥. Gá»ŒI tool nÃ y khi khÃ´ng cÃ³ tool phÃ¹ há»£p.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "query": { "type": "string", "description": "Từ khóa tìm kiếm tool" },
-                        "limit": { "type": "integer", "description": "Số tool tối đa trả về (mặc định 3)" }
+                        "query": { "type": "string", "description": "Tá»« khÃ³a tÃ¬m kiáº¿m tool" },
+                        "limit": { "type": "integer", "description": "Sá»‘ tool tá»‘i Ä‘a tráº£ vá» (máº·c Ä‘á»‹nh 3)" }
                     },
                     "required": ["query"]
                 }),
@@ -1812,10 +1811,10 @@ impl Orchestrator {
             });
         }
 
-        // 3. Đăng ký toàn bộ Native Schemas từ các Agent (bao gồm auto-generated placeholders)
+        // 3. ÄÄƒng kÃ½ toÃ n bá»™ Native Schemas tá»« cÃ¡c Agent (bao gá»“m auto-generated placeholders)
         mcp_tools.extend(self.agent_registry.all_tool_schemas_complete());
 
-        // ── Build conversation context ─────────────────────────────────────────
+        // â”€â”€ Build conversation context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let workspace_path = if let Some(wid) = workspace_id {
             if let Some(base_dir) = self.knowledge_dir.as_ref().and_then(|p| p.parent()) {
                 let dir = if wid == "default" || wid == "Global" {
@@ -1834,13 +1833,13 @@ impl Orchestrator {
         let workspace_context = if !workspace_path.is_empty() {
             format!(
                 "\n[WORKSPACE CONTEXT]\n\
-                 Bạn đang làm việc trong workspace: {wid}\n\
-                 Thư mục gốc của workspace: {path}\n\
-                 - Thư mục Input (chứa tài liệu đọc): {path}\\input\n\
-                 - Thư mục Output (nơi lưu kết quả MỚI): {path}\\output\n\
-                 Quy tắc bắt buộc:\n\
-                 1. Mọi file kết quả bạn tạo ra (VD: word, excel) PHẢI được lưu vào thư mục Output.\n\
-                 2. Nếu user nhắc đến @folder (ví dụ: @input, @output, @knowledge, @policies), hãy ngầm hiểu đó là đường dẫn tuyệt đối tới thư mục đó.\n",
+                 Báº¡n Ä‘ang lÃ m viá»‡c trong workspace: {wid}\n\
+                 ThÆ° má»¥c gá»‘c cá»§a workspace: {path}\n\
+                 - ThÆ° má»¥c Input (chá»©a tÃ i liá»‡u Ä‘á»c): {path}\\input\n\
+                 - ThÆ° má»¥c Output (nÆ¡i lÆ°u káº¿t quáº£ Má»šI): {path}\\output\n\
+                 Quy táº¯c báº¯t buá»™c:\n\
+                 1. Má»i file káº¿t quáº£ báº¡n táº¡o ra (VD: word, excel) PHáº¢I Ä‘Æ°á»£c lÆ°u vÃ o thÆ° má»¥c Output.\n\
+                 2. Náº¿u user nháº¯c Ä‘áº¿n @folder (vÃ­ dá»¥: @input, @output, @knowledge, @policies), hÃ£y ngáº§m hiá»ƒu Ä‘Ã³ lÃ  Ä‘Æ°á»ng dáº«n tuyá»‡t Ä‘á»‘i tá»›i thÆ° má»¥c Ä‘Ã³.\n",
                 wid = workspace_id.unwrap_or("default"),
                 path = workspace_path
             )
@@ -1849,27 +1848,27 @@ impl Orchestrator {
         };
 
         let context_hint = context_file
-            .map(|p| format!("\n[Ngữ cảnh file đang mở: {}]\n", p))
+            .map(|p| format!("\n[Ngá»¯ cáº£nh file Ä‘ang má»Ÿ: {}]\n", p))
             .unwrap_or_default();
 
         let system_prompt = format!(
-            "Bạn là Office Hub Orchestrator – trợ lý AI đa năng.\n\
-             Bạn có quyền gọi các Tools được cung cấp để hoàn thành nhiệm vụ.\n\
+            "Báº¡n lÃ  Office Hub Orchestrator â€“ trá»£ lÃ½ AI Ä‘a nÄƒng.\n\
+             Báº¡n cÃ³ quyá»n gá»i cÃ¡c Tools Ä‘Æ°á»£c cung cáº¥p Ä‘á»ƒ hoÃ n thÃ nh nhiá»‡m vá»¥.\n\
              \n\
-             [TRÍ NHỚ DÀI HẠN]\n\
-             Nếu câu hỏi đề cập đến sự kiện/quyết định trong quá khứ, GỌI `search_memory` trước.\n\
+             [TRÃ NHá»š DÃ€I Háº N]\n\
+             Náº¿u cÃ¢u há»i Ä‘á» cáº­p Ä‘áº¿n sá»± kiá»‡n/quyáº¿t Ä‘á»‹nh trong quÃ¡ khá»©, Gá»ŒI `search_memory` trÆ°á»›c.\n\
              \n\
              [POLICY]\n\
-             Trước khi tạo file hoặc thực hiện tác vụ quan trọng, kiểm tra `list_policies`.\n\
+             TrÆ°á»›c khi táº¡o file hoáº·c thá»±c hiá»‡n tÃ¡c vá»¥ quan trá»ng, kiá»ƒm tra `list_policies`.\n\
              \n\
-             [GỬI FILE CHO USER]\n\
-             Để hiển thị file đính kèm trên giao diện chat (cho user tải về), bạn BẮT BUỘC thực hiện:\n\
-             1. Dùng tool `fs_move_file` để copy/move file mới tạo vào thư mục: `C:\\Users\\admin\\AppData\\Local\\Temp\\office_hub_exports` (hoặc %TEMP%\\office_hub_exports).\n\
-             2. Trong câu trả lời, trả về markdown link định dạng: `[Tên_File.docx](/api/v1/files/download/Tên_File.docx)`\n\
-             TUYỆT ĐỐI KHÔNG báo 'đã đính kèm file' nếu chưa làm 2 bước này.\n\
+             [Gá»¬I FILE CHO USER]\n\
+             Äá»ƒ hiá»ƒn thá»‹ file Ä‘Ã­nh kÃ¨m trÃªn giao diá»‡n chat (cho user táº£i vá»), báº¡n Báº®T BUá»˜C thá»±c hiá»‡n:\n\
+             1. DÃ¹ng tool `fs_move_file` Ä‘á»ƒ copy/move file má»›i táº¡o vÃ o thÆ° má»¥c: `C:\\Users\\admin\\AppData\\Local\\Temp\\office_hub_exports` (hoáº·c %TEMP%\\office_hub_exports).\n\
+             2. Trong cÃ¢u tráº£ lá»i, tráº£ vá» markdown link Ä‘á»‹nh dáº¡ng: `[TÃªn_File.docx](/api/v1/files/download/TÃªn_File.docx)`\n\
+             TUYá»†T Äá»I KHÃ”NG bÃ¡o 'Ä‘Ã£ Ä‘Ã­nh kÃ¨m file' náº¿u chÆ°a lÃ m 2 bÆ°á»›c nÃ y.\n\
              \n\
              [TOOL DISCOVERY]\n\
-             Tat ca tools da san sang — goi thang theo ten tool.\n\
+             Tat ca tools da san sang â€” goi thang theo ten tool.\n\
              Chi dung `search_available_tools` neu can tim Skill moi tao runtime.\n\
              {workspace_context}",
         );
@@ -1900,7 +1899,7 @@ impl Orchestrator {
         let user_msg = format!("{}{}", message, context_hint);
         conv_messages.push(ToolChatMessage::User(user_msg));
 
-        // ── ReAct Loop (max 5 turns) ──────────────────────────────────────────
+        // â”€â”€ ReAct Loop (max 5 turns) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let max_turns = 8;
         let mut final_content = String::new();
         let mut dynamically_loaded_tools: Vec<McpTool> = Vec::new();
@@ -1918,7 +1917,7 @@ impl Orchestrator {
                 Ok(r) => r,
                 Err(e) => {
                     warn!(error = %e, "GenAI bridge failed, falling back to legacy process_message");
-                    // Fallback về legacy pipeline
+                    // Fallback vá» legacy pipeline
                     return self
                         .process_message(
                             session_id,
@@ -1975,7 +1974,7 @@ impl Orchestrator {
 
             match response {
                 ToolAwareResponse::Text(text) => {
-                    // LLM trả lời trực tiếp → kết thúc loop
+                    // LLM tráº£ lá»i trá»±c tiáº¿p â†’ káº¿t thÃºc loop
                     final_content = text.clone();
 
                     if let Some(ref tx) = progress_tx {
@@ -1998,16 +1997,16 @@ impl Orchestrator {
                     let llm_gateway = Arc::clone(&self.llm_gateway);
 
                     for call in calls {
-                        // Emit thought để UI biết đang xử lý
+                        // Emit thought Ä‘á»ƒ UI biáº¿t Ä‘ang xá»­ lÃ½
                         if let Some(ref tx) = progress_tx {
                             let _ = tx.send(format!(
-                                "⚙️ Đang {}...",
+                                "âš™ï¸ Äang {}...",
                                 crate::mcp::get_tool_alias(&call.tool_name)
                             ));
                         }
 
                         let result_content = match call.tool_name.as_str() {
-                            // ── Synthetic: search_available_tools ──────────────
+                            // â”€â”€ Synthetic: search_available_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                             "search_available_tools" => {
                                 let query = call
                                     .arguments
@@ -2033,10 +2032,10 @@ impl Orchestrator {
                                             }
                                         }
                                         if found_tools.is_empty() {
-                                            "Không tìm thấy tool nào phù hợp.".to_string()
+                                            "KhÃ´ng tÃ¬m tháº¥y tool nÃ o phÃ¹ há»£p.".to_string()
                                         } else {
                                             format!(
-                                                "Đã nạp {} tool(s): {}",
+                                                "ÄÃ£ náº¡p {} tool(s): {}",
                                                 found_tools.len(),
                                                 found_tools
                                                     .iter()
@@ -2046,15 +2045,15 @@ impl Orchestrator {
                                             )
                                         }
                                     }
-                                    Err(e) => format!("Lỗi tìm kiếm tool: {e}"),
+                                    Err(e) => format!("Lá»—i tÃ¬m kiáº¿m tool: {e}"),
                                 }
                             }
 
-                            // ── Tool Execution (Agent or MCP Server) ─────────
+                            // â”€â”€ Tool Execution (Agent or MCP Server) â”€â”€â”€â”€â”€â”€â”€â”€â”€
                             tool_name => {
                                 let start_time = std::time::Instant::now();
 
-                                // 1. Thử tìm trong AgentRegistry trước
+                                // 1. Thá»­ tÃ¬m trong AgentRegistry trÆ°á»›c
                                 if let Some(agent_id) =
                                     self.agent_registry.find_agent_by_action(tool_name)
                                 {
@@ -2109,13 +2108,13 @@ impl Orchestrator {
 
                                         match result {
                                             Ok(out) => out.content,
-                                            Err(e) => format!("⚠️ Agent '{}' lỗi: {}", agent_id, e),
+                                            Err(e) => format!("âš ï¸ Agent '{}' lá»—i: {}", agent_id, e),
                                         }
                                     } else {
-                                        format!("⚠️ Agent '{}' không tồn tại.", agent_id)
+                                        format!("âš ï¸ Agent '{}' khÃ´ng tá»“n táº¡i.", agent_id)
                                     }
                                 } else {
-                                    // 2. Không tìm thấy Agent hỗ trợ -> fallback cho MCP Broker
+                                    // 2. KhÃ´ng tÃ¬m tháº¥y Agent há»— trá»£ -> fallback cho MCP Broker
                                     let result = mcp_broker
                                         .call_tool(tool_name, Some(call.arguments.clone()))
                                         .await;
@@ -2155,7 +2154,7 @@ impl Orchestrator {
                                             } else {
                                                 if result.is_error {
                                                     format!(
-                                                        "⚠️ Tool '{}' lỗi:\n{}",
+                                                        "âš ï¸ Tool '{}' lá»—i:\n{}",
                                                         tool_name,
                                                         text_buf.trim()
                                                     )
@@ -2165,7 +2164,7 @@ impl Orchestrator {
                                             }
                                         }
                                         Err(e) => {
-                                            format!("⚠️ Lỗi khi gọi tool '{}': {}", tool_name, e)
+                                            format!("âš ï¸ Lá»—i khi gá»i tool '{}': {}", tool_name, e)
                                         }
                                     }
                                 }
@@ -2179,20 +2178,20 @@ impl Orchestrator {
                         });
                     }
 
-                    // Đưa kết quả tool vào conversation để LLM tổng hợp
+                    // ÄÆ°a káº¿t quáº£ tool vÃ o conversation Ä‘á»ƒ LLM tá»•ng há»£p
                     conv_messages.push(ToolChatMessage::ToolResults(tool_results));
 
                     if turn_idx == max_turns - 1 {
-                        // Hết số lượt - yêu cầu LLM tổng hợp cuối cùng
+                        // Háº¿t sá»‘ lÆ°á»£t - yÃªu cáº§u LLM tá»•ng há»£p cuá»‘i cÃ¹ng
                         conv_messages.push(ToolChatMessage::User(
-                            "Dựa trên kết quả các tool vừa chạy, hãy đưa ra câu trả lời cuối cùng cho người dùng.".to_string()
+                            "Dá»±a trÃªn káº¿t quáº£ cÃ¡c tool vá»«a cháº¡y, hÃ£y Ä‘Æ°a ra cÃ¢u tráº£ lá»i cuá»‘i cÃ¹ng cho ngÆ°á»i dÃ¹ng.".to_string()
                         ));
                     }
                 }
             }
         }
 
-        // ── Save to session ────────────────────────────────────────────────────
+        // â”€â”€ Save to session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if !final_content.is_empty() {
             if let Some(mut session) = self.session_store.get_mut(session_id) {
                 session.add_turn(
@@ -2208,7 +2207,7 @@ impl Orchestrator {
 
         Ok(OrchestratorResponse {
             content: if final_content.is_empty() {
-                "Tôi đã hoàn thành các tác vụ được yêu cầu.".to_string()
+                "TÃ´i Ä‘Ã£ hoÃ n thÃ nh cÃ¡c tÃ¡c vá»¥ Ä‘Æ°á»£c yÃªu cáº§u.".to_string()
             } else {
                 final_content
             },
@@ -2221,11 +2220,11 @@ impl Orchestrator {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// OrchestratorResponse – what the Tauri command layer receives
+// OrchestratorResponse â€“ what the Tauri command layer receives
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// The unified response returned to the IPC layer after processing a message.
 
@@ -2252,11 +2251,11 @@ pub struct OrchestratorResponse {
     pub metadata: Option<serde_json::Value>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// AgentTask – input contract for every agent
+// AgentTask â€“ input contract for every agent
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// A fully resolved task passed from the Orchestrator to an Agent.
 
@@ -2304,11 +2303,11 @@ pub struct AgentTask {
     pub dependencies: Vec<String>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// AgentOutput – return contract from every agent
+// AgentOutput â€“ return contract from every agent
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Standardised output structure returned by every agent after execution.
 
@@ -2329,11 +2328,11 @@ pub struct AgentOutput {
     pub metadata: Option<serde_json::Value>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// RouteDecision – output of the Router
+// RouteDecision â€“ output of the Router
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// The routing decision produced by the `Router` for a given intent.
 
@@ -2352,15 +2351,15 @@ pub struct RouteDecision {
     /// Whether this action requires Human-in-the-Loop approval before execution.
     pub requires_hitl: bool,
 
-    /// Routing confidence (0.0–1.0). Low confidence may trigger a clarification step.
+    /// Routing confidence (0.0â€“1.0). Low confidence may trigger a clarification step.
     pub confidence: f32,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Human-in-the-Loop (HITL) Manager
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Manages pending approval requests.
 
@@ -2544,11 +2543,11 @@ pub struct HitlRequest {
 
     /// One-shot channel sender to resume the waiting task.
 
-    /// Wrapped in `Mutex<Option<…>>` so we can take it exactly once.
+    /// Wrapped in `Mutex<Option<â€¦>>` so we can take it exactly once.
     pub sender: std::sync::Mutex<Option<oneshot::Sender<bool>>>,
 }
 
-/// Builder for `HitlRequest` – avoids leaking the internal sender.
+/// Builder for `HitlRequest` â€“ avoids leaking the internal sender.
 
 pub struct HitlRequestBuilder {
     pub description: String,
@@ -2564,24 +2563,24 @@ pub struct HitlRequestBuilder {
 #[serde(rename_all = "lowercase")]
 
 pub enum HitlRiskLevel {
-    /// Read-only operations – no approval needed.
+    /// Read-only operations â€“ no approval needed.
     Low,
 
-    /// Reversible write operations – soft confirmation.
+    /// Reversible write operations â€“ soft confirmation.
     Medium,
 
-    /// Irreversible or externally visible actions – explicit approval.
+    /// Irreversible or externally visible actions â€“ explicit approval.
     High,
 
-    /// Financial, authentication, or deletion operations – double confirmation.
+    /// Financial, authentication, or deletion operations â€“ double confirmation.
     Critical,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Orchestrator Runtime Metrics
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /// Lightweight counters tracked during the application lifetime.
 
@@ -2613,11 +2612,11 @@ impl OrchestratorMetrics {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Tests
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 #[cfg(test)]
 

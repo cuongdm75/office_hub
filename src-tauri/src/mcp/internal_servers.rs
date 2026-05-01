@@ -1793,6 +1793,7 @@ impl InternalMcpServer for Win32AdminServer {
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         let args = arguments.unwrap_or_default();
         let mut is_error = false;
+        #[allow(unused_assignments)] // each match arm sets `output` before it is returned
         let mut output = String::new();
 
         match name {
