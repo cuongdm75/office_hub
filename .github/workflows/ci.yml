@@ -60,6 +60,8 @@ jobs:
 
       - name: Run Clippy
         working-directory: src-tauri
+        env:
+          SKIP_ADDIN_BUILD: "1"
         run: cargo clippy --all-targets --all-features
 
       - name: TypeScript type-check
@@ -101,10 +103,14 @@ jobs:
 
       - name: Run Rust unit tests
         working-directory: src-tauri
+        env:
+          SKIP_ADDIN_BUILD: "1"
         run: cargo test --lib -- --nocapture
 
       - name: Run Rust integration tests
         working-directory: src-tauri
+        env:
+          SKIP_ADDIN_BUILD: "1"
         run: cargo test --test '*' -- --nocapture
         continue-on-error: true   # integration tests may need Office installed
 
@@ -176,6 +182,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Install Office Add-in Node dependencies
+        working-directory: office-addin
+        run: npm ci
+
       - name: Build Rust backend (release)
         working-directory: src-tauri
         run: cargo build --release
@@ -217,6 +227,10 @@ jobs:
           cache: 'npm'
 
       - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Office Add-in Node dependencies
+        working-directory: office-addin
         run: npm ci
 
       - name: Extract version from tag
