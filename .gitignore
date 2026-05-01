@@ -1,0 +1,113 @@
+# ===========================
+# Rust / Cargo
+# ===========================
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# ===========================
+# Tauri
+# ===========================
+src-tauri/target/
+src-tauri/target-check/
+src-tauri/WixTools/
+src-tauri/gen/
+
+# ===========================
+# Node / npm / pnpm / yarn
+# ===========================
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+
+# ===========================
+# Environment & Secrets
+# ===========================
+.env
+.env.local
+.env.*.local
+*.env
+config.local.yaml
+secrets.yaml
+
+# ===========================
+# IDE & Editors
+# ===========================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===========================
+# Logs & Temp
+# ===========================
+logs/
+*.log
+*.tmp
+*.temp
+*.cache
+.cache/
+tmp/
+
+# ===========================
+# Build artifacts
+# ===========================
+*.exe
+*.msi
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+!src-tauri/icons/
+
+# ===========================
+# Test artifacts
+# ===========================
+coverage/
+*.profraw
+*.profdata
+lcov.info
+
+# ===========================
+# Office Hub specific
+# ===========================
+# Local vector DB data
+data/vectors/
+# Session state cache
+data/sessions/
+# Downloaded MCP servers (not committed)
+mcp-servers/*/dist/
+mcp-servers/*/target/
+# User-specific rule overrides
+rules/local/
+# Workflow run history
+workflows/history/
+
+# Agent state and scratch files
+.agent/
+nul

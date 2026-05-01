@@ -1,0 +1,6 @@
+    /// Update the gateway configuration dynamically.
+    pub async fn update_config(&mut self, new_cfg: LlmConfig) -> AppResult<()> {
+        *self.config.write().await = new_cfg.clone();
+        *self.providers.write().await = Self::build_providers(&new_cfg);
+        Ok(())
+    }

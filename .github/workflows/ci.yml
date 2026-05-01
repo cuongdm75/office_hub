@@ -1,0 +1,253 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0   # disable for reproducible builds in CI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Jobs
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ───────────────────────────────────────────
+  # 1. Lint & Format (fast feedback)
+  # ───────────────────────────────────────────
+  lint:
+    name: Lint & Format
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo registry & build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy (deny warnings)
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npm run type-check
+
+      - name: ESLint
+        run: npm run lint
+
+  # ───────────────────────────────────────────
+  # 2. Unit & Integration Tests
+  # ───────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: windows-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Run Rust unit tests
+        working-directory: src-tauri
+        run: cargo test --lib -- --nocapture
+
+      - name: Run Rust integration tests
+        working-directory: src-tauri
+        run: cargo test --test '*' -- --nocapture
+        continue-on-error: true   # integration tests may need Office installed
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run frontend unit tests
+        run: npm run test -- --run
+
+  # ───────────────────────────────────────────
+  # 3. Security audit
+  # ───────────────────────────────────────────
+  audit:
+    name: Security Audit
+    runs-on: windows-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run cargo audit
+        working-directory: src-tauri
+        run: cargo audit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # ───────────────────────────────────────────
+  # 4. Build – development check (no installer)
+  # ───────────────────────────────────────────
+  build-check:
+    name: Build Check (dev)
+    runs-on: windows-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Rust backend (release)
+        working-directory: src-tauri
+        run: cargo build --release
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-hub-backend-${{ github.sha }}
+          path: src-tauri/target/release/office-hub.exe
+          retention-days: 7
+
+  # ───────────────────────────────────────────
+  # 5. Release – full Tauri bundle (tags only)
+  # ───────────────────────────────────────────
+  release:
+    name: Release Bundle
+    runs-on: windows-latest
+    needs: [build-check, audit]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build Tauri release bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Office Hub v${{ steps.version.outputs.VERSION }}'
+          releaseBody: |
+            ## Office Hub v${{ steps.version.outputs.VERSION }}
+
+            ### 📦 Downloads
+            - `office-hub_${{ steps.version.outputs.VERSION }}_x64-setup.exe` — Windows Installer (NSIS)
+            - `office-hub_${{ steps.version.outputs.VERSION }}_x64_en-US.msi` — Windows MSI Package
+
+            ### ✅ Yêu cầu hệ thống
+            - Windows 10 / 11 (64-bit)
+            - Microsoft Office 2016 / 2019 / 2021 / 365
+
+            ### 📋 Changelog
+            Xem [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) để biết chi tiết.
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-hub-bundle-${{ steps.version.outputs.VERSION }}
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          retention-days: 30

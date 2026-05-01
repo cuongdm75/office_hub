@@ -1,0 +1,452 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Office Hub – Workflow Definition
+# Template  : email-to-report
+# Version   : 1.0.0
+# Description: Tự động trích xuất dữ liệu từ email đính kèm Excel,
+#              phân tích số liệu và tạo báo cáo Word chuyên nghiệp,
+#              sau đó gửi notification về Mobile để xét duyệt.
+# ─────────────────────────────────────────────────────────────────────────────
+
+id: email-to-report
+name: "Email Attachment → Báo cáo Word tự động"
+version: "1.0.0"
+description: |
+  Workflow lắng nghe email đến có đính kèm file Excel,
+  tự động xử lý dữ liệu qua Analyst Agent, tạo báo cáo
+  Word bằng Office Master Agent, và thông báo kết quả
+  về Mobile App để người dùng xét duyệt trước khi gửi.
+author: "Office Hub Team"
+tags:
+  - email
+  - excel
+  - word
+  - automated-report
+  - human-in-the-loop
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Metadata
+# ─────────────────────────────────────────────────────────────────────────────
+metadata:
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"
+  category: "document-automation"
+  priority: normal          # low | normal | high | critical
+  timeout_seconds: 300      # tổng thời gian tối đa cho toàn workflow
+  retry_on_failure: true
+  max_retries: 2
+  human_approval_required: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trigger – điều kiện kích hoạt workflow
+# ─────────────────────────────────────────────────────────────────────────────
+trigger:
+  type: email_received          # email_received | file_changed | schedule | voice_command | manual
+  config:
+    # Bộ lọc email – chỉ kích hoạt khi thoả TẤT CẢ điều kiện bên dưới
+    filter:
+      subject_contains:
+        - "báo cáo"
+        - "report"
+        - "số liệu"
+        - "dữ liệu"
+      has_attachment: true
+      attachment_types:
+        - ".xlsx"
+        - ".xls"
+        - ".xlsm"
+      # Danh sách sender được phép kích hoạt (để trống = tất cả)
+      from_whitelist: []
+      # Thư mục Outlook cần lắng nghe (để trống = Inbox)
+      outlook_folder: "Inbox"
+
+    # Debounce – tránh kích hoạt nhiều lần trong thời gian ngắn
+    debounce_seconds: 10
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Context – biến toàn cục của workflow
+# ─────────────────────────────────────────────────────────────────────────────
+context:
+  variables:
+    report_template: "templates/bao-cao-tuan.docx"   # template Word có sẵn
+    output_dir: "${DOCUMENTS}/OfficeHub/Reports"
+    output_filename: "BaoCao_${DATE:yyyy-MM-dd}_${EMAIL_SUBJECT_SLUG}.docx"
+    analyst_model: "default"      # sử dụng model mặc định từ config.yaml
+    office_master_model: "default"
+    grounding_screenshot: true    # chụp ảnh xác nhận dữ liệu trước khi ghi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Steps – các bước thực thi tuần tự
+# ─────────────────────────────────────────────────────────────────────────────
+steps:
+
+  # ── Bước 1: Trích xuất email metadata ──────────────────────────────────────
+  - id: extract_email_metadata
+    name: "Trích xuất thông tin email"
+    agent: orchestrator
+    action: extract_email_metadata
+    config:
+      fields:
+        - subject
+        - sender
+        - received_at
+        - body_text
+        - attachment_names
+        - attachment_paths
+    output:
+      email_subject:    "{{ result.subject }}"
+      email_sender:     "{{ result.sender }}"
+      email_received:   "{{ result.received_at }}"
+      email_body:       "{{ result.body_text }}"
+      attachment_paths: "{{ result.attachment_paths }}"
+    on_error:
+      action: abort
+      notify: true
+      message: "Không thể đọc thông tin email. Workflow dừng lại."
+
+  # ── Bước 2: Lưu file đính kèm vào thư mục tạm ─────────────────────────────
+  - id: save_attachments
+    name: "Lưu file đính kèm"
+    agent: orchestrator
+    action: save_attachments
+    config:
+      destination: "${TEMP}/officehub/workflow/${WORKFLOW_RUN_ID}"
+      overwrite: true
+    input:
+      attachment_paths: "{{ steps.extract_email_metadata.attachment_paths }}"
+    output:
+      local_excel_paths: "{{ result.saved_paths }}"
+    on_error:
+      action: abort
+      notify: true
+
+  # ── Bước 3: Analyst Agent phân tích Excel ──────────────────────────────────
+  - id: analyze_excel
+    name: "Phân tích dữ liệu Excel"
+    agent: analyst
+    action: analyze_workbook
+    config:
+      model: "{{ context.analyst_model }}"
+      # Chế độ Hard-Truth: đọc giá trị ô thực tế, KHÔNG dự đoán
+      hard_truth_mode: true
+      # Grounding: chụp ảnh bảng dữ liệu trước khi xử lý
+      grounding_screenshot: "{{ context.grounding_screenshot }}"
+      # Các phân tích cần thực hiện
+      tasks:
+        - type: summarize_sheets
+          description: "Tóm tắt nội dung từng sheet"
+        - type: extract_key_metrics
+          description: "Trích xuất các chỉ số quan trọng (doanh thu, chi phí, lợi nhuận…)"
+        - type: detect_anomalies
+          description: "Phát hiện số liệu bất thường hoặc thiếu"
+        - type: trend_analysis
+          description: "Phân tích xu hướng so với kỳ trước (nếu có)"
+        - type: formula_audit
+          description: "Kiểm tra tính đúng đắn của công thức"
+      # Rule validation trước khi trả kết quả
+      apply_rules: true
+      rules_file: "rules/default.yaml"
+    input:
+      excel_paths: "{{ steps.save_attachments.local_excel_paths }}"
+    output:
+      analysis_result:    "{{ result.analysis }}"
+      key_metrics:        "{{ result.key_metrics }}"
+      anomalies:          "{{ result.anomalies }}"
+      grounding_images:   "{{ result.grounding_screenshots }}"
+      audit_passed:       "{{ result.audit_passed }}"
+    timeout_seconds: 120
+    on_error:
+      action: notify_and_pause
+      message: "Analyst Agent gặp lỗi khi phân tích Excel: {{ error.message }}"
+      allow_manual_override: true
+
+  # ── Bước 4: Xác nhận audit trước khi viết báo cáo ─────────────────────────
+  - id: check_audit
+    name: "Kiểm tra kết quả Audit"
+    agent: orchestrator
+    action: conditional_gate
+    condition: "{{ steps.analyze_excel.audit_passed == true }}"
+    on_false:
+      action: notify_user
+      message: |
+        ⚠️ Dữ liệu Excel chưa qua kiểm tra Audit.
+        Phát hiện {{ steps.analyze_excel.anomalies | length }} bất thường.
+        Bạn có muốn tiếp tục tạo báo cáo không?
+      # Tạm dừng chờ người dùng xác nhận (Human-in-the-Loop)
+      wait_for_approval: true
+      approval_timeout_seconds: 600
+
+  # ── Bước 5: Office Master tạo báo cáo Word ─────────────────────────────────
+  - id: create_word_report
+    name: "Tạo báo cáo Word"
+    agent: office_master
+    action: create_report_from_template
+    config:
+      model: "{{ context.office_master_model }}"
+      # Giữ nguyên format hành chính của template
+      preserve_styles: true
+      preserve_headers_footers: true
+      preserve_page_numbering: true
+      # Các section cần điền vào template
+      sections:
+        - id: cover_info
+          type: text_replace
+          placeholders:
+            "{{REPORT_DATE}}":    "{{ steps.extract_email_metadata.email_received | date('dd/MM/yyyy') }}"
+            "{{REPORT_PERIOD}}":  "{{ steps.analyze_excel.key_metrics.period | default('Tuần hiện tại') }}"
+            "{{PREPARED_BY}}":    "Office Hub AI"
+            "{{SOURCE_EMAIL}}":   "{{ steps.extract_email_metadata.email_sender }}"
+
+        - id: executive_summary
+          type: ai_generated
+          prompt: |
+            Dựa trên kết quả phân tích sau, viết một đoạn tóm tắt điều hành
+            ngắn gọn (150–200 từ) bằng tiếng Việt, phong cách hành chính chuyên nghiệp:
+            {{ steps.analyze_excel.analysis_result | to_json }}
+          max_tokens: 400
+          language: "vi"
+
+        - id: metrics_table
+          type: table_update
+          # Cập nhật bảng số liệu chính từ dữ liệu thực tế của Excel
+          data_source: "{{ steps.analyze_excel.key_metrics }}"
+          table_bookmark: "TBL_KEY_METRICS"
+          format:
+            number_format: "#,##0"
+            currency_symbol: "VND"
+            percentage_decimal: 1
+
+        - id: trend_chart_description
+          type: ai_generated
+          prompt: |
+            Mô tả xu hướng dữ liệu sau bằng 2-3 câu ngắn gọn:
+            {{ steps.analyze_excel.analysis_result.trends | to_json }}
+          max_tokens: 200
+          language: "vi"
+
+        - id: anomaly_notes
+          type: conditional_section
+          condition: "{{ steps.analyze_excel.anomalies | length > 0 }}"
+          content_template: "sections/anomaly-notes.md"
+          data: "{{ steps.analyze_excel.anomalies }}"
+
+        - id: grounding_appendix
+          type: image_insert
+          condition: "{{ context.grounding_screenshot == true }}"
+          images: "{{ steps.analyze_excel.grounding_images }}"
+          section_title: "Phụ lục: Dữ liệu nguồn đã xác thực"
+          caption_prefix: "Hình"
+
+    input:
+      template_path: "{{ context.report_template }}"
+      output_path:   "{{ context.output_dir }}/{{ context.output_filename }}"
+    output:
+      report_path:   "{{ result.output_path }}"
+      page_count:    "{{ result.page_count }}"
+      word_count:    "{{ result.word_count }}"
+    timeout_seconds: 120
+    on_error:
+      action: notify_and_abort
+      message: "Office Master Agent lỗi khi tạo Word report: {{ error.message }}"
+
+  # ── Bước 6: Rule Engine kiểm tra báo cáo đầu ra ───────────────────────────
+  - id: validate_report
+    name: "Kiểm tra báo cáo đầu ra"
+    agent: orchestrator
+    action: validate_document
+    config:
+      rules_file: "rules/default.yaml"
+      checks:
+        - type: file_exists
+          path: "{{ steps.create_word_report.report_path }}"
+        - type: min_page_count
+          value: 2
+        - type: required_sections_present
+          sections: ["TBL_KEY_METRICS", "cover_info"]
+        - type: no_placeholder_remaining
+          pattern: "\\{\\{.*?\\}\\}"
+    input:
+      document_path: "{{ steps.create_word_report.report_path }}"
+    output:
+      validation_passed: "{{ result.passed }}"
+      validation_errors: "{{ result.errors }}"
+    on_error:
+      action: notify_and_abort
+
+  # ── Bước 7: Human-in-the-Loop – gửi notification xét duyệt ────────────────
+  - id: request_approval
+    name: "Gửi yêu cầu xét duyệt lên Mobile"
+    agent: orchestrator
+    action: send_mobile_notification
+    condition: "{{ steps.validate_report.validation_passed == true }}"
+    config:
+      notification_type: approval_request
+      priority: high
+      # Thông tin hiển thị trên Mobile App
+      title: "📄 Báo cáo mới cần xét duyệt"
+      body: |
+        Nguồn: {{ steps.extract_email_metadata.email_sender }}
+        Email: {{ steps.extract_email_metadata.email_subject }}
+        Trang: {{ steps.create_word_report.page_count }}
+        Thời gian: {{ NOW | date('HH:mm dd/MM/yyyy') }}
+      # Các action button trên notification
+      actions:
+        - id: approve
+          label: "✅ Duyệt & Lưu"
+          style: primary
+          next_step: finalize_report
+        - id: preview
+          label: "👁 Xem trước"
+          style: secondary
+          next_step: open_report_preview
+        - id: reject
+          label: "❌ Huỷ"
+          style: danger
+          next_step: cleanup_and_abort
+      # Timeout chờ phê duyệt
+      approval_timeout_seconds: 3600    # 1 giờ
+      timeout_action: auto_approve      # auto_approve | auto_reject | keep_waiting
+    input:
+      report_path: "{{ steps.create_word_report.report_path }}"
+    output:
+      approval_action: "{{ result.chosen_action }}"
+      approved_by:     "{{ result.approved_by }}"
+      approved_at:     "{{ result.approved_at }}"
+
+  # ── Bước 8a: Xem trước báo cáo (nếu chọn Preview) ────────────────────────
+  - id: open_report_preview
+    name: "Mở xem trước báo cáo"
+    agent: office_master
+    action: open_document_readonly
+    condition: "{{ steps.request_approval.approval_action == 'preview' }}"
+    input:
+      document_path: "{{ steps.create_word_report.report_path }}"
+    # Sau khi xem xong, quay lại request_approval
+    next_step: request_approval
+
+  # ── Bước 8b: Hoàn tất – lưu vào thư mục chính thức ──────────────────────
+  - id: finalize_report
+    name: "Hoàn tất và lưu báo cáo"
+    agent: orchestrator
+    action: finalize_document
+    condition: "{{ steps.request_approval.approval_action == 'approve' }}"
+    config:
+      # Đánh dấu file là read-only sau khi duyệt
+      set_readonly: false
+      # Ghi log audit trail
+      audit_log: true
+    input:
+      document_path:  "{{ steps.create_word_report.report_path }}"
+      approved_by:    "{{ steps.request_approval.approved_by }}"
+      approved_at:    "{{ steps.request_approval.approved_at }}"
+    output:
+      final_path: "{{ result.final_path }}"
+
+  # ── Bước 9: Dọn dẹp file tạm ──────────────────────────────────────────────
+  - id: cleanup_temp
+    name: "Dọn dẹp file tạm"
+    agent: orchestrator
+    action: cleanup_temp_files
+    run: always           # luôn chạy dù workflow thành công hay thất bại
+    config:
+      directories:
+        - "${TEMP}/officehub/workflow/${WORKFLOW_RUN_ID}"
+      max_age_hours: 24   # giữ lại file tạm tối đa 24h để debug nếu cần
+
+  # ── Bước 10: Gửi notification kết quả cuối ───────────────────────────────
+  - id: notify_completion
+    name: "Thông báo hoàn thành"
+    agent: orchestrator
+    action: send_mobile_notification
+    condition: "{{ steps.request_approval.approval_action == 'approve' }}"
+    config:
+      notification_type: success
+      title: "✅ Báo cáo đã được lưu"
+      body: |
+        Báo cáo đã được lưu thành công tại:
+        {{ steps.finalize_report.final_path }}
+
+  # ── Bước huỷ bỏ (nếu người dùng từ chối) ─────────────────────────────────
+  - id: cleanup_and_abort
+    name: "Huỷ bỏ và dọn dẹp"
+    agent: orchestrator
+    action: abort_workflow
+    condition: "{{ steps.request_approval.approval_action == 'reject' }}"
+    config:
+      cleanup_output: true
+      notify_mobile: true
+      abort_message: "Workflow đã bị huỷ theo yêu cầu người dùng."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Error Handlers – xử lý lỗi toàn cục
+# ─────────────────────────────────────────────────────────────────────────────
+error_handlers:
+  - type: timeout
+    action: notify_and_abort
+    message: "Workflow vượt quá thời gian cho phép ({{ metadata.timeout_seconds }}s). Đã huỷ."
+
+  - type: llm_hallucination_detected
+    action: retry_with_hard_truth
+    max_retries: 2
+    fallback: notify_and_pause
+
+  - type: com_automation_error
+    action: notify_user
+    message: "Lỗi kết nối Microsoft Office COM. Hãy đảm bảo Office đang chạy."
+    allow_retry: true
+
+  - type: file_permission_error
+    action: notify_user
+    message: "Không có quyền truy cập file. Kiểm tra quyền thư mục."
+    allow_retry: false
+
+  - type: generic
+    action: notify_and_abort
+    message: "Lỗi không xác định: {{ error.message }}"
+    include_stack_trace: false   # không lộ stack trace cho người dùng cuối
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging & Audit
+# ─────────────────────────────────────────────────────────────────────────────
+logging:
+  level: info                   # debug | info | warn | error
+  include_step_timing: true
+  include_agent_responses: false  # false để tránh log dữ liệu nhạy cảm
+  audit_trail:
+    enabled: true
+    log_file: "${APPDATA}/OfficeHub/audit/workflow-runs.jsonl"
+    include_fields:
+      - workflow_id
+      - run_id
+      - step_id
+      - action
+      - agent
+      - status
+      - duration_ms
+      - timestamp
+      - approved_by
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Notifications – cấu hình kênh thông báo
+# ─────────────────────────────────────────────────────────────────────────────
+notifications:
+  channels:
+    - type: mobile_push
+      enabled: true
+      priority_filter: normal   # chỉ gửi notification mức normal trở lên
+    - type: desktop_toast
+      enabled: true
+    - type: in_app_chat
+      enabled: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test config – dùng khi chạy workflow ở chế độ dry-run
+# ─────────────────────────────────────────────────────────────────────────────
+test:
+  dry_run: false
+  mock_email:
+    subject: "[TEST] Báo cáo tuần 01/2025"
+    sender: "test@example.com"
+    attachment: "tests/fixtures/sample-report.xlsx"
+  mock_approval: approve
+  skip_steps:
+    - cleanup_temp

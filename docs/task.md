@@ -1,0 +1,5 @@
+- [x] Add `image` dependency to `Cargo.toml`
+- [x] Implement `extract_browser_tables` and `capture_screenshot` in `uia.rs`
+- [x] Update `WebResearcherAgent` in `mod.rs` to use new UIA features and attach grounding
+- [x] Implement `WebToExcel` pipeline dispatch in `orchestrator/mod.rs`
+- [x] Run `cargo check` and verify the compilation

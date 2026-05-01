@@ -1,0 +1,110 @@
+// Office Hub – Zed Project Settings
+// This file configures Zed IDE for the Rust + TypeScript + Tauri workspace.
+{
+  // ── Language Server Configuration ─────────────────────────────────────
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "buildScripts": {
+            "enable": true,
+          },
+          "features": "all",
+        },
+        "check": {
+          "command": "clippy",
+          "extraArgs": ["--no-deps"],
+        },
+        "procMacro": {
+          "enable": true,
+        },
+        "rust-analyzer.linkedProjects": ["src-tauri/Cargo.toml"],
+      },
+    },
+    "typescript-language-server": {
+      "initialization_options": {
+        "preferences": {
+          "importModuleSpecifierPreference": "relative",
+        },
+      },
+    },
+  },
+
+  // ── Language Overrides ────────────────────────────────────────────────
+  "languages": {
+    "Rust": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "rustfmt",
+          "arguments": ["--edition", "2021"],
+        },
+      },
+      "tab_size": 4,
+    },
+    "TypeScript": {
+      "format_on_save": "on",
+      "tab_size": 2,
+    },
+    "TSX": {
+      "format_on_save": "on",
+      "tab_size": 2,
+    },
+    "JavaScript": {
+      "tab_size": 2,
+    },
+    "JSON": {
+      "tab_size": 2,
+    },
+    "YAML": {
+      "tab_size": 2,
+    },
+    "CSS": {
+      "tab_size": 2,
+    },
+    "HTML": {
+      "tab_size": 2,
+    },
+    "TOML": {
+      "tab_size": 2,
+    },
+    "Markdown": {
+      "soft_wrap": "preferred_line_length",
+      "preferred_line_length": 100,
+    },
+  },
+
+  // ── File Associations ─────────────────────────────────────────────────
+  "file_types": {
+    "JSONC": ["tsconfig.json", "tsconfig.*.json", ".zed/**/*.json"],
+  },
+
+  // ── Search & File Exclusions ──────────────────────────────────────────
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/node_modules",
+    "**/target",
+    "**/dist",
+    "**/.cache",
+    "**/src-tauri/target",
+    "**/src-tauri/gen",
+    "**/src-tauri/WixTools",
+  ],
+
+  // ── Editor ────────────────────────────────────────────────────────────
+  "tab_size": 2,
+  "hard_tabs": false,
+  "soft_wrap": "none",
+  "show_whitespaces": "boundary",
+  "ensure_final_newline_on_save": true,
+  "remove_trailing_whitespace_on_save": true,
+
+  // ── Terminal ──────────────────────────────────────────────────────────
+  "terminal": {
+    "working_directory": "current_project_directory",
+    "env": {
+      "RUST_BACKTRACE": "1",
+      "RUST_LOG": "debug",
+    },
+  },
+}

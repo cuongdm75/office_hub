@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Office Hub",
+  "version": "1.0.0",
+  "identifier": "office-hub",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Office Hub",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; connect-src 'self' http://localhost:* ws://localhost:*"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "createUpdaterArtifacts": false,
+    "resources": ["../rules/*", "../workflows/*", "../.agent/skills/**/*"],
+    "externalBin": [],
+    "copyright": "",
+    "category": "Productivity",
+    "shortDescription": "AI-powered Office Automation Hub",
+    "longDescription": "Office Hub is a lightweight, native AI orchestration layer that deeply integrates with Microsoft Office to automate document workflows, data analysis, and cross-application tasks.",
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "certificateThumbprint": null,
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": true
+      }
+    },
+    "publisher": "Office Hub Team"
+  },
+  "plugins": {
+  }
+}

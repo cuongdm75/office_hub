@@ -1,0 +1,94 @@
+{
+  "compilerOptions": {
+    /* ─────────────────────────────────────────
+       Language & Environment
+    ───────────────────────────────────────── */
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    /* ─────────────────────────────────────────
+       Module resolution
+    ───────────────────────────────────────── */
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+
+    /* ─────────────────────────────────────────
+       Emit
+    ───────────────────────────────────────── */
+    "noEmit": true,                  // Vite handles transpilation
+    "declaration": false,
+    "sourceMap": true,
+
+    /* ─────────────────────────────────────────
+       JSX (React)
+    ───────────────────────────────────────── */
+    "jsx": "react-jsx",
+
+    /* ─────────────────────────────────────────
+       Strict type checking
+    ───────────────────────────────────────── */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+
+    /* ─────────────────────────────────────────
+       Additional checks
+    ───────────────────────────────────────── */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ─────────────────────────────────────────
+       Interop
+    ───────────────────────────────────────── */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+
+    /* ─────────────────────────────────────────
+       Path aliases (mirrors vite.config.ts)
+    ───────────────────────────────────────── */
+    "baseUrl": ".",
+    "paths": {
+      "@/*":            ["src/*"],
+      "@components/*":  ["src/components/*"],
+      "@pages/*":       ["src/pages/*"],
+      "@hooks/*":       ["src/hooks/*"],
+      "@store/*":       ["src/store/*"],
+      "@types/*":       ["src/types/*"],
+      "@utils/*":       ["src/utils/*"],
+      "@assets/*":      ["src/assets/*"]
+    },
+
+    /* ─────────────────────────────────────────
+       Skip type checking of declaration files
+       in node_modules for speed
+    ───────────────────────────────────────── */
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src-tauri"
+  ],
+  "references": [
+    { "path": "./tsconfig.node.json" }
+  ]
+}

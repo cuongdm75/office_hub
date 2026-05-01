@@ -1,0 +1,10 @@
+Connecting to ws://localhost:9001...
+Connected to WebSocket Server!
+Sending auth...
+Sending command: Go to https://google.com
+
+[SERVER -> CLIENT] Type: chat_reply
+Received Chat Reply:
+Content: Đã mở trình duyệt và điều hướng đến https://google.com
+Agent used: web_researcher
+Test successful! Exiting...

@@ -1,0 +1,21 @@
+        // 3. Build 9Router-style Tiered Combo Queue
+        let target_provider = match req.complexity {
+            TaskComplexity::Fast => cfg.fast_provider.clone(),
+            TaskComplexity::Balanced => cfg.default_provider.clone(),
+            TaskComplexity::Reasoning => cfg.reasoning_provider.clone(),
+        };
+
+        // Cloud fallback order (cheapest/fastest first)
+        let cloud_order = ["gemini", "openai", "anthropic", "z.ai"];
+        // Local fallback order
+        let local_order = ["ollama", "lmstudio"];
+
+        let mut routing_queue: Vec<String> = vec![target_provider.clone()];
+        // Add cloud fallbacks
+        for k in &cloud_order {
+            if *k != target_provider.as_str() { routing_queue.push(k.to_string()); }
+        }
+        // Add local fallbacks
+        for k in &local_order {
+            if *k != target_provider.as_str() { routing_queue.push(k.to_string()); }
+        }

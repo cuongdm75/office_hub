@@ -1,0 +1,232 @@
+# ============================================================
+# Office Hub – Configuration Template
+# File: config.example.yaml
+#
+# Cách sử dụng:
+#   1. Copy file này thành config.yaml
+#      cp config.example.yaml config.yaml
+#   2. Điền API key và điều chỉnh các thông số
+#   3. KHÔNG commit config.yaml vào git (đã có trong .gitignore)
+#
+# Vị trí file: cùng thư mục với office-hub.exe
+# ============================================================
+
+# ────────────────────────────────────────────────────────────
+# LLM Engine Configuration
+# ────────────────────────────────────────────────────────────
+llm:
+  # Provider chính: gemini | openai | ollama | lmstudio
+  provider: "gemini"
+
+  # Hybrid Mode: tự động fallback sang local nếu cloud không khả dụng
+  hybrid_mode: true
+
+  # ── Cloud Providers ────────────────────────────────────────
+  cloud:
+    # Google Gemini
+    # Lấy API key tại: https://aistudio.google.com/app/apikey
+    gemini_api_key: "YOUR_GEMINI_API_KEY_HERE"
+    gemini_model: "gemini-1.5-pro"
+    # gemini_model: "gemini-1.5-flash"   # Nhanh hơn, rẻ hơn
+
+    # OpenAI GPT
+    # Lấy API key tại: https://platform.openai.com/api-keys
+    openai_api_key: "YOUR_OPENAI_API_KEY_HERE"
+    openai_model: "gpt-4o"
+    # openai_model: "gpt-4o-mini"        # Nhanh hơn, rẻ hơn
+
+  # ── Local Providers ────────────────────────────────────────
+  local:
+    # Ollama – chạy model AI trên máy local
+    # Cài đặt: https://ollama.ai
+    # Khởi động: ollama serve
+    ollama_endpoint: "http://localhost:11434"
+
+    # LM Studio – giao diện đồ hoạ để chạy local models
+    # Tải tại: https://lmstudio.ai
+    lmstudio_endpoint: "http://localhost:1234"
+
+    # Tên model local (dùng cho cả Ollama và LM Studio)
+    # Ví dụ Ollama: ollama pull llama3.1
+    # Ví dụ Ollama: ollama pull qwen2.5:7b
+    model_name: "llama3.1"
+
+  # ── Context Window Management ──────────────────────────────
+  # Số token tối đa trong một LLM request (prompt + history)
+  # Gemini 1.5 Pro: 1,000,000 tokens
+  # GPT-4o: 128,000 tokens
+  # Local models: thường 4,096 – 32,768 tokens
+  context_window_limit: 32000
+
+  # Bật/tắt token caching để tiết kiệm chi phí API
+  token_cache_enabled: true
+
+# ────────────────────────────────────────────────────────────
+# WebSocket Server (Mobile Client Connection)
+# ────────────────────────────────────────────────────────────
+websocket:
+  # Địa chỉ bind cho WebSocket server
+  # "0.0.0.0" = lắng nghe tất cả network interfaces
+  # "127.0.0.1" = chỉ localhost (an toàn hơn nếu không dùng mobile)
+  host: "0.0.0.0"
+
+  # Port cho Mobile App kết nối (mặc định: 9001)
+  port: 9001
+
+  # Yêu cầu Human-in-the-Loop approval cho các tác vụ nhạy cảm
+  require_approval_for_sensitive: true
+
+  # Secret token để xác thực kết nối từ Mobile App
+  # Mobile App phải gửi: ws://PC_IP:9001?token=<auth_secret>
+  # Để trống ("") nếu không cần xác thực (KHÔNG khuyến khích)
+  auth_secret: "CHANGE_THIS_TO_A_STRONG_SECRET"
+
+  # Thời gian idle tối đa trước khi ngắt kết nối (giây)
+  idle_timeout_seconds: 300
+
+# ────────────────────────────────────────────────────────────
+# Agent Configuration
+# ────────────────────────────────────────────────────────────
+agents:
+
+  # ── Analyst Agent (Excel) ──────────────────────────────────
+  analyst:
+    # Cho phép sinh và THỰC THI macro VBA
+    # CẢNH BÁO: Bật tính năng này có rủi ro bảo mật.
+    # Luôn yêu cầu Human-in-the-Loop khi thực thi VBA.
+    allow_vba_execution: false
+
+    # Số hàng tối đa xử lý trong một thao tác Excel
+    max_rows_per_query: 100000
+
+    # Tạo backup trước mỗi lần ghi vào Excel
+    backup_before_write: true
+
+    # Ngưỡng sai số Hard-Truth Verification (%)
+    # Nếu giá trị đọc lại sai lệch > threshold, hành động ghi bị chặn
+    hard_truth_tolerance_pct: 0.01
+
+    # Chụp ảnh màn hình làm bằng chứng grounding
+    grounding_screenshots: true
+
+  # ── Office Master Agent (Word & PowerPoint) ────────────────
+  office_master:
+    # Template Word mặc định (đường dẫn tuyệt đối hoặc tương đối)
+    # null = tạo tài liệu trắng
+    default_word_template: null
+    # Ví dụ: default_word_template: "C:\\Templates\\BaoCao_Template.dotx"
+
+    # Template PowerPoint mặc định
+    default_ppt_template: null
+    # Ví dụ: default_ppt_template: "C:\\Templates\\Presentation_Brand.potx"
+
+    # Giữ nguyên định dạng gốc khi cập nhật nội dung
+    preserve_format: true
+
+    # Tạo backup trước mỗi lần ghi vào Word/PPT
+    backup_before_write: true
+
+  # ── Web Researcher Agent (UIA) ─────────────────────────────
+  web_researcher:
+    # Trình duyệt ưu tiên: "edge" | "chrome" | "auto"
+    preferred_browser: "edge"
+
+    # Chụp ảnh màn hình làm bằng chứng dữ liệu thu thập
+    screenshot_grounding: true
+
+    # Yêu cầu Human-in-the-Loop khi điều hướng browser
+    require_approval_for_navigation: true
+
+    # Yêu cầu Human-in-the-Loop khi tương tác với trang (click, fill)
+    require_approval_for_interaction: true
+
+    # Số hàng tối đa trích xuất từ một bảng web
+    max_rows_per_table: 10000
+
+    # Số trang tối đa điều hướng trong một phiên
+    max_pages_to_navigate: 10
+
+    # Timeout trích xuất dữ liệu (giây)
+    extraction_timeout_seconds: 30
+
+# ────────────────────────────────────────────────────────────
+# File Paths
+# ────────────────────────────────────────────────────────────
+paths:
+  # Thư mục chứa file quy tắc YAML
+  rules_dir: "rules"
+
+  # Thư mục chứa định nghĩa workflow YAML
+  workflows_dir: "workflows"
+
+  # Thư mục lưu trữ vector database (RAG)
+  vector_db_dir: "data/vectors"
+
+  # Thư mục lưu trạng thái session
+  sessions_dir: "data/sessions"
+
+  # Thư mục lưu audit log
+  audit_log_dir: "data/audit"
+
+  # Thư mục lưu backup file Office
+  backup_dir: "data/backups"
+
+  # Thư mục lưu ảnh chụp màn hình grounding
+  grounding_dir: "data/grounding"
+
+# ────────────────────────────────────────────────────────────
+# Logging
+# ────────────────────────────────────────────────────────────
+logging:
+  # Mức độ log: trace | debug | info | warn | error
+  # Production: "info"
+  # Development: "debug"
+  level: "info"
+
+  # Định dạng log: "pretty" (human-readable) | "json" (structured)
+  format: "pretty"
+
+  # Ghi log ra file (thêm vào console output)
+  file_enabled: true
+  log_file: "data/logs/office-hub.log"
+
+  # Số ngày giữ log file trước khi xoá
+  retention_days: 30
+
+# ────────────────────────────────────────────────────────────
+# Performance
+# ────────────────────────────────────────────────────────────
+performance:
+  # Số lượng agents chạy song song tối đa
+  max_concurrent_agents: 4
+
+  # Số lượng LLM requests song song tối đa
+  max_concurrent_llm_requests: 4
+
+  # Thời gian timeout mặc định cho mỗi tác vụ agent (giây)
+  default_agent_timeout_seconds: 120
+
+  # Số session tối đa trong bộ nhớ
+  max_sessions_in_memory: 100
+
+  # Thời gian idle session trước khi bị evict (giây)
+  session_idle_timeout_seconds: 1800   # 30 phút
+
+# ────────────────────────────────────────────────────────────
+# MCP (Model Context Protocol) Servers
+# ────────────────────────────────────────────────────────────
+mcp:
+  # Số lượng MCP server tối đa
+  max_servers: 50
+
+  # Yêu cầu Human-in-the-Loop khi cài đặt MCP server mới
+  require_approval_for_install: true
+
+  # Chạy MCP server trong môi trường sandbox (khuyến khích)
+  sandbox_servers: true
+
+  # Danh sách MCP server tự động cài đặt khi khởi động
+  # auto_install:
+  #   - "npm:@modelcontextprotocol/server-filesystem"
+  #   - "npm:@modelcontextprotocol/server-sqlite"
+  auto_install: []

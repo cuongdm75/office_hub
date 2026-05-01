@@ -1,0 +1,7 @@
+    fn primary_model(&self, cfg: &LlmConfig, complexity: &TaskComplexity) -> String {
+        match complexity {
+            TaskComplexity::Fast => cfg.fast_model.clone(),
+            TaskComplexity::Balanced => cfg.default_model.clone(),
+            TaskComplexity::Reasoning => cfg.reasoning_model.clone(),
+        }
+    }

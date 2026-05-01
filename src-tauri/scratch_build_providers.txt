@@ -1,0 +1,62 @@
+    fn build_providers(cfg: &LlmConfig) -> std::collections::HashMap<String, Arc<dyn LlmProvider>> {
+        let mut map = std::collections::HashMap::<String, Arc<dyn LlmProvider>>::new();
+
+        // Helper to extract tier models for a specific provider
+        let get_models = |provider_name: &str, fallback_dm: &str| -> (String, Option<String>, Option<String>) {
+            let mut dm = fallback_dm.to_string();
+            let mut fm = None;
+            let mut rm = None;
+            if cfg.default_provider == provider_name { dm = cfg.default_model.clone(); }
+            if cfg.fast_provider == provider_name { fm = Some(cfg.fast_model.clone()); }
+            if cfg.reasoning_provider == provider_name { rm = Some(cfg.reasoning_model.clone()); }
+            (dm, fm, rm)
+        };
+
+        // Gemini
+        if let Some(key) = cfg.credentials.gemini_api_key.as_deref().filter(|k| !k.is_empty()) {
+            let (dm, fm, rm) = get_models("gemini", "gemini-2.0-flash");
+            map.insert("gemini".to_string(), Arc::new(GeminiProvider::new(key, dm, fm, rm)));
+        }
+
+        // OpenAI
+        if let Some(key) = cfg.credentials.openai_api_key.as_deref().filter(|k| !k.is_empty()) {
+            let (dm, fm, rm) = get_models("openai", "gpt-4o");
+            map.insert("openai".to_string(), Arc::new(OpenAiCompatProvider::new(
+                ProviderKind::OpenAi, dm, fm, rm, "https://api.openai.com/v1", Some(key.to_string()),
+            )));
+        }
+
+        // Anthropic
+        if let Some(key) = cfg.credentials.anthropic_api_key.as_deref().filter(|k| !k.is_empty()) {
+            let (dm, fm, rm) = get_models("anthropic", "claude-3-5-sonnet-20241022");
+            map.insert("anthropic".to_string(), Arc::new(AnthropicProvider::new(key, dm, fm, rm)));
+        }
+
+        // Z.ai
+        if let Some(key) = cfg.credentials.zai_api_key.as_deref().filter(|k| !k.is_empty()) {
+            let (dm, fm, rm) = get_models("z.ai", "zai-model");
+            map.insert("z.ai".to_string(), Arc::new(OpenAiCompatProvider::new(
+                ProviderKind::OpenAi, dm, fm, rm, "https://api.z.ai/v1", Some(key.to_string()),
+            )));
+        }
+
+        // Ollama
+        let ollama_ep = cfg.credentials.ollama_endpoint.clone().unwrap_or_else(|| "http://localhost:11434/v1".to_string());
+        let mut ep = ollama_ep.trim_end_matches('/').to_string();
+        if !ep.ends_with("/v1") { ep.push_str("/v1"); }
+        let (dm, fm, rm) = get_models("ollama", "__auto__");
+        map.insert("ollama".to_string(), Arc::new(OpenAiCompatProvider::new(
+            ProviderKind::Ollama, dm, fm, rm, ep, None,
+        )));
+
+        // LM Studio
+        let lm_ep = cfg.credentials.lmstudio_endpoint.clone().unwrap_or_else(|| "http://localhost:1234/v1".to_string());
+        let mut ep2 = lm_ep.trim_end_matches('/').to_string();
+        if !ep2.ends_with("/v1") { ep2.push_str("/v1"); }
+        let (dm, fm, rm) = get_models("lmstudio", "local-model");
+        map.insert("lmstudio".to_string(), Arc::new(OpenAiCompatProvider::new(
+            ProviderKind::LmStudio, dm, fm, rm, ep2, None,
+        )));
+
+        map
+    }

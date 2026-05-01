@@ -1,0 +1,202 @@
+/* ── Agent Node ─────────────────────────────────────────── */
+.agent-node-container {
+  background: var(--flow-node-bg);
+  border: 1px solid var(--flow-node-border);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 220px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+html.dark .agent-node-container {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+
+.agent-node-container.is-working {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25), 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.agent-node-container.is-error {
+  border-color: rgba(239,68,68,0.5);
+  box-shadow: 0 0 0 2px rgba(239,68,68,0.2);
+}
+
+/* ── Tool Node ─────────────────────────────────────────── */
+.tool-node-container {
+  background: var(--flow-node-bg);
+  border: 1px solid var(--flow-node-border);
+  border-radius: 12px;
+  padding: 10px;
+  min-width: 160px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+html.dark .tool-node-container {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.tool-node-container.is-running {
+  border-color: rgba(16,185,129,0.4);
+  box-shadow: 0 0 0 1px rgba(16,185,129,0.2), 0 4px 16px rgba(0,0,0,0.15);
+}
+
+/* ── Node text colors (theme-adaptive) ─────────────────── */
+.node-label {
+  color: var(--flow-node-text);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.node-muted {
+  color: var(--flow-node-muted);
+}
+
+.node-sub {
+  color: var(--flow-node-sub);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+
+.node-inner {
+  background: var(--flow-node-inner);
+  border: 1px solid var(--flow-node-inner-border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 6px;
+}
+
+/* ── React Flow overrides ───────────────────────────────── */
+.react-flow__node {
+  border-radius: 14px;
+}
+
+.react-flow__handle {
+  border: 2px solid var(--flow-handle) !important;
+  background: var(--flow-bg) !important;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.8s linear infinite;
+}
+
+@keyframes dashdraw {
+  from { stroke-dashoffset: 10; }
+}
+
+/* ── Monitor Layout ─────────────────────────────────────── */
+.agent-monitor-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  background: var(--flow-bg);
+  color: var(--flow-node-text);
+}
+
+.monitor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-default);
+  z-index: 10;
+  position: relative;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.monitor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monitor-stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  min-width: 80px;
+}
+
+.stat-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--flow-node-text);
+  margin-top: 1px;
+}
+
+.monitor-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border-default);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.monitor-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.monitor-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+/* Live indicator */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ── ReactFlow canvas colors ────────────────────────────── */
+.react-flow__background {
+  background: var(--flow-bg) !important;
+}

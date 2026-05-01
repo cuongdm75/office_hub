@@ -1,0 +1,170 @@
+/* Office Hub - Global Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── Theme Tokens ─────────────────────────────────────────── */
+:root {
+  /* Light mode defaults */
+  --bg-app: #f1f5f9;
+  --bg-sidebar: #f8fafc;
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --bg-hover: rgba(0,0,0,0.04);
+  --bg-input: #f8fafc;
+
+  --border-default: #e2e8f0;
+  --border-subtle: #f1f5f9;
+
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-subtle: #eef2ff;
+  --accent-text: #4f46e5;
+
+  /* ReactFlow canvas */
+  --flow-bg: #f8fafc;
+  --flow-dot: #cbd5e1;
+  --flow-node-bg: #ffffff;
+  --flow-node-border: #e2e8f0;
+  --flow-node-text: #1e293b;
+  --flow-node-muted: #64748b;
+  --flow-node-sub: #94a3b8;
+  --flow-node-inner: #f8fafc;
+  --flow-node-inner-border: #f1f5f9;
+  --flow-handle: #94a3b8;
+  --flow-edge-idle: #cbd5e1;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark mode overrides */
+html.dark {
+  --bg-app: #0a0f1e;
+  --bg-sidebar: #0b1120;
+  --bg-main: #080d1a;
+  --bg-card: #111827;
+  --bg-hover: rgba(255,255,255,0.05);
+  --bg-input: #1e293b;
+
+  --border-default: rgba(51,65,85,0.6);
+  --border-subtle: rgba(30,41,59,0.8);
+
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-subtle: rgba(99,102,241,0.1);
+  --accent-text: #818cf8;
+
+  /* ReactFlow canvas */
+  --flow-bg: #060b18;
+  --flow-dot: #1e293b;
+  --flow-node-bg: rgba(15,23,42,0.9);
+  --flow-node-border: rgba(51,65,85,0.5);
+  --flow-node-text: #e2e8f0;
+  --flow-node-muted: #94a3b8;
+  --flow-node-sub: #64748b;
+  --flow-node-inner: rgba(2,6,23,0.5);
+  --flow-node-inner-border: rgba(30,41,59,0.8);
+  --flow-handle: #334155;
+  --flow-edge-idle: #334155;
+}
+
+/* ── Base Styles ─────────────────────────────────────────── */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+a {
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+button:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Sidebar Resize Handle ───────────────────────────────── */
+.sidebar-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  z-index: 50;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.dragging {
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* ── Scrollbar styling ───────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── Utilities ───────────────────────────────────────────── */
+.transition-theme {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}

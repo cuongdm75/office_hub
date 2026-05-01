@@ -1,0 +1,448 @@
+# ============================================================
+# Office Hub – Default Rule Engine Configuration
+# File: rules/default.yaml
+# Version: 1.0.0
+#
+# Cấu trúc:
+#   - global:     Quy tắc áp dụng toàn hệ thống
+#   - agents:     Quy tắc riêng theo từng agent
+#   - workflows:  Quy tắc kiểm soát luồng tự động hóa
+#   - security:   Quy tắc bảo mật & Human-in-the-Loop
+#   - llm:        Quy tắc kiểm soát đầu ra LLM
+# ============================================================
+
+meta:
+  name: "Default Rule Set"
+  version: "1.0.0"
+  description: "Bộ quy tắc mặc định cho Office Hub – kiểm soát hành vi agents, bảo vệ dữ liệu và chống ảo giác."
+  created_at: "2024-01-01"
+  author: "Office Hub Team"
+
+# ============================================================
+# GLOBAL RULES – áp dụng cho mọi agent và workflow
+# ============================================================
+global:
+
+  # Giới hạn tài nguyên
+  resource_limits:
+    max_concurrent_agents: 4          # Tối đa 4 agents chạy song song
+    max_llm_tokens_per_request: 32768 # Giới hạn token mỗi request LLM
+    max_session_history_turns: 20     # Số lượt hội thoại tối đa giữ trong context
+    max_file_size_mb: 100             # Kích thước file tối đa được xử lý
+    request_timeout_seconds: 120      # Timeout mỗi tác vụ agent
+    llm_retry_attempts: 3             # Số lần thử lại khi LLM lỗi
+    llm_retry_delay_ms: 1000          # Delay giữa các lần retry
+
+  # Kiểm soát log & audit
+  audit:
+    enabled: true
+    log_level: "info"                 # trace | debug | info | warn | error
+    log_all_llm_inputs: false         # Không log input nhạy cảm theo mặc định
+    log_all_llm_outputs: true         # Log output để kiểm tra chất lượng
+    log_all_office_writes: true       # Log mọi hành động ghi vào Office
+    log_all_uia_actions: true         # Log mọi hành động UIA (bắt buộc v4.5)
+    log_retention_days: 30
+    audit_log_path: "$APPDATA/office-hub/logs/audit"
+
+  # Ngôn ngữ & locale
+  locale:
+    default_language: "vi"            # Vietnamese
+    fallback_language: "en"
+    date_format: "DD/MM/YYYY"
+    number_decimal_separator: ","
+    number_thousands_separator: "."
+    currency_symbol: "₫"
+    currency_code: "VND"
+
+# ============================================================
+# AGENT RULES
+# ============================================================
+agents:
+
+  # ──────────────────────────────────────────
+  # Analyst Agent – Excel COM Automation
+  # ──────────────────────────────────────────
+  analyst:
+    enabled: true
+
+    # Bảo vệ dữ liệu gốc
+    data_protection:
+      always_backup_before_write: true      # Tạo backup trước khi ghi
+      backup_location: "$APPDATA/office-hub/backups"
+      backup_retention_days: 7
+      prevent_formula_overwrite: false       # Cho phép ghi đè công thức
+      protect_named_ranges:                  # Không được ghi vào các named ranges này
+        - "HEADER_ROW"
+        - "SUMMARY_TOTAL"
+        - "PROTECTED_RANGE"
+
+    # Giới hạn phạm vi thao tác
+    operation_limits:
+      max_rows_per_operation: 100000        # Tối đa 100k rows mỗi lần
+      max_columns_per_operation: 1000
+      max_formula_complexity: 10            # Độ sâu lồng công thức tối đa
+      allowed_vba_commands:                 # Whitelist VBA commands được phép sinh
+        - "Range.Value"
+        - "Range.Formula"
+        - "Range.FormulaR1C1"
+        - "Cells.ClearContents"
+        - "Worksheets.Add"
+        - "WorksheetFunction.*"
+        - "AutoFilter"
+        - "Sort"
+        - "PivotTable.*"
+      blocked_vba_commands:                 # Blacklist tuyệt đối
+        - "Shell"
+        - "CreateObject(\"WScript"
+        - "CreateObject(\"Shell"
+        - "FSO"
+        - "FileSystemObject"
+        - "ADODB"
+        - "SendKeys"
+        - "Application.Quit"
+        - "Workbook.Close"
+
+    # Xác minh Hard-Truth (chống ảo giác với số liệu)
+    hard_truth_verification:
+      enabled: true
+      verify_numeric_outputs: true          # Luôn đọc lại giá trị từ COM sau khi ghi
+      tolerance_percentage: 0.01            # Sai số chấp nhận được: 0.01%
+      verify_formula_results: true          # Kiểm tra kết quả công thức sau khi điền
+      flag_suspicious_values:
+        - pattern: "^0$"
+          context: "total_cell"
+          warning: "Tổng bằng 0 – cần xác nhận"
+        - pattern: "^-[0-9]"
+          context: "quantity_cell"
+          warning: "Số lượng âm – có thể là lỗi dữ liệu"
+        - pattern: "#(REF|VALUE|NAME|DIV/0|N/A|NULL)"
+          context: "any_cell"
+          warning: "Công thức lỗi được phát hiện"
+
+    # Power Query rules
+    power_query:
+      allow_external_data_sources: false    # Không kết nối nguồn dữ liệu ngoài tự động
+      require_approval_for_external: true   # Cần human approval cho nguồn ngoài
+      max_query_execution_seconds: 60
+
+  # ──────────────────────────────────────────
+  # Office Master Agent – Word & PowerPoint
+  # ──────────────────────────────────────────
+  office_master:
+    enabled: true
+
+    word:
+      # Bảo vệ cấu trúc tài liệu
+      preserve_styles: true                 # Không thay đổi Style definitions
+      preserve_section_breaks: true         # Giữ nguyên Section breaks
+      preserve_headers_footers: true        # Không ghi đè header/footer
+      preserve_tracked_changes: true        # Không xóa tracked changes
+      allowed_style_modifications:          # Chỉ được dùng các style này
+        - "Normal"
+        - "Heading 1"
+        - "Heading 2"
+        - "Heading 3"
+        - "Body Text"
+        - "Table Normal"
+        - "List Paragraph"
+        - "Caption"
+        - "Footer"
+        - "Header"
+      max_document_pages: 500              # Cảnh báo nếu > 500 trang
+      backup_before_write: true
+
+      # Kiểm soát nội dung
+      content_rules:
+        max_paragraph_length_chars: 2000
+        flag_all_caps_sections: false
+        require_spell_check_approval: false  # TODO: integrate spell checker
+
+    powerpoint:
+      preserve_master_slides: true          # Không sửa Slide Master
+      preserve_animations: false            # Có thể thay thế animations
+      preserve_brand_colors: true           # Giữ nguyên màu thương hiệu
+      brand_color_palette:                  # Palette được phép dùng
+        primary:   "#1F4E79"
+        secondary: "#2E75B6"
+        accent1:   "#ED7D31"
+        accent2:   "#70AD47"
+        neutral:   "#595959"
+        white:     "#FFFFFF"
+        dark:      "#1F2937"
+      max_slides_per_deck: 100
+      max_text_per_slide_chars: 500         # Cảnh báo nếu text quá dài trên 1 slide
+      backup_before_write: true
+      allowed_transitions:                  # Chỉ dùng transitions này
+        - "None"
+        - "Fade"
+        - "Push"
+        - "Morph"
+        - "Appear"
+
+  # ──────────────────────────────────────────
+  # Web Researcher Agent – UIA Browser Control
+  # ──────────────────────────────────────────
+  web_researcher:
+    enabled: true
+
+    # Nguồn dữ liệu được phép truy cập
+    allowed_domains:
+      mode: "whitelist"                     # whitelist | blacklist | all
+      whitelist:
+        - "*.gov.vn"
+        - "*.vietstock.vn"
+        - "*.cafef.vn"
+        - "*.vnexpress.net"
+        - "*.dantri.com.vn"
+        - "*.thesaigontimes.vn"
+        - "petrolimex.com.vn"
+        - "mof.gov.vn"
+        - "gso.gov.vn"                      # Tổng cục Thống kê
+        - "customs.gov.vn"
+        - "*.bloomberg.com"
+        - "*.reuters.com"
+
+    # Tác vụ bị chặn tuyệt đối (không cần human approval)
+    blocked_actions:
+      - "form_submit"                        # Không tự động submit form
+      - "file_download"                      # Không tự động download file
+      - "authentication"                     # Không đăng nhập tự động
+      - "payment"                            # Tuyệt đối không thực hiện thanh toán
+      - "cookie_accept"                      # Không click accept cookies tự động
+
+    # Tác vụ cần Human-in-the-Loop approval
+    require_human_approval:
+      - "navigate_to_url"                    # Điều hướng đến URL mới
+      - "click_button"                       # Click button
+      - "fill_input"                         # Điền vào input field
+      - "scroll_and_extract"                 # Scroll nhiều trang để extract
+
+    # Giới hạn extraction
+    extraction_limits:
+      max_rows_per_table: 10000
+      max_pages_to_navigate: 10
+      max_screenshots_per_session: 20
+      screenshot_save_path: "$APPDATA/office-hub/grounding"
+      extraction_timeout_seconds: 30
+
+    # Grounding (bằng chứng trích xuất)
+    grounding:
+      always_take_screenshot: true           # Chụp ảnh vùng dữ liệu làm bằng chứng
+      attach_url_to_data: true               # Đính kèm URL nguồn vào dữ liệu
+      attach_timestamp_to_data: true
+      store_raw_html_snippet: false          # Không lưu HTML thô (tiết kiệm disk)
+
+  # ──────────────────────────────────────────
+  # Converter Agent – MCP Skill Learning
+  # ──────────────────────────────────────────
+  converter:
+    enabled: true
+    allowed_sources:
+      - "github.com"
+      - "docs.microsoft.com"
+      - "learn.microsoft.com"
+      - "pypi.org"
+      - "crates.io"
+      - "npmjs.com"
+    sandbox_mcp_servers: true               # Chạy MCP server mới trong sandbox
+    require_approval_for_new_server: true   # Cần approval trước khi cài MCP server
+    max_mcp_servers: 50                     # Tối đa 50 MCP servers
+
+# ============================================================
+# WORKFLOW RULES – Event-Driven Workflow Engine
+# ============================================================
+workflows:
+
+  # Kiểm soát trigger
+  triggers:
+    email:
+      enabled: true
+      scan_interval_seconds: 30
+      max_attachments_per_email: 10
+      allowed_attachment_types:
+        - ".xlsx"
+        - ".xls"
+        - ".docx"
+        - ".doc"
+        - ".pdf"
+        - ".csv"
+      max_attachment_size_mb: 25
+      blocked_senders: []                   # Blacklist email senders nếu cần
+
+    file_watcher:
+      enabled: true
+      scan_interval_ms: 2000               # Quét thay đổi mỗi 2 giây
+      debounce_ms: 500                     # Debounce để tránh trigger liên tục
+      max_watched_directories: 20
+      allowed_file_types:
+        - ".xlsx"
+        - ".xls"
+        - ".docx"
+        - ".doc"
+        - ".csv"
+        - ".json"
+        - ".xml"
+
+    voice_command:
+      enabled: true
+      require_confirmation: false           # Lệnh thoại không cần confirm thêm
+      timeout_seconds: 10                   # Timeout chờ kết quả
+
+    scheduled:
+      enabled: true
+      min_interval_minutes: 5              # Không cho phép schedule < 5 phút
+      max_concurrent_scheduled: 5
+
+  # Kiểm soát action
+  actions:
+    max_chain_length: 10                   # Tối đa 10 actions nối tiếp trong 1 workflow
+    max_parallel_actions: 4
+    action_timeout_seconds: 300            # 5 phút timeout mỗi action
+    retry_on_failure: true
+    retry_attempts: 2
+    retry_delay_seconds: 5
+
+    # Các action cần human approval
+    require_approval:
+      - "send_email"                        # Gửi email cần xác nhận
+      - "delete_file"                       # Xóa file cần xác nhận
+      - "external_api_call"                 # Gọi API bên ngoài cần xác nhận
+      - "browser_navigation"                # Điều hướng browser cần xác nhận
+      - "form_fill"                         # Điền form cần xác nhận
+
+# ============================================================
+# SECURITY RULES
+# ============================================================
+security:
+
+  # API Key & Secrets
+  secrets:
+    never_log_api_keys: true               # Không bao giờ log API keys
+    mask_in_ui: true                       # Che API keys trong UI
+    storage: "system_keychain"             # Lưu trong Windows Credential Manager
+    rotation_reminder_days: 90            # Nhắc rotate key sau 90 ngày
+
+  # Human-in-the-Loop
+  human_in_the_loop:
+    enabled: true
+    approval_timeout_seconds: 300          # 5 phút để phê duyệt
+    default_action_on_timeout: "reject"    # reject | approve
+    notification_channels:
+      - "mobile_push"
+      - "desktop_notification"
+    approval_levels:
+      low:                                 # Tự động thực hiện
+        - "read_file"
+        - "read_excel_cell"
+        - "read_browser_table"
+      medium:                              # Cần confirm trong 5 giây (auto-approve)
+        - "write_excel_cell"
+        - "write_word_paragraph"
+        - "write_ppt_slide"
+      high:                                # Cần explicit approval
+        - "navigate_browser"
+        - "click_browser_element"
+        - "send_email"
+        - "delete_content"
+      critical:                            # Cần approval + second confirmation
+        - "fill_form"
+        - "submit_form"
+        - "delete_file"
+        - "external_payment"
+
+  # Mã hóa dữ liệu
+  encryption:
+    encrypt_session_data: true
+    encrypt_cached_tokens: true
+    algorithm: "AES-256-GCM"
+
+  # Rate limiting
+  rate_limiting:
+    llm_requests_per_minute: 60
+    office_com_operations_per_minute: 300
+    uia_actions_per_minute: 60
+    websocket_messages_per_minute: 120
+
+# ============================================================
+# LLM OUTPUT VALIDATION RULES
+# ============================================================
+llm:
+
+  # Kiểm soát chất lượng output
+  output_validation:
+    enabled: true
+
+    # Phát hiện ảo giác trong nội dung số liệu
+    hallucination_detection:
+      check_numeric_consistency: true       # Kiểm tra tổng/tích có đúng không
+      check_date_validity: true             # Ngày tháng có hợp lệ không
+      check_percentage_range: true          # % có nằm trong [0, 100] không
+      flag_fabricated_citations: true       # Phát hiện trích dẫn giả
+
+    # Nội dung bị cấm
+    blocked_content:
+      categories:
+        - "personal_data_exposure"          # Không để lộ dữ liệu cá nhân
+        - "financial_advice"                # Không đưa tư vấn tài chính cụ thể
+        - "legal_advice"                    # Không đưa tư vấn pháp lý
+        - "medical_advice"                  # Không đưa tư vấn y tế
+      patterns:
+        - regex: "\\b(CCCD|CMND|passport)\\s*:?\\s*\\d{9,12}\\b"
+          action: "block"
+          reason: "Phát hiện số CCCD/CMND trong output"
+        - regex: "\\b\\d{4}[\\s-]\\d{4}[\\s-]\\d{4}[\\s-]\\d{4}\\b"
+          action: "block"
+          reason: "Phát hiện số thẻ tín dụng trong output"
+        - regex: "\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"
+          action: "flag"
+          reason: "Phát hiện địa chỉ email trong output – xem xét trước khi ghi"
+
+    # Giới hạn độ dài output
+    length_limits:
+      max_excel_cell_chars: 32767           # Giới hạn Excel cell
+      max_word_paragraph_chars: 5000
+      max_ppt_text_box_chars: 500
+      max_chat_response_chars: 8000
+
+  # Token optimization
+  token_management:
+    enable_prompt_caching: true
+    cache_ttl_minutes: 60
+    compress_context_after_turns: 10        # Tóm tắt context sau 10 lượt
+    system_prompt_tokens_reserved: 2000
+
+  # Fallback behavior
+  fallback:
+    on_cloud_unavailable: "use_local"       # Chuyển sang local model
+    on_local_unavailable: "queue_request"   # Queue và chờ cloud
+    on_both_unavailable: "notify_user"      # Thông báo người dùng
+    max_queue_size: 50
+    queue_timeout_minutes: 10
+
+# ============================================================
+# NOTIFICATION RULES
+# ============================================================
+notifications:
+  enabled: true
+  channels:
+    desktop:
+      enabled: true
+      show_progress: true
+      auto_dismiss_seconds: 5
+    mobile_push:
+      enabled: true
+      endpoint: "ws://localhost:8765"       # WebSocket port cho mobile
+    sound:
+      enabled: false
+      success_sound: null
+      error_sound: null
+
+  # Khi nào thông báo
+  triggers:
+    workflow_completed: true
+    workflow_failed: true
+    agent_error: true
+    human_approval_required: true
+    llm_fallback_activated: true
+    large_file_warning: true               # Cảnh báo khi file > 50MB
+    backup_created: false                  # Không thông báo mỗi lần backup

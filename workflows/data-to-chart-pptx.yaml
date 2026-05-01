@@ -1,0 +1,175 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Office Hub – Workflow Definition
+# Template  : data-to-chart-pptx
+# Version   : 1.0.0
+# Description: Tự động trích xuất dữ liệu (từ file Excel/CSV hoặc Data nguồn),
+#              vẽ biểu đồ bằng ChartServer (ECharts), sau đó chèn vào slide PPTX.
+# ─────────────────────────────────────────────────────────────────────────────
+
+id: data-to-chart-pptx
+name: "Dữ liệu → Biểu đồ → PowerPoint"
+version: "1.0.0"
+description: |
+  Workflow tự động xử lý chuỗi: Đọc dữ liệu đầu vào (Excel/CSV), 
+  trích xuất mảng JSON số liệu, chuyển qua ChartServer để vẽ 
+  thành file ảnh PNG (chất lượng cao), và cuối cùng dùng Office Master 
+  để chèn vào một slide PowerPoint mẫu báo cáo.
+author: "Office Hub Team"
+tags:
+  - excel
+  - chart
+  - powerpoint
+  - automated-report
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Metadata
+# ─────────────────────────────────────────────────────────────────────────────
+metadata:
+  created_at: "2026-04-29T00:00:00Z"
+  updated_at: "2026-04-29T00:00:00Z"
+  category: "presentation-automation"
+  priority: normal
+  timeout_seconds: 300
+  retry_on_failure: true
+  max_retries: 2
+  human_approval_required: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trigger
+# ─────────────────────────────────────────────────────────────────────────────
+trigger:
+  type: manual
+  config:
+    required_inputs:
+      - data_source_path   # Đường dẫn file dữ liệu (VD: data.xlsx hoặc data.csv)
+      - pptx_template_path # Đường dẫn file PPTX mẫu
+      - chart_title        # Tiêu đề biểu đồ
+      - chart_type         # bar, line, pie
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Context
+# ─────────────────────────────────────────────────────────────────────────────
+context:
+  variables:
+    output_dir: "${DOCUMENTS}/OfficeHub/Presentations"
+    output_filename: "ChartReport_${DATE:yyyy-MM-dd}.pptx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Steps
+# ─────────────────────────────────────────────────────────────────────────────
+steps:
+
+  # ── Bước 1: Trích xuất số liệu thành mảng JSON ─────────────────────────────
+  - id: extract_data
+    name: "Trích xuất dữ liệu JSON"
+    agent: analyst
+    action: extract_json_data
+    config:
+      # Analyst sẽ tự động nhận diện file CSV/Excel và chuyển thành JSON array
+      model: "default"
+      tasks:
+        - type: "format_for_charting"
+          description: "Chuẩn hóa dữ liệu thành mảng Object có 2 trường 'name' và 'value' để vẽ biểu đồ."
+    input:
+      source_path: "{{ trigger.data_source_path }}"
+    output:
+      chart_data: "{{ result.json_array }}"
+    on_error:
+      action: abort
+      notify: true
+      message: "Không thể trích xuất dữ liệu từ nguồn."
+
+  # ── Bước 2: Vẽ biểu đồ thông qua ChartServer (MCP) ─────────────────────────
+  - id: generate_chart
+    name: "Render biểu đồ sang PNG"
+    agent: mcp_broker
+    action: generate_chart_image
+    config:
+      # Gọi trực tiếp internal MCP server "chart_server"
+      tool_name: "generate_chart_image"
+      timeout_seconds: 30
+    input:
+      chart_type: "{{ trigger.chart_type }}"
+      title: "{{ trigger.chart_title }}"
+      data: "{{ steps.extract_data.chart_data }}"
+      x_key: "name"
+      y_key: "value"
+      theme: "light"
+    output:
+      chart_image_path: "{{ result.content[0].text }}" # Trích xuất đường dẫn ảnh từ kết quả của MCP tool
+    on_error:
+      action: abort
+      notify: true
+      message: "Lỗi trong quá trình vẽ biểu đồ ECharts."
+
+  # ── Bước 3: Đưa biểu đồ vào Slide PPTX ─────────────────────────────────────
+  - id: insert_to_pptx
+    name: "Chèn ảnh vào Slide PowerPoint"
+    agent: office_master
+    action: insert_image_to_pptx
+    config:
+      preserve_styles: true
+      # Chèn ảnh vào slide thứ 2 (hoặc slide chỉ định), đè lên placeholder ảnh
+      target_slide: 2
+      placeholder_name: "Picture Placeholder 1"
+    input:
+      template_path: "{{ trigger.pptx_template_path }}"
+      image_path: "{{ steps.generate_chart.chart_image_path }}"
+      output_path: "{{ context.output_dir }}/{{ context.output_filename }}"
+    output:
+      final_pptx_path: "{{ result.output_path }}"
+    on_error:
+      action: notify_and_abort
+      message: "Lỗi khi tương tác với file PPTX."
+
+  # ── Bước 4: Xét duyệt & Hoàn thành ─────────────────────────────────────────
+  - id: request_approval
+    name: "Gửi yêu cầu xét duyệt báo cáo"
+    agent: orchestrator
+    action: send_mobile_notification
+    config:
+      notification_type: approval_request
+      title: "📊 Slide Biểu đồ đã tạo xong"
+      body: |
+        Tiêu đề: {{ trigger.chart_title }}
+        Lưu tại: {{ steps.insert_to_pptx.final_pptx_path }}
+      actions:
+        - id: approve
+          label: "✅ Duyệt & Mở file"
+          style: primary
+          next_step: open_pptx
+        - id: reject
+          label: "❌ Bỏ qua"
+          style: danger
+          next_step: cleanup
+    input:
+      report_path: "{{ steps.insert_to_pptx.final_pptx_path }}"
+    output:
+      approval_action: "{{ result.chosen_action }}"
+
+  # ── Bước 5: Mở file PowerPoint ─────────────────────────────────────────────
+  - id: open_pptx
+    name: "Mở file trình chiếu"
+    agent: office_master
+    action: open_document
+    condition: "{{ steps.request_approval.approval_action == 'approve' }}"
+    input:
+      document_path: "{{ steps.insert_to_pptx.final_pptx_path }}"
+
+  # ── Bước 6: Dọn dẹp ảnh tạm ────────────────────────────────────────────────
+  - id: cleanup
+    name: "Dọn dẹp ảnh biểu đồ tạm thời"
+    agent: orchestrator
+    action: cleanup_temp_files
+    run: always
+    config:
+      files:
+        - "{{ steps.generate_chart.chart_image_path }}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Error Handlers
+# ─────────────────────────────────────────────────────────────────────────────
+error_handlers:
+  - type: generic
+    action: notify_and_abort
+    message: "Workflow vẽ biểu đồ bị lỗi: {{ error.message }}"
