@@ -535,7 +535,7 @@ async fn upload_file(
 
     let upload_dir = state.public_dir.clone();
 
-    while let Ok(Some(mut field)) = multipart.next_field().await {
+    if let Ok(Some(mut field)) = multipart.next_field().await {
         let original_name = field.file_name().unwrap_or("upload.tmp").to_string();
 
         let safe_name = original_name

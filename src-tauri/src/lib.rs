@@ -460,9 +460,11 @@ pub fn run() {
 
     tauri::async_runtime::block_on(workflow_engine.set_orchestrator(orchestrator_handle.clone()));
 
-    let mut system_config = system::SystemConfig::default();
-    system_config.ws_auth_token = config.websocket.auth_secret.clone();
-    system_config.websocket_port = config.websocket.port;
+    let system_config = system::SystemConfig {
+        ws_auth_token: config.websocket.auth_secret.clone(),
+        websocket_port: config.websocket.port,
+        ..Default::default()
+    };
 
     let system_manager = tauri::async_runtime::block_on(system::SystemManager::init(system_config))
         .expect("Failed to init SystemManager");
