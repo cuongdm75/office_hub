@@ -28,6 +28,17 @@ fn main() {
         } else {
             println!("cargo:warning=office-addin/package.json not found, skipping UI build.");
         }
+    } else {
+        // If skipping build, ensure a dummy dist folder exists so tauri doesn't crash
+        // when resolving the "resources" array in tauri.conf.json
+        let addin_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root not found")
+            .join("office-addin");
+        let dist_dir = addin_dir.join("dist");
+        if !dist_dir.exists() {
+            let _ = std::fs::create_dir_all(&dist_dir);
+        }
     }
 
     // Re-run this build script only when add-in source files change
