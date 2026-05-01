@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 
 // Office Hub â€“ orchestrator/mod.rs
 
@@ -2108,7 +2108,9 @@ impl Orchestrator {
 
                                         match result {
                                             Ok(out) => out.content,
-                                            Err(e) => format!("âš ï¸ Agent '{}' lá»—i: {}", agent_id, e),
+                                            Err(e) => {
+                                                format!("âš ï¸ Agent '{}' lá»—i: {}", agent_id, e)
+                                            }
                                         }
                                     } else {
                                         format!("âš ï¸ Agent '{}' khÃ´ng tá»“n táº¡i.", agent_id)
@@ -2164,7 +2166,10 @@ impl Orchestrator {
                                             }
                                         }
                                         Err(e) => {
-                                            format!("âš ï¸ Lá»—i khi gá»i tool '{}': {}", tool_name, e)
+                                            format!(
+                                                "âš ï¸ Lá»—i khi gá»i tool '{}': {}",
+                                                tool_name, e
+                                            )
                                         }
                                     }
                                 }

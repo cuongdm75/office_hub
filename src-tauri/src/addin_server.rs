@@ -7,10 +7,7 @@
 // using axum-server + rustls (same dev certs as before).
 // ============================================================================
 
-use axum::{
-    routing::get_service,
-    Router,
-};
+use axum::{routing::get_service, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -43,7 +40,10 @@ pub fn resolve_dist_dir(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
         if p.join("index.html").exists() {
             return Some(p);
         }
-        warn!("Release resource dir does not contain addin-ui/index.html: {:?}", p);
+        warn!(
+            "Release resource dir does not contain addin-ui/index.html: {:?}",
+            p
+        );
     }
 
     // ── Dev path ──────────────────────────────────────────────────────────────
@@ -63,7 +63,12 @@ pub fn resolve_dist_dir(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
         // Running binary from target/debug/
         std::env::current_exe()
             .ok()
-            .and_then(|e| e.parent().and_then(|p| p.parent()).and_then(|p| p.parent()).map(|p| p.to_path_buf()))
+            .and_then(|e| {
+                e.parent()
+                    .and_then(|p| p.parent())
+                    .and_then(|p| p.parent())
+                    .map(|p| p.to_path_buf())
+            })
             .map(|p| p.join("office-addin").join("dist"))
             .unwrap_or_default(),
     ];
@@ -84,7 +89,7 @@ pub fn resolve_dist_dir(resource_dir: Option<PathBuf>) -> Option<PathBuf> {
 pub async fn start_addin_server(dist_dir: PathBuf) {
     let certs = certs_dir();
     let cert_path = certs.join("localhost.crt");
-    let key_path  = certs.join("localhost.key");
+    let key_path = certs.join("localhost.key");
 
     // ── Validate prerequisites ─────────────────────────────────────────────
     if !cert_path.exists() || !key_path.exists() {
@@ -123,8 +128,7 @@ pub async fn start_addin_server(dist_dir: PathBuf) {
         .allow_headers(Any);
 
     // SPA fallback: unknown routes serve index.html so React Router works.
-    let serve = ServeDir::new(&dist_dir)
-        .fallback(ServeFile::new(dist_dir.join("index.html")));
+    let serve = ServeDir::new(&dist_dir).fallback(ServeFile::new(dist_dir.join("index.html")));
 
     let app = Router::new()
         .fallback_service(get_service(serve))
