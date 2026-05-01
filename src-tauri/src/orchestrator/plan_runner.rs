@@ -1,9 +1,8 @@
 use chrono::Utc;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::error;
 
 use super::plan::{PlanExecution, PlanStatus, SubTaskResult, SubTaskStatus};
 use super::plan_monitor::{MonitorDecision, MonitorEvent, PlanMonitor};
@@ -39,7 +38,7 @@ impl PlanRunner {
 
     /// Execute the plan following the DAG.
     pub async fn run(&self, plan_exec: Arc<PlanExecution>, session_id: &str) {
-        let mut monitor = PlanMonitor::new();
+        let _monitor = PlanMonitor::new();
 
         *plan_exec.status.write().await = PlanStatus::Running;
 
@@ -59,7 +58,7 @@ impl PlanRunner {
             );
         }
 
-        let mut rx = plan_exec.cancel_tx.subscribe();
+        let rx = plan_exec.cancel_tx.subscribe();
 
         loop {
             // Check cancellation
@@ -190,7 +189,7 @@ impl PlanRunner {
                         send_prog(&format!("⚠️ Task '{}' requires approval.", task.task_id));
                         let (_action_id, rx) = hitl_manager.register(HitlRequestBuilder {
                             description: task.description.clone(),
-                            risk_level: task.risk_level.clone(),
+                            risk_level: task.risk_level,
                             payload: Some(task.parameters.clone()),
                         });
 

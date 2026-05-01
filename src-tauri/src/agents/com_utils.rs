@@ -26,7 +26,7 @@ pub mod dispatch {
         pub fn get_id_of_name(&self, name: &str) -> anyhow::Result<i32> {
             let mut name_wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
             let mut dispid: i32 = 0;
-            let mut name_pwstr = PCWSTR(name_wide.as_mut_ptr());
+            let name_pwstr = PCWSTR(name_wide.as_mut_ptr());
 
             unsafe {
                 self.dispatch

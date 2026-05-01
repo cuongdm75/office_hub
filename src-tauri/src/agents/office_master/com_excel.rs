@@ -194,7 +194,7 @@ impl ExcelApplication {
 
         let shapes = active_sheet.get_property_obj("Shapes")?;
 
-        let shape_var = shapes
+        let _shape_var = shapes
             .invoke_method(
                 "AddPicture",
                 vec![

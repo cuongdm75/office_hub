@@ -24,7 +24,7 @@ impl Orchestrator {
 
         // Prepare conversation
         use crate::llm_gateway::genai_bridge::{ToolAwareResponse, ToolChatMessage};
-        let mut conv_messages = {
+        let conv_messages = {
             let session = self
                 .session_store
                 .get_or_create(session_id)

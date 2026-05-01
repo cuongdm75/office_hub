@@ -1,8 +1,6 @@
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
-use crate::orchestrator::plan::{FailurePolicy, PlanExecution, PlanExecutionMode, PlanStatus};
+use crate::orchestrator::plan::{FailurePolicy, PlanExecution, PlanExecutionMode};
 
 /// Events that can happen during plan execution.
 #[derive(Debug, Clone)]
@@ -33,6 +31,12 @@ pub enum MonitorDecision {
 pub struct PlanMonitor {
     consecutive_failures: usize,
     max_consecutive_failures: usize,
+}
+
+impl Default for PlanMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PlanMonitor {

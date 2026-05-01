@@ -53,7 +53,7 @@ impl InternalMcpServer for PolicyServer {
             },
             McpTool {
                 name: "write_policy".to_string(),
-                description: "Táº¡o má»›i hoáº·c cáº­p nháº­t má»™t file policy (quy táº¯c, quy Ä‘á»‹nh) cá»§a há»‡ thá»‘ng.".to_string(),
+                description: "Táº¡o má»›i hoáº·c cáº\u{AD}p nháº\u{AD}t má»™t file policy (quy táº¯c, quy Ä‘á»‹nh) cá»§a há»‡ thá»‘ng.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -121,7 +121,7 @@ impl InternalMcpServer for PolicyServer {
                 }
             }
             if list.is_empty() {
-                list = "KhÃ´ng cÃ³ policy nÃ o Ä‘Æ°á»£c thiáº¿t láº­p.".to_string();
+                list = "KhÃ´ng cÃ³ policy nÃ o Ä‘Æ°á»£c thiáº¿t láº\u{AD}p.".to_string();
             }
             Ok(ToolCallResult {
                 content: vec![ToolContent {
@@ -155,7 +155,7 @@ impl InternalMcpServer for PolicyServer {
                     }
                 }
                 if content.is_empty() {
-                    content = "KhÃ´ng cÃ³ policy nÃ o Ä‘Æ°á»£c thiáº¿t láº­p.".to_string();
+                    content = "KhÃ´ng cÃ³ policy nÃ o Ä‘Æ°á»£c thiáº¿t láº\u{AD}p.".to_string();
                 }
             } else {
                 let file_path = dir.join(filename);
@@ -301,7 +301,7 @@ impl InternalMcpServer for KnowledgeServer {
             McpTool {
                 name: "write_knowledge".to_string(),
                 description:
-                    "Ghi má»›i hoáº·c cáº­p nháº­t ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c."
+                    "Ghi má»›i hoáº·c cáº\u{AD}p nháº\u{AD}t ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c."
                         .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -456,7 +456,7 @@ impl InternalMcpServer for KnowledgeServer {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
-                        text: Some("KhÃ´ng thá»ƒ ghi trá»±c tiáº¿p vÃ o index.md. Index Ä‘Æ°á»£c tá»± Ä‘á»™ng cáº­p nháº­t khi thÃªm/xÃ³a file.".to_string()),
+                        text: Some("KhÃ´ng thá»ƒ ghi trá»±c tiáº¿p vÃ o index.md. Index Ä‘Æ°á»£c tá»± Ä‘á»™ng cáº\u{AD}p nháº\u{AD}t khi thÃªm/xÃ³a file.".to_string()),
                         data: None,
                         mime_type: None,
                     }],
@@ -726,7 +726,7 @@ impl InternalMcpServer for SkillServer {
             .collect();
         tools.push(McpTool {
             name: "write_skill".to_string(),
-            description: "Táº¡o má»›i hoáº·c cáº­p nháº­t má»™t ká»¹ nÄƒng (skill) cho Agent.".to_string(),
+            description: "Táº¡o má»›i hoáº·c cáº\u{AD}p nháº\u{AD}t má»™t ká»¹ nÄƒng (skill) cho Agent.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -992,7 +992,7 @@ impl InternalMcpServer for FileSystemServer {
         Ok(vec![
             McpTool {
                 name: "read_file".to_string(),
-                description: "Äá»c ná»™i dung cá»§a má»™t file cá»¥c bá»™ trÃªn mÃ¡y tÃ­nh.".to_string(),
+                description: "Äá»c ná»™i dung cá»§a má»™t file cá»¥c bá»™ trÃªn mÃ¡y tÃ\u{AD}nh.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1016,7 +1016,7 @@ impl InternalMcpServer for FileSystemServer {
             },
             McpTool {
                 name: "read_folder_files".to_string(),
-                description: "Äá»c vÃ  tá»•ng há»£p ná»™i dung Táº¤T Cáº¢ cÃ¡c file vÄƒn báº£n (text, md, txt, csv) trong má»™t thÆ° má»¥c cá»¥ thá»ƒ. Ráº¥t há»¯u Ã­ch khi cáº§n tá»•ng há»£p sá»‘ liá»‡u hoáº·c lÃ m bÃ¡o cÃ¡o tá»« nhiá»u file.".to_string(),
+                description: "Äá»c vÃ  tá»•ng há»£p ná»™i dung Táº¤T Cáº¢ cÃ¡c file vÄƒn báº£n (text, md, txt, csv) trong má»™t thÆ° má»¥c cá»¥ thá»ƒ. Ráº¥t há»¯u Ã\u{AD}ch khi cáº§n tá»•ng há»£p sá»‘ liá»‡u hoáº·c lÃ m bÃ¡o cÃ¡o tá»« nhiá»u file.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1055,7 +1055,7 @@ impl InternalMcpServer for FileSystemServer {
             },
             McpTool {
                 name: "fs_read_pdf".to_string(),
-                description: "TrÃ­ch xuáº¥t vÄƒn báº£n tá»« file PDF.".to_string(),
+                description: "TrÃ\u{AD}ch xuáº¥t vÄƒn báº£n tá»« file PDF.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1339,7 +1339,7 @@ impl InternalMcpServer for ScriptingServer {
         Ok(vec![
             McpTool {
                 name: "run_rhai_script".to_string(),
-                description: "Thá»±c thi mÃ£ ká»‹ch báº£n Rhai (Rust-native scripting). DÃ¹ng Ä‘á»ƒ láº­p trÃ¬nh logic, xá»­ lÃ½ dá»¯ liá»‡u hoáº·c gá»i cÃ¡c lá»‡nh há»‡ thá»‘ng.".to_string(),
+                description: "Thá»±c thi mÃ£ ká»‹ch báº£n Rhai (Rust-native scripting). DÃ¹ng Ä‘á»ƒ láº\u{AD}p trÃ¬nh logic, xá»\u{AD} lÃ½ dá»¯ liá»‡u hoáº·c gá»i cÃ¡c lá»‡nh há»‡ thá»‘ng.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1460,7 +1460,7 @@ impl InternalMcpServer for ScriptingServer {
             if permissions.contains(&"db".to_string()) || is_sandbox {
                 engine.register_fn("db_execute", |sql: &str| -> String {
                     if sql.to_uppercase().contains("DROP") {
-                        return "Lá»—i báº£o máº­t: KhÃ´ng Ä‘Æ°á»£c phÃ©p dÃ¹ng lá»‡nh DROP"
+                        return "Lá»—i báº£o máº\u{AD}t: KhÃ´ng Ä‘Æ°á»£c phÃ©p dÃ¹ng lá»‡nh DROP"
                             .to_string();
                     }
                     let db_path = std::env::temp_dir().join("office_hub_agent_state.db"); // Dedicated DB
@@ -1593,7 +1593,7 @@ impl InternalMcpServer for Win32AdminServer {
             McpTool {
                 name: "win32_registry_read".to_string(),
                 description:
-                    "Äá»c giÃ¡ trá»‹ tá»« Windows Registry (vÃ­ dá»¥: HKLM\\Software\\...)."
+                    "Äá»c giÃ¡ trá»‹ tá»« Windows Registry (vÃ\u{AD} dá»¥: HKLM\\Software\\...)."
                         .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -1692,7 +1692,7 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_inspect".to_string(),
-                description: "Kiá»ƒm tra cáº¥u trÃºc UI cá»§a má»™t cá»­a sá»•.".to_string(),
+                description: "Kiá»ƒm tra cáº¥u trÃºc UI cá»§a má»™t cá»\u{AD}a sá»•.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1705,7 +1705,7 @@ impl InternalMcpServer for Win32AdminServer {
             McpTool {
                 name: "win32_uia_click".to_string(),
                 description:
-                    "Click vÃ o má»™t pháº§n tá»­ trÃªn cá»­a sá»• báº±ng AutomationId hoáº·c Name."
+                    "Click vÃ o má»™t pháº§n tá»\u{AD} trÃªn cá»\u{AD}a sá»• báº±ng AutomationId hoáº·c Name."
                         .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -1719,7 +1719,7 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_enter_text".to_string(),
-                description: "Nháº­p vÄƒn báº£n vÃ o Ã´ nháº­p liá»‡u.".to_string(),
+                description: "Nháº\u{AD}p vÄƒn báº£n vÃ o Ã´ nháº\u{AD}p liá»‡u.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1733,7 +1733,7 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_get_value".to_string(),
-                description: "Láº¥y giÃ¡ trá»‹ (Text) cá»§a má»™t pháº§n tá»­ trÃªn cá»­a sá»•."
+                description: "Láº¥y giÃ¡ trá»‹ (Text) cá»§a má»™t pháº§n tá»\u{AD} trÃªn cá»\u{AD}a sá»•."
                     .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -1747,7 +1747,7 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_toggle".to_string(),
-                description: "TÃ­ch/Bá» tÃ­ch (Toggle) má»™t pháº§n tá»­ (Checkbox, Switch)."
+                description: "TÃ\u{AD}ch/Bá» tÃ\u{AD}ch (Toggle) má»™t pháº§n tá»\u{AD} (Checkbox, Switch)."
                     .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -1775,7 +1775,7 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_set_focus".to_string(),
-                description: "ÄÆ°a con trá» chuá»™t/bÃ n phÃ­m (Focus) vÃ o má»™t pháº§n tá»­."
+                description: "ÄÆ°a con trá» chuá»™t/bÃ n phÃ\u{AD}m (Focus) vÃ o má»™t pháº§n tá»\u{AD}."
                     .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
@@ -2094,7 +2094,7 @@ if ($ae) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2154,7 +2154,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2214,7 +2214,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2276,7 +2276,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2333,7 +2333,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2391,7 +2391,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2448,7 +2448,7 @@ if ($window) {{
                 );
 
                 match std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
+                    .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                     .output()
                 {
                     Ok(out) => {
@@ -2486,6 +2486,12 @@ pub struct AnalyticServer {
     >,
 }
 
+impl Default for AnalyticServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnalyticServer {
     pub fn new() -> Self {
         Self {
@@ -2504,7 +2510,7 @@ impl InternalMcpServer for AnalyticServer {
         Ok(vec![
             McpTool {
                 name: "polars_load_table".to_string(),
-                description: "Táº£i má»™t file CSV/JSON vÃ o bá»™ nhá»› RAM dÆ°á»›i dáº¡ng báº£ng dá»¯ liá»‡u Ä‘á»ƒ phÃ¢n tÃ­ch SQL.".to_string(),
+                description: "Táº£i má»™t file CSV/JSON vÃ o bá»™ nhá»› RAM dÆ°á»›i dáº¡ng báº£ng dá»¯ liá»‡u Ä‘á»ƒ phÃ¢n tÃ\u{AD}ch SQL.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -2809,7 +2815,7 @@ impl InternalMcpServer for ChartServer {
         Ok(vec![
             McpTool {
                 name: "generate_chart_image".to_string(),
-                description: "Váº½ biá»ƒu Ä‘á»“ tá»« dá»¯ liá»‡u JSON vÃ  xuáº¥t ra Ä‘Æ°á»ng dáº«n file áº£nh PNG cá»¥c bá»™. Ráº¥t há»¯u Ã­ch khi cáº§n chÃ¨n biá»ƒu Ä‘á»“ vÃ o PowerPoint (PPTX) hoáº·c Word.".to_string(),
+                description: "Váº½ biá»ƒu Ä‘á»“ tá»« dá»¯ liá»‡u JSON vÃ  xuáº¥t ra Ä‘Æ°á»ng dáº«n file áº£nh PNG cá»¥c bá»™. Ráº¥t há»¯u Ã\u{AD}ch khi cáº§n chÃ¨n biá»ƒu Ä‘á»“ vÃ o PowerPoint (PPTX) hoáº·c Word.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -2924,6 +2930,12 @@ impl InternalMcpServer for ChartServer {
 /// --- Search MCP Server ---
 pub struct WebSearchServer {}
 
+impl Default for WebSearchServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebSearchServer {
     pub fn new() -> Self {
         Self {}
@@ -2952,7 +2964,7 @@ impl InternalMcpServer for WebSearchServer {
             },
             McpTool {
                 name: "read_url".to_string(),
-                description: "Äá»c vÃ  trÃ­ch xuáº¥t ná»™i dung tá»« má»™t URL thÃ nh vÄƒn báº£n thuáº§n. Sá»­ dá»¥ng Obscura headless browser (V8, stealth mode) â€” há»— trá»£ JavaScript-rendered pages, khÃ´ng cáº§n Chrome/Edge.".to_string(),
+                description: "Äá»c vÃ  trÃ\u{AD}ch xuáº¥t ná»™i dung tá»« má»™t URL thÃ nh vÄƒn báº£n thuáº§n. Sá»\u{AD} dá»¥ng Obscura headless browser (V8, stealth mode) â€” há»— trá»£ JavaScript-rendered pages, khÃ´ng cáº§n Chrome/Edge.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -3081,6 +3093,12 @@ impl InternalMcpServer for WebSearchServer {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 pub struct WebFetchServer;
 
+impl Default for WebFetchServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebFetchServer {
     pub fn new() -> Self {
         Self
@@ -3126,7 +3144,7 @@ impl InternalMcpServer for WebFetchServer {
                 name: "web_scrape_parallel".to_string(),
                 description:
                     "Scrape nhiá»u URL cÃ¹ng lÃºc báº±ng Obscura vá»›i nhiá»u worker song song. \
-                     Hiá»‡u quáº£ khi cáº§n thu tháº­p dá»¯ liá»‡u tá»« nhiá»u trang cÃ¹ng lÃºc.".to_string(),
+                     Hiá»‡u quáº£ khi cáº§n thu tháº\u{AD}p dá»¯ liá»‡u tá»« nhiá»u trang cÃ¹ng lÃºc.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -3142,7 +3160,7 @@ impl InternalMcpServer for WebFetchServer {
                         },
                         "eval": {
                             "type": "string",
-                            "description": "JavaScript cháº¡y trÃªn má»—i trang Ä‘á»ƒ trÃ­ch xuáº¥t dá»¯ liá»‡u"
+                            "description": "JavaScript cháº¡y trÃªn má»—i trang Ä‘á»ƒ trÃ\u{AD}ch xuáº¥t dá»¯ liá»‡u"
                         }
                     },
                     "required": ["urls"]
@@ -3333,6 +3351,12 @@ impl InternalMcpServer for WebFetchServer {
 /// --- Office COM Server ---
 pub struct OfficeComServer {}
 
+impl Default for OfficeComServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OfficeComServer {
     pub fn new() -> Self {
         Self {}
@@ -3353,7 +3377,7 @@ impl InternalMcpServer for OfficeComServer {
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã­ch" },
+                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã\u{AD}ch" },
                         "text": { "type": "string", "description": "VÄƒn báº£n cáº§n chÃ¨n" }
                     },
                     "required": ["app_type", "text"]
@@ -3366,7 +3390,7 @@ impl InternalMcpServer for OfficeComServer {
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã­ch" },
+                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã\u{AD}ch" },
                         "text": { "type": "string", "description": "VÄƒn báº£n má»›i cho toÃ n bá»™ tÃ i liá»‡u" }
                     },
                     "required": ["app_type", "text"]
@@ -3379,7 +3403,7 @@ impl InternalMcpServer for OfficeComServer {
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã­ch" }
+                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã\u{AD}ch" }
                     },
                     "required": ["app_type"]
                 }),
@@ -3387,11 +3411,11 @@ impl InternalMcpServer for OfficeComServer {
             },
             McpTool {
                 name: "com_extract_active_doc".to_string(),
-                description: "TrÃ­ch xuáº¥t toÃ n bá»™ vÄƒn báº£n tá»« tÃ i liá»‡u Ä‘ang má»Ÿ.".to_string(),
+                description: "TrÃ\u{AD}ch xuáº¥t toÃ n bá»™ vÄƒn báº£n tá»« tÃ i liá»‡u Ä‘ang má»Ÿ.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã­ch" }
+                        "app_type": { "type": "string", "enum": ["Word", "Excel", "PowerPoint"], "description": "á»¨ng dá»¥ng Ä‘Ã\u{AD}ch" }
                     },
                     "required": ["app_type"]
                 }),

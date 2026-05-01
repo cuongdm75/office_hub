@@ -1143,8 +1143,8 @@ macro_rules! all_commands {
             // Orchestrator / Chat
             $crate::commands::send_chat_message,
             $crate::commands::create_session,
-            crate::commands::delete_session,
-            crate::commands::list_sessions,
+            $crate::commands::delete_session,
+            $crate::commands::list_sessions,
             crate::commands::get_session_history,
             // LLM Gateway
             crate::commands::update_llm_settings,

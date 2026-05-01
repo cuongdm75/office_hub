@@ -1977,7 +1977,7 @@ impl LlmGateway {
             .join("\n");
 
         let system = "Báº¡n lÃ  trá»£ lÃ½ tÃ³m táº¯t há»™i thoáº¡i. \
-                      Nhiá»‡m vá»¥: tÃ³m táº¯t lá»‹ch sá»­ há»™i thoáº¡i sau Ä‘Ã¢y thÃ nh \
+                      Nhiá»‡m vá»¥: tÃ³m táº¯t lá»‹ch sá»\u{AD} há»™i thoáº¡i sau Ä‘Ã¢y thÃ nh \
                       má»™t Ä‘oáº¡n ngáº¯n gá»n (â‰¤ 300 tá»«), báº±ng ngÃ´n ngá»¯ cá»§a cuá»™c há»™i thoáº¡i, \
                       giá»¯ láº¡i táº¥t cáº£ thÃ´ng tin quan trá»ng (file path, sá»‘ liá»‡u, yÃªu cáº§u \
                       Ä‘Ã£ hoÃ n thÃ nh, quyáº¿t Ä‘á»‹nh Ä‘Ã£ Ä‘Æ°á»£c Ä‘Æ°a ra).";
@@ -2211,7 +2211,7 @@ mod tests {
     #[test]
     fn test_estimate_tokens_ascii() {
         let t = estimate_tokens("Hello, how are you?");
-        assert!(t >= 3 && t <= 8, "Expected ~5 tokens, got {t}");
+        assert!((3..=8).contains(&t), "Expected ~5 tokens, got {t}");
     }
 
     #[test]

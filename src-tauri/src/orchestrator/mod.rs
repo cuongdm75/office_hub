@@ -628,7 +628,7 @@ impl Orchestrator {
         mcp_tools_desc
             .push_str("- search_available_tools (mcp): Tim kiem them cong cu theo tu khoa.\n");
 
-        let tools_desc = format!(
+        let _tools_desc = format!(
             "(Danh sach {} MCP tools va {} Agent tools. Goi theo Tool ID chinh xac.)\n",
             all_mcp.len(),
             all_agent_tools.len()
@@ -2096,7 +2096,7 @@ impl Orchestrator {
                                             };
                                             if let Err(e) = mem.log_telemetry(
                                                 session_id,
-                                                workspace_id.as_deref(),
+                                                workspace_id,
                                                 &agent_id.0,
                                                 tool_name,
                                                 latency_ms,
@@ -2128,7 +2128,7 @@ impl Orchestrator {
                                         };
                                         if let Err(e) = mem.log_telemetry(
                                             session_id,
-                                            workspace_id.as_deref(),
+                                            workspace_id,
                                             "orchestrator",
                                             tool_name,
                                             latency_ms,
@@ -2765,7 +2765,7 @@ mod tests {
 
         // Assert the response is false (rejected due to timeout simulation)
 
-        assert_eq!(result.unwrap().unwrap(), false);
+        assert!(!result.unwrap().unwrap());
 
         assert_eq!(mgr.pending.len(), 0);
     }

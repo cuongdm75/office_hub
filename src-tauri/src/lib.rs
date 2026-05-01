@@ -635,7 +635,7 @@ pub fn run() {
             let state = app_handle.state::<AppState>();
 
             let ws_server_clone = Arc::clone(&state.websocket_server);
-            let hybrid = Arc::clone(&state.hybrid_state);
+            let _hybrid = Arc::clone(&state.hybrid_state);
             let orchestrator_clone = state.orchestrator.clone();
             let hitl_clone = state.hitl_manager.clone();
 
@@ -1114,29 +1114,26 @@ pub fn run() {
                     let session_id = incoming.session_id.clone();
 
                     // ── Intercept Mobile System Commands ────────────────────
-                    match incoming.text.as_str() {
-                        "__DELETE_SESSION__" => {
-                            let sid = session_id.clone();
-                            let sse_clone = sse.clone();
-                            let cmd_id_clone = cmd_id.clone();
-                            tauri::async_runtime::spawn(async move {
-                                if let Err(e) = orchestrator.delete_session(&sid).await {
-                                    tracing::error!("delete_session via SSE failed: {}", e);
-                                } else {
-                                    // Broadcast updated session list so mobile UI refreshes
-                                    match orchestrator.list_sessions().await {
-                                        Ok(sessions) => sse_clone.broadcast_event(crate::mcp_transport::SseEvent {
-                                            event_type: crate::mcp_transport::SseEventType::SessionList,
-                                            call_id: Some(cmd_id_clone),
-                                            payload: serde_json::json!({ "sessions": sessions }),
-                                        }),
-                                        Err(e) => tracing::warn!("list_sessions after delete failed: {}", e),
-                                    }
+                    if incoming.text.as_str() == "__DELETE_SESSION__" {
+                        let sid = session_id.clone();
+                        let sse_clone = sse.clone();
+                        let cmd_id_clone = cmd_id.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(e) = orchestrator.delete_session(&sid).await {
+                                tracing::error!("delete_session via SSE failed: {}", e);
+                            } else {
+                                // Broadcast updated session list so mobile UI refreshes
+                                match orchestrator.list_sessions().await {
+                                    Ok(sessions) => sse_clone.broadcast_event(crate::mcp_transport::SseEvent {
+                                        event_type: crate::mcp_transport::SseEventType::SessionList,
+                                        call_id: Some(cmd_id_clone),
+                                        payload: serde_json::json!({ "sessions": sessions }),
+                                    }),
+                                    Err(e) => tracing::warn!("list_sessions after delete failed: {}", e),
                                 }
-                            });
-                            continue;
-                        }
-                        _ => {}
+                            }
+                        });
+                        continue;
                     }
 
                     // ── Regular LLM command → Orchestrator → SSE ─────────────

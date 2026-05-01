@@ -8,6 +8,12 @@ use std::path::PathBuf;
 
 pub struct NativeChartServer;
 
+impl Default for NativeChartServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NativeChartServer {
     pub fn new() -> Self {
         Self
@@ -141,7 +147,7 @@ fn draw_chart(
         parsed_data.push((x_val, y_val));
     }
 
-    max_y = max_y * 1.1;
+    max_y *= 1.1;
     if max_y <= 0.0 {
         max_y = 10.0;
     }
@@ -190,7 +196,7 @@ fn draw_chart(
                     .map(|(i, (_, y))| (i as f64, *y)),
                 5,
                 &RGBColor(255, 99, 132),
-                &|c, s, st| return EmptyElement::at(c) + Circle::new((0, 0), s, st.filled()),
+                &|c, s, st| EmptyElement::at(c) + Circle::new((0, 0), s, st.filled()),
             ))?;
         }
         "scatter" => {
@@ -201,7 +207,7 @@ fn draw_chart(
                     .map(|(i, (_, y))| (i as f64, *y)),
                 5,
                 &RGBColor(75, 192, 192),
-                &|c, s, st| return EmptyElement::at(c) + Circle::new((0, 0), s, st.filled()),
+                &|c, s, st| EmptyElement::at(c) + Circle::new((0, 0), s, st.filled()),
             ))?;
         }
         _ => {

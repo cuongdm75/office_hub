@@ -71,11 +71,10 @@ impl BrowserEngine {
                 return Ok(path.clone());
             }
             // For PATH-based entry, try resolving
-            if path.as_os_str() == "obscura.exe" {
-                if which_obscura().is_some() {
+            if path.as_os_str() == "obscura.exe"
+                && which_obscura().is_some() {
                     return Ok(path.clone());
                 }
-            }
         }
 
         anyhow::bail!(

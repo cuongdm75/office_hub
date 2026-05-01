@@ -916,7 +916,7 @@ mod tests {
     fn test_estimate_tokens_ascii() {
         // "hello world" = 11 chars → 11/4 = 2 tokens (min 1)
         let t = estimate_tokens("hello world");
-        assert!(t >= 1 && t <= 5, "got {}", t);
+        assert!((1..=5).contains(&t), "got {}", t);
     }
 
     #[test]

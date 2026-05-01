@@ -1501,7 +1501,7 @@ mod tests {
             .await
             .expect("Tool call should succeed");
 
-        assert_eq!(result.is_error, false);
+        assert!(!result.is_error);
         assert_eq!(result.content.len(), 1);
         assert_eq!(
             result.content[0].text.as_deref(),
