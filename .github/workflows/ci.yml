@@ -32,6 +32,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend (for Tauri context)
+        run: npm run build
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -50,15 +62,6 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
-
       - name: TypeScript type-check
         run: npm run type-check
 
@@ -76,6 +79,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend (for Tauri context)
+        run: npm run build
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -92,15 +107,6 @@ jobs:
         working-directory: src-tauri
         run: cargo test --test '*' -- --nocapture
         continue-on-error: true   # integration tests may need Office installed
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
 
       - name: Run frontend unit tests
         run: npm run test -- --run
