@@ -44,17 +44,33 @@ Office Hub utilizes a bleeding-edge technology stack optimized for performance, 
 - **Office Integration:** Microsoft Win32 COM APIs, Office.js Web Add-ins (React + Vite)
 - **AI Infrastructure:** Model Context Protocol (MCP), GenAI framework (with multi-provider support: Gemini, OpenAI, Anthropic, Local Ollama)
 
-### 🚀 Getting Started (End Users)
+### 🚀 Getting Started (End Users / No Code Required)
 
-To use Office Hub immediately without compiling code:
+With just 5 simple steps, you can install and use Office Hub immediately without any programming knowledge:
 
-1. **Download the Release:** Go to the [Releases page]() and download `OfficeHub-Setup.exe` (Desktop) and `OfficeHub.apk` (Android).
-2. **Install Desktop App:** Run the `.exe` installer. 
-3. **Configure LLM:** On the first launch, go to the Settings tab to enter your API Keys (Gemini, OpenAI, or Local Ollama).
-4. **Install Office Add-ins:** 
-   - Open Word/Excel -> `Insert` -> `Add-ins` -> `My Add-ins` -> `Upload My Add-in`.
-   - Select the `manifest.xml` provided in the release package.
-5. **Connect Mobile:** Open the Mobile App, enter your Desktop IP address and pair it using the QR code.
+1. **Download the Software:**
+   - Go to the [Releases page](https://github.com/cuongdm75/office_hub/releases/latest).
+   - Download the `OfficeHub-Setup.exe` file (for Windows Desktop) and `OfficeHub.apk` (if you use an Android phone).
+
+2. **Install on Desktop:**
+   - Double-click the downloaded `OfficeHub-Setup.exe` file to install it like any regular software.
+   - Open the Office Hub AI app from your Desktop.
+
+3. **Configure Artificial Intelligence (AI):**
+   - On the first launch, switch to the **Settings** tab (gear icon).
+   - Enter the API Key of the AI you want to use (e.g., Google Gemini, OpenAI, or connect Local Ollama if available).
+
+4. **Integrate with Word / Excel (Install Add-in):**
+   - Open Microsoft Word or Excel on your computer.
+   - Click the **Insert** tab -> **Get Add-ins** -> **My Add-ins**.
+   - Select **Upload My Add-in**.
+   - Choose the `manifest.xml` file (included in the release package downloaded in Step 1).
+   - The Office Hub window will instantly appear on the right side of your Word/Excel screen!
+
+5. **Connect Mobile Companion App:**
+   - Install the `OfficeHub.apk` file on your Android phone.
+   - Open the Office Hub app on your phone.
+   - On the desktop app, click the **QR Code** button to scan the code, or directly enter your computer's **IP Address** into the phone to connect. You can now control the AI remotely!
 
 ---
 
@@ -144,17 +160,33 @@ Office Hub được xây dựng dựa trên các công nghệ tiên tiến nhấ
 - **Office Integration:** Microsoft Win32 COM APIs, Office.js Web Add-ins (React + Vite)
 - **AI Infrastructure:** Model Context Protocol (MCP), Framework GenAI (Hỗ trợ đa LLM: Gemini, OpenAI, Anthropic, Ollama cục bộ)
 
-### 🚀 Bắt đầu sử dụng (Dành cho Người dùng)
+### 🚀 Hướng dẫn cài đặt cho người dùng (Không cần lập trình)
 
-Để sử dụng Office Hub ngay lập tức mà không cần biết lập trình:
+Chỉ với 5 bước đơn giản, bạn có thể cài đặt và sử dụng Office Hub ngay lập tức mà không cần biết viết code:
 
-1. **Tải phần mềm:** Truy cập trang [Releases]() và tải file `OfficeHub-Setup.exe` (cho Desktop) và `OfficeHub.apk` (cho Android).
-2. **Cài đặt Desktop:** Chạy file `.exe` để cài đặt phần mềm.
-3. **Cấu hình LLM:** Trong lần chạy đầu tiên, vào mục Settings để nhập API Key (Gemini, OpenAI, hoặc Ollama).
-4. **Cài đặt Office Add-in:** 
-   - Mở Word/Excel -> `Insert` (Chèn) -> `Add-ins` -> `My Add-ins` -> `Upload My Add-in`.
-   - Chọn file `manifest.xml` đi kèm trong gói cài đặt.
-5. **Kết nối Mobile:** Mở app trên điện thoại, nhập địa chỉ IP của máy tính (hoặc quét mã QR) để điều khiển từ xa.
+1. **Tải phần mềm (Download):**
+   - Truy cập vào trang [Releases (Phát hành mới nhất)](https://github.com/cuongdm75/office_hub/releases/latest).
+   - Tải file `OfficeHub-Setup.exe` (cho máy tính Windows) và `OfficeHub.apk` (nếu bạn dùng điện thoại Android).
+
+2. **Cài đặt trên Máy tính (Desktop App):**
+   - Nháy đúp vào file `OfficeHub-Setup.exe` vừa tải về để cài đặt như các phần mềm thông thường.
+   - Mở ứng dụng Office Hub AI từ màn hình Desktop của bạn.
+
+3. **Cấu hình Trí tuệ nhân tạo (AI):**
+   - Trong lần đầu mở ứng dụng, hãy chuyển sang tab **Cài đặt (Settings)** (biểu tượng bánh răng).
+   - Điền API Key của AI mà bạn muốn sử dụng (ví dụ: Google Gemini, OpenAI, hoặc kết nối Local Ollama nếu có).
+
+4. **Tích hợp vào Word / Excel (Cài đặt Add-in):**
+   - Mở phần mềm Microsoft Word hoặc Excel trên máy tính của bạn.
+   - Bấm vào tab **Insert (Chèn)** -> **Get Add-ins (Tải Add-in)** -> **My Add-ins (Add-in của tôi)**.
+   - Chọn **Upload My Add-in (Tải Add-in của tôi lên)**.
+   - Chọn file `manifest.xml` (file này đính kèm cùng bộ cài đặt tải về ở Bước 1).
+   - Cửa sổ Office Hub sẽ lập tức xuất hiện bên phải màn hình Word/Excel của bạn!
+
+5. **Kết nối Ứng dụng Điện thoại (Mobile Companion):**
+   - Cài đặt file `OfficeHub.apk` vào điện thoại Android của bạn.
+   - Mở ứng dụng Office Hub trên điện thoại.
+   - Trên ứng dụng máy tính, nhấn vào nút **Mã QR** để quét mã, hoặc nhập trực tiếp **Địa chỉ IP** của máy tính vào điện thoại để kết nối. Giờ đây bạn có thể điều khiển AI từ xa!
 
 ---
 
