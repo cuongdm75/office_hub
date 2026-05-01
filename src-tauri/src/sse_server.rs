@@ -23,7 +23,13 @@
 //     via a DashMap<session_id, Instant> to prevent broadcast spam.
 // ============================================================================
 
-use std::{convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc, time::{Duration, Instant}};
+use std::{
+    convert::Infallible,
+    net::SocketAddr,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use axum::{
     body::Body,
@@ -121,7 +127,8 @@ impl HybridServerState {
             if let Some(session_id) = evt.payload.get("session_id").and_then(|v| v.as_str()) {
                 let now = Instant::now();
                 let throttle_duration = Duration::from_millis(PROGRESS_THROTTLE_MS);
-                let should_drop = self.progress_throttle
+                let should_drop = self
+                    .progress_throttle
                     .get(session_id)
                     .map(|last| now.duration_since(*last) < throttle_duration)
                     .unwrap_or(false);
@@ -205,7 +212,11 @@ impl HybridServerState {
 // Server bootstrap
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn start_hybrid_server(port: u16, state: HybridServerState, orchestrator: crate::OrchestratorHandle) {
+pub async fn start_hybrid_server(
+    port: u16,
+    state: HybridServerState,
+    orchestrator: crate::OrchestratorHandle,
+) {
     let public_dir = state.public_dir.clone();
 
     if let Err(e) = std::fs::create_dir_all(&public_dir) {
@@ -255,11 +266,20 @@ pub async fn start_hybrid_server(port: u16, state: HybridServerState, orchestrat
         .route("/api/v1/artifacts/{filename}", delete(delete_artifact))
         // ── Session management (REST) ─────────────────────────────────────────
         .route("/api/v1/sessions", get(list_sessions_rest))
-        .route("/api/v1/sessions/{id}/history", get(get_session_history_rest))
+        .route(
+            "/api/v1/sessions/{id}/history",
+            get(get_session_history_rest),
+        )
         // ── Workspace management ──────────────────────────────────────────────
         .route("/api/v1/workspaces", get(list_workspaces_rest))
-        .route("/api/v1/workspaces/{id}/links", get(get_workspace_links_rest))
-        .route("/api/v1/workspaces/{id}/files", get(get_workspace_files_rest))
+        .route(
+            "/api/v1/workspaces/{id}/links",
+            get(get_workspace_links_rest),
+        )
+        .route(
+            "/api/v1/workspaces/{id}/files",
+            get(get_workspace_files_rest),
+        )
         // ── Static file serving ───────────────────────────────────────────────
         .nest_service("/files", get_service(ServeDir::new(public_dir.clone())))
         // ── Legacy upload (kept for backwards compat) ─────────────────────────
@@ -295,7 +315,11 @@ async fn auth_handler(
     };
     Json(AuthResponse {
         ok,
-        message: if ok { "Authenticated".to_string() } else { "Invalid token".to_string() },
+        message: if ok {
+            "Authenticated".to_string()
+        } else {
+            "Invalid token".to_string()
+        },
     })
 }
 
@@ -318,7 +342,10 @@ async fn sse_handler(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let client_id = query.session_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+    let client_id = query
+        .session_id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     info!(client_id = %client_id, "New SSE client connected");
 
     // Create per-client bounded channel — this is the key memory fix
@@ -388,13 +415,18 @@ async fn post_command(
     Json(cmd): Json<MobileCommand>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     let session_id = cmd.session_id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
     let context_file_path = cmd.context.as_ref().and_then(|ctx| {
-        ctx.get("file_path").and_then(|v| v.as_str()).map(|s| s.to_string())
+        ctx.get("file_path")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     });
 
     let incoming = IncomingMobileCmd {
@@ -408,16 +440,22 @@ async fn post_command(
     match state.command_tx.send(incoming).await {
         Ok(_) => {
             debug!(command_id = %cmd.command_id, "Command queued");
-            (StatusCode::ACCEPTED, Json(serde_json::json!({
-                "ok": true,
-                "session_id": session_id,
-                "command_id": cmd.command_id,
-                "message": "Command accepted — watch SSE stream for results",
-            })))
+            (
+                StatusCode::ACCEPTED,
+                Json(serde_json::json!({
+                    "ok": true,
+                    "session_id": session_id,
+                    "command_id": cmd.command_id,
+                    "message": "Command accepted — watch SSE stream for results",
+                })),
+            )
         }
         Err(e) => {
             error!("Failed to queue command: {}", e);
-            (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({"error":"queue full"})))
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({"error":"queue full"})),
+            )
         }
     }
 }
@@ -432,7 +470,10 @@ async fn post_tool_call(
     Json(call): Json<McpToolCall>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     let text = format!(
@@ -441,7 +482,8 @@ async fn post_tool_call(
         serde_json::to_string(&call.arguments).unwrap_or_default()
     );
 
-    let session_id = call.arguments
+    let session_id = call
+        .arguments
         .get("session_id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
@@ -449,19 +491,29 @@ async fn post_tool_call(
 
     let incoming = IncomingMobileCmd {
         command_id: call.call_id.clone(),
-        session_id: if session_id.is_empty() { Uuid::new_v4().to_string() } else { session_id },
+        session_id: if session_id.is_empty() {
+            Uuid::new_v4().to_string()
+        } else {
+            session_id
+        },
         text,
         context_file_path: None,
         received_at: Utc::now(),
     };
 
     match state.command_tx.send(incoming).await {
-        Ok(_) => (StatusCode::ACCEPTED, Json(serde_json::json!({
-            "ok": true,
-            "call_id": call.call_id,
-            "message": "Tool call accepted — watch SSE for result",
-        }))),
-        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({"error":"queue full"}))),
+        Ok(_) => (
+            StatusCode::ACCEPTED,
+            Json(serde_json::json!({
+                "ok": true,
+                "call_id": call.call_id,
+                "message": "Tool call accepted — watch SSE for result",
+            })),
+        ),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error":"queue full"})),
+        ),
     }
 }
 
@@ -475,18 +527,21 @@ async fn upload_file(
     mut multipart: Multipart,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     let upload_dir = state.public_dir.clone();
 
     while let Ok(Some(mut field)) = multipart.next_field().await {
-        let original_name = field
-            .file_name()
-            .unwrap_or("upload.tmp")
-            .to_string();
+        let original_name = field.file_name().unwrap_or("upload.tmp").to_string();
 
-        let safe_name = original_name.replace("/", "_").replace("\\", "_").replace("..", "_");
+        let safe_name = original_name
+            .replace("/", "_")
+            .replace("\\", "_")
+            .replace("..", "_");
         let unique_id = safe_name.clone();
         let file_path = upload_dir.join(&unique_id);
 
@@ -498,9 +553,12 @@ async fn upload_file(
         let mut file = match tokio::fs::File::create(&file_path).await {
             Ok(f) => f,
             Err(e) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                    "error": format!("Failed to create file: {}", e)
-                })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": format!("Failed to create file: {}", e)
+                    })),
+                );
             }
         };
 
@@ -509,28 +567,32 @@ async fn upload_file(
 
         while let Ok(Some(chunk)) = field.chunk().await {
             if let Err(e) = file.write_all(&chunk).await {
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                    "error": format!("Failed to write chunk: {}", e)
-                })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": format!("Failed to write chunk: {}", e)
+                    })),
+                );
             }
             size += chunk.len() as u64;
         }
 
-        let resource = McpResource::for_file(
-            &unique_id,
-            &original_name,
-            &mime,
-            size,
-        );
+        let resource = McpResource::for_file(&unique_id, &original_name, &mime, size);
 
-        return (StatusCode::CREATED, Json(serde_json::json!({
-            "ok": true,
-            "resource": resource,
-            "file_path": file_path.to_string_lossy(),
-        })));
+        return (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "ok": true,
+                "resource": resource,
+                "file_path": file_path.to_string_lossy(),
+            })),
+        );
     }
 
-    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"No file received"})))
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"error":"No file received"})),
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -571,7 +633,8 @@ async fn download_file(
             let mut response = Response::new(body);
             response.headers_mut().insert(
                 "content-type",
-                mime.parse().unwrap_or("application/octet-stream".parse().unwrap()),
+                mime.parse()
+                    .unwrap_or("application/octet-stream".parse().unwrap()),
             );
             response.headers_mut().insert(
                 "content-disposition",
@@ -580,10 +643,9 @@ async fn download_file(
                     .unwrap_or("attachment".parse().unwrap()),
             );
             if let Ok(meta) = metadata {
-                response.headers_mut().insert(
-                    "content-length",
-                    meta.len().to_string().parse().unwrap(),
-                );
+                response
+                    .headers_mut()
+                    .insert("content-length", meta.len().to_string().parse().unwrap());
             }
             response
         }
@@ -612,7 +674,10 @@ async fn list_artifacts(
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     let artifacts_dir = state.public_dir.clone();
@@ -639,10 +704,16 @@ async fn list_artifacts(
         }
     }
     files.sort_by(|a, b| {
-        b["timestamp"].as_str().unwrap_or("").cmp(a["timestamp"].as_str().unwrap_or(""))
+        b["timestamp"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["timestamp"].as_str().unwrap_or(""))
     });
 
-    (StatusCode::OK, Json(serde_json::json!({ "artifacts": files })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "artifacts": files })),
+    )
 }
 
 async fn delete_artifact(
@@ -651,11 +722,17 @@ async fn delete_artifact(
     AxumPath(filename): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"invalid filename"})));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error":"invalid filename"})),
+        );
     }
 
     let artifacts_dir = state.public_dir.clone();
@@ -663,10 +740,14 @@ async fn delete_artifact(
 
     match std::fs::remove_file(&path) {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({"ok": true}))),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
-            (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"not found"}))),
-        Err(e) =>
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error":"not found"})),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        ),
     }
 }
 
@@ -678,11 +759,7 @@ async fn legacy_upload(
     State(state): State<Arc<HybridServerState>>,
     multipart: Multipart,
 ) -> Json<Value> {
-    let (_status, Json(body)) = upload_file(
-        State(state),
-        HeaderMap::new(),
-        multipart,
-    ).await;
+    let (_status, Json(body)) = upload_file(State(state), HeaderMap::new(), multipart).await;
     Json(body)
 }
 
@@ -696,12 +773,21 @@ async fn list_sessions_rest(
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     match orchestrator.list_sessions().await {
-        Ok(sessions) => (StatusCode::OK, Json(serde_json::json!({ "sessions": sessions }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))),
+        Ok(sessions) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "sessions": sessions })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        ),
     }
 }
 
@@ -712,26 +798,39 @@ async fn get_session_history_rest(
     AxumPath(session_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
 
     let store = orchestrator.get_session_store().await;
     if let Some(session) = store.get(&session_id) {
-        let messages: Vec<serde_json::Value> = session.messages.iter().map(|msg| {
-            serde_json::json!({
-                "id": msg.id,
-                "role": msg.role,
-                "content": msg.content,
-                "timestamp_ms": msg.created_at.timestamp_millis(),
-                "agent_used": msg.agent_name,
+        let messages: Vec<serde_json::Value> = session
+            .messages
+            .iter()
+            .map(|msg| {
+                serde_json::json!({
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "timestamp_ms": msg.created_at.timestamp_millis(),
+                    "agent_used": msg.agent_name,
+                })
             })
-        }).collect();
-        (StatusCode::OK, Json(serde_json::json!({
-            "session_id": session_id,
-            "messages": messages,
-        })))
+            .collect();
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "session_id": session_id,
+                "messages": messages,
+            })),
+        )
     } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Session not found"})))
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Session not found"})),
+        )
     }
 }
 
@@ -744,13 +843,21 @@ async fn list_workspaces_rest(
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
     let app_data_dir = match &state.app_data_dir {
         Some(dir) => dir,
-        None => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error":"app_data_dir missing"}))),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error":"app_data_dir missing"})),
+            )
+        }
     };
-    
+
     let base_dir = app_data_dir.join("workspaces");
     let mut workspaces = Vec::new();
     workspaces.push(crate::knowledge::Workspace {
@@ -758,7 +865,7 @@ async fn list_workspaces_rest(
         name: "Default Workspace".to_string(),
         created_at: 0,
     });
-    
+
     if base_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&base_dir) {
             for entry in entries.flatten() {
@@ -774,12 +881,20 @@ async fn list_workspaces_rest(
                     if meta_path.exists() {
                         if let Ok(content) = std::fs::read_to_string(&meta_path) {
                             if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&content) {
-                                if let Some(n) = meta.get("name").and_then(|v| v.as_str()) { name = n.to_string(); }
-                                if let Some(c) = meta.get("created_at").and_then(|v| v.as_u64()) { created_at = c; }
+                                if let Some(n) = meta.get("name").and_then(|v| v.as_str()) {
+                                    name = n.to_string();
+                                }
+                                if let Some(c) = meta.get("created_at").and_then(|v| v.as_u64()) {
+                                    created_at = c;
+                                }
                             }
                         }
                     }
-                    workspaces.push(crate::knowledge::Workspace { id, name, created_at });
+                    workspaces.push(crate::knowledge::Workspace {
+                        id,
+                        name,
+                        created_at,
+                    });
                 }
             }
         }
@@ -793,22 +908,34 @@ async fn get_workspace_links_rest(
     AxumPath(workspace_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
     let app_data_dir = match &state.app_data_dir {
         Some(dir) => dir,
-        None => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error":"app_data_dir missing"}))),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error":"app_data_dir missing"})),
+            )
+        }
     };
     let path = if workspace_id == "default" {
         app_data_dir.join("links.json")
     } else {
-        app_data_dir.join("workspaces").join(&workspace_id).join("links.json")
+        app_data_dir
+            .join("workspaces")
+            .join(&workspace_id)
+            .join("links.json")
     };
     if !path.exists() {
         return (StatusCode::OK, Json(serde_json::json!([])));
     }
     let content = std::fs::read_to_string(&path).unwrap_or_else(|_| "[]".to_string());
-    let links: Vec<crate::knowledge::WorkspaceLink> = serde_json::from_str(&content).unwrap_or_default();
+    let links: Vec<crate::knowledge::WorkspaceLink> =
+        serde_json::from_str(&content).unwrap_or_default();
     (StatusCode::OK, Json(serde_json::json!(links)))
 }
 
@@ -818,17 +945,33 @@ async fn get_workspace_files_rest(
     AxumPath(workspace_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     if !state.check_auth(&headers) {
-        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"unauthorized"})));
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error":"unauthorized"})),
+        );
     }
     let app_data_dir = match &state.app_data_dir {
         Some(dir) => dir,
-        None => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error":"app_data_dir missing"}))),
+        None => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error":"app_data_dir missing"})),
+            )
+        }
     };
-    
+
     let base_dir = app_data_dir.join("workspaces").join(&workspace_id);
     let mut files = Vec::new();
-    
-    let categories = ["knowledge", "policies", "data", "docs/inbox", "docs/outbox", "links", "memory"];
+
+    let categories = [
+        "knowledge",
+        "policies",
+        "data",
+        "docs/inbox",
+        "docs/outbox",
+        "links",
+        "memory",
+    ];
     for category in categories {
         let cat_dir = base_dir.join(category);
         if cat_dir.exists() {
@@ -849,6 +992,6 @@ async fn get_workspace_files_rest(
             }
         }
     }
-    
+
     (StatusCode::OK, Json(serde_json::json!(files)))
 }

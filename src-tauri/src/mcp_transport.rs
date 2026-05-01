@@ -10,9 +10,9 @@
 //                             streamed via /api/v1/files/*
 // ============================================================================
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Uplink: Mobile → Server
@@ -119,7 +119,13 @@ pub struct SseEvent {
 impl SseEvent {
     // ── Constructors ─────────────────────────────────────────────────────────
 
-    pub fn status(call_id: Option<String>, run_id: &str, name: &str, status: &str, message: Option<String>) -> Self {
+    pub fn status(
+        call_id: Option<String>,
+        run_id: &str,
+        name: &str,
+        status: &str,
+        message: Option<String>,
+    ) -> Self {
         Self {
             event_type: SseEventType::Status,
             call_id,
@@ -149,7 +155,14 @@ impl SseEvent {
         }
     }
 
-    pub fn result(call_id: Option<String>, session_id: &str, content: &str, intent: Option<&str>, agent_used: Option<&str>, metadata: Option<Value>) -> Self {
+    pub fn result(
+        call_id: Option<String>,
+        session_id: &str,
+        content: &str,
+        intent: Option<&str>,
+        agent_used: Option<&str>,
+        metadata: Option<Value>,
+    ) -> Self {
         Self {
             event_type: SseEventType::Result,
             call_id,
@@ -172,7 +185,13 @@ impl SseEvent {
         }
     }
 
-    pub fn approval_request(action_id: &str, description: &str, risk_level: &str, payload: Option<Value>, timeout_seconds: u64) -> Self {
+    pub fn approval_request(
+        action_id: &str,
+        description: &str,
+        risk_level: &str,
+        payload: Option<Value>,
+        timeout_seconds: u64,
+    ) -> Self {
         Self {
             event_type: SseEventType::ApprovalRequest,
             call_id: Some(action_id.to_string()),

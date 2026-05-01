@@ -6,11 +6,11 @@
 // text matching without heavy Vector DB dependencies.
 // ============================================================================
 
+use chrono::Utc;
 use rusqlite::{params, Connection, Result as SqlResult};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use chrono::Utc;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 #[derive(Clone)]
 pub struct MemoryStore {
@@ -22,7 +22,7 @@ impl MemoryStore {
     pub fn new(db_path: PathBuf) -> anyhow::Result<Self> {
         let conn = Connection::open(&db_path)
             .map_err(|e| anyhow::anyhow!("Failed to open memory db: {}", e))?;
-        
+
         // Setup FTS5 virtual table
         conn.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS memory USING fts5(
@@ -33,7 +33,8 @@ impl MemoryStore {
                 timestamp UNINDEXED
             )",
             [],
-        ).map_err(|e| anyhow::anyhow!("Failed to create FTS5 table: {}", e))?;
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create FTS5 table: {}", e))?;
 
         // Setup Telemetry table
         conn.execute(
@@ -49,17 +50,27 @@ impl MemoryStore {
                 timestamp TEXT
             )",
             [],
-        ).map_err(|e| anyhow::anyhow!("Failed to create telemetry_logs table: {}", e))?;
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create telemetry_logs table: {}", e))?;
 
         info!("Long-term Memory & Telemetry initialized at {:?}", db_path);
-        
+
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
     }
 
     /// Insert a telemetry log for agent execution observability.
-    pub fn log_telemetry(&self, session_id: &str, workspace_id: Option<&str>, agent: &str, action: &str, latency_ms: i64, tokens: usize, status: &str) -> SqlResult<()> {
+    pub fn log_telemetry(
+        &self,
+        session_id: &str,
+        workspace_id: Option<&str>,
+        agent: &str,
+        action: &str,
+        latency_ms: i64,
+        tokens: usize,
+        status: &str,
+    ) -> SqlResult<()> {
         let conn = self.conn.lock().unwrap();
         let timestamp = Utc::now().to_rfc3339();
         let ws_id = workspace_id.unwrap_or("default");
@@ -71,38 +82,53 @@ impl MemoryStore {
     }
 
     /// Insert a summarized context or key fact into long-term memory.
-    pub fn insert_memory(&self, session_id: &str, workspace_id: Option<&str>, topic: &str, content: &str) -> SqlResult<()> {
+    pub fn insert_memory(
+        &self,
+        session_id: &str,
+        workspace_id: Option<&str>,
+        topic: &str,
+        content: &str,
+    ) -> SqlResult<()> {
         let conn = self.conn.lock().unwrap();
         let timestamp = Utc::now().to_rfc3339();
         let ws_id = workspace_id.unwrap_or("default");
-        
+
         conn.execute(
             "INSERT INTO memory (session_id, workspace_id, topic, content, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![session_id, ws_id, topic, content, timestamp],
         )?;
-        
+
         debug!("Memory inserted for session: {}", session_id);
         Ok(())
     }
 
     /// Search long-term memory using FTS5 `MATCH` syntax.
-    pub fn search(&self, workspace_id: Option<&str>, query: &str, limit: usize) -> SqlResult<Vec<String>> {
+    pub fn search(
+        &self,
+        workspace_id: Option<&str>,
+        query: &str,
+        limit: usize,
+    ) -> SqlResult<Vec<String>> {
         let conn = self.conn.lock().unwrap();
         let ws_id = workspace_id.unwrap_or("default");
-        
+
         // Basic sanitization: convert words into OR query for broader search
         let tokens: Vec<&str> = query
             .split_whitespace()
             .filter(|s| s.len() > 1 || s.chars().all(|c| c.is_alphanumeric())) // Giữ lại từ tiếng Việt ngắn gọn, bỏ các từ rác 1 ký tự
             .collect();
-            
+
         if tokens.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         // Wrap words in quotes to prevent FTS5 syntax errors on special characters (e.g., C++, -)
-        let base_fts = tokens.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(" OR ");
-        
+        let base_fts = tokens
+            .iter()
+            .map(|t| format!("\"{}\"", t))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+
         // Ensure workspace isolation
         let fts_query = format!("workspace_id:\"{}\" AND ({})", ws_id, base_fts);
 
@@ -121,11 +147,15 @@ impl MemoryStore {
         for r in results {
             memories.push(r?);
         }
-        
+
         if !memories.is_empty() {
-            debug!("Found {} memory items for query '{}'", memories.len(), fts_query);
+            debug!(
+                "Found {} memory items for query '{}'",
+                memories.len(),
+                fts_query
+            );
         }
-        
+
         Ok(memories)
     }
 }

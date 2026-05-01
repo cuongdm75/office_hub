@@ -15,11 +15,7 @@
 //   audit trail is always complete.
 // ============================================================================
 
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -864,7 +860,10 @@ impl VbaCommandRule {
             })
             .collect::<Result<Vec<_>, RuleEngineError>>()?;
 
-        Ok(Self { _allowed: allowed, blocked })
+        Ok(Self {
+            _allowed: allowed,
+            blocked,
+        })
     }
 }
 
@@ -981,8 +980,11 @@ impl Rule for DomainPolicyRule {
                     url, self.mode
                 ),
                 blocking: true,
-                suggestion: Some("Add the domain to the whitelist in rules/default.yaml under \
-                     agents.web_researcher.allowed_domains.whitelist.".to_string()),
+                suggestion: Some(
+                    "Add the domain to the whitelist in rules/default.yaml under \
+                     agents.web_researcher.allowed_domains.whitelist."
+                        .to_string(),
+                ),
             }];
         }
 
@@ -1807,7 +1809,9 @@ mod tests {
         let engine = default_engine().await;
         let req = ValidationRequest::new(
             "generic",
-            ValidationTarget::Generic { label: "test".into() },
+            ValidationTarget::Generic {
+                label: "test".into(),
+            },
             "",
         );
         let result = engine.validate(req).await;
@@ -1820,10 +1824,12 @@ mod tests {
         // Create an engine with an empty RuleFile to simulate missing or empty config
         let engine = default_engine().await;
         *engine.rule_file.write().await = None; // No rules loaded
-        
+
         let req = ValidationRequest::new(
             "generic",
-            ValidationTarget::Generic { label: "test".into() },
+            ValidationTarget::Generic {
+                label: "test".into(),
+            },
             "some content",
         );
         let result = engine.validate(req).await;
@@ -1834,11 +1840,7 @@ mod tests {
     // ── LengthRule Tests ──────────────────────────────────────────────────────
     #[tokio::test]
     async fn test_length_rule_applies_selectively() {
-        let rule = LengthRule::new(
-            "length_limit",
-            10,
-            vec![ValidationTarget::LlmResponse],
-        );
+        let rule = LengthRule::new("length_limit", 10, vec![ValidationTarget::LlmResponse]);
 
         // Target it applies to
         let req1 = ValidationRequest::new("gateway", ValidationTarget::LlmResponse, "0123456789A");
@@ -1847,7 +1849,13 @@ mod tests {
         assert!(result1[0].blocking);
 
         // Target it does not apply to
-        let req2 = ValidationRequest::new("gateway", ValidationTarget::Generic { label: "any".into() }, "0123456789A");
+        let req2 = ValidationRequest::new(
+            "gateway",
+            ValidationTarget::Generic {
+                label: "any".into(),
+            },
+            "0123456789A",
+        );
         let result2 = rule.evaluate(&req2).await;
         assert!(result2.is_empty());
     }
@@ -1862,22 +1870,27 @@ mod tests {
             "badword",
             "block",
             "reason block",
-        ).unwrap();
-        let req_block = ValidationRequest::new("gateway", ValidationTarget::LlmResponse, "this is a badword.");
+        )
+        .unwrap();
+        let req_block = ValidationRequest::new(
+            "gateway",
+            ValidationTarget::LlmResponse,
+            "this is a badword.",
+        );
         let res_block = rule_block.evaluate(&req_block).await;
         assert_eq!(res_block.len(), 1);
         assert!(res_block[0].blocking);
         assert_eq!(res_block[0].severity, Severity::Critical);
 
         // Flag action
-        let rule_flag = BlockedPatternRule::try_new(
-            "flag_bad",
-            "Flag Bad",
-            "flagword",
-            "flag",
-            "reason flag",
-        ).unwrap();
-        let req_flag = ValidationRequest::new("gateway", ValidationTarget::LlmResponse, "this is a flagword.");
+        let rule_flag =
+            BlockedPatternRule::try_new("flag_bad", "Flag Bad", "flagword", "flag", "reason flag")
+                .unwrap();
+        let req_flag = ValidationRequest::new(
+            "gateway",
+            ValidationTarget::LlmResponse,
+            "this is a flagword.",
+        );
         let res_flag = rule_flag.evaluate(&req_flag).await;
         assert_eq!(res_flag.len(), 1);
         assert!(!res_flag[0].blocking);
@@ -1928,7 +1941,7 @@ mod tests {
         };
 
         assert_eq!(result.max_severity(), Some(&Severity::Critical));
-        
+
         let blocking = result.blocking_violations();
         assert_eq!(blocking.len(), 1);
         assert_eq!(blocking[0].rule_id, "rule3");
@@ -1939,7 +1952,7 @@ mod tests {
     fn test_validation_request_metadata() {
         let req = ValidationRequest::new("gateway", ValidationTarget::LlmResponse, "test")
             .with_metadata(serde_json::json!({"key": "value"}));
-        
+
         assert!(req.metadata.is_some());
         assert_eq!(req.metadata.unwrap()["key"], "value");
     }

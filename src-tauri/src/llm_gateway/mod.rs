@@ -355,8 +355,6 @@ pub mod provider {
             }
         }
     }
-
-
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -495,7 +493,6 @@ mod cache {
 
 /// Internal trait implemented by each provider backend.
 
-
 #[async_trait]
 trait LlmProvider: Send + Sync {
     #[allow(dead_code)]
@@ -504,11 +501,17 @@ trait LlmProvider: Send + Sync {
     async fn complete(&self, req: &LlmRequest) -> AppResult<LlmResponse>;
 
     /// Support partial text streaming (primarily for thoughts/UI feedback).
-    async fn complete_stream(&self, req: &LlmRequest) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>> {
+    async fn complete_stream(
+        &self,
+        req: &LlmRequest,
+    ) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>>
+    {
         // Fallback implementation: just call complete and yield the final string
         let req_clone = req.clone();
         let final_resp = self.complete(&req_clone).await?;
-        Ok(Box::pin(futures::stream::once(async move { Ok(final_resp.content) })))
+        Ok(Box::pin(futures::stream::once(async move {
+            Ok(final_resp.content)
+        })))
     }
 
     /// Quick reachability check â€“ should complete within ~3 s.
@@ -547,8 +550,13 @@ impl GeminiProvider {
 
     fn resolve_model(&self, complexity: &request::TaskComplexity) -> &str {
         match complexity {
-            request::TaskComplexity::Fast => self.fast_model.as_deref().unwrap_or(&self.default_model),
-            request::TaskComplexity::Reasoning => self.reasoning_model.as_deref().unwrap_or(&self.default_model),
+            request::TaskComplexity::Fast => {
+                self.fast_model.as_deref().unwrap_or(&self.default_model)
+            }
+            request::TaskComplexity::Reasoning => self
+                .reasoning_model
+                .as_deref()
+                .unwrap_or(&self.default_model),
             request::TaskComplexity::Balanced => &self.default_model,
         }
     }
@@ -651,7 +659,7 @@ impl LlmProvider for GeminiProvider {
             .text()
             .await
             .map_err(|e| AppError::LlmGateway(format!("Gemini failed to read response: {e}")))?;
-            
+
         let json: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|_| {
             serde_json::json!({
                 "error": { "message": text.trim() }
@@ -708,10 +716,14 @@ impl LlmProvider for GeminiProvider {
         })
     }
 
-    async fn complete_stream(&self, req: &LlmRequest) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>> {
+    async fn complete_stream(
+        &self,
+        req: &LlmRequest,
+    ) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>>
+    {
         let model = self.resolve_model(&req.complexity);
         let body = self.build_body(req);
-        
+
         let endpoint = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
             model, self.api_key
@@ -728,13 +740,15 @@ impl LlmProvider for GeminiProvider {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            return Err(AppError::LlmGateway(format!("Gemini API stream error {status}: {text}")));
+            return Err(AppError::LlmGateway(format!(
+                "Gemini API stream error {status}: {text}"
+            )));
         }
 
         let stream = async_stream::stream! {
             use futures::StreamExt;
             let mut byte_stream = resp.bytes_stream();
-            
+
             while let Some(chunk_res) = byte_stream.next().await {
                 match chunk_res {
                     Ok(bytes) => {
@@ -744,7 +758,7 @@ impl LlmProvider for GeminiProvider {
                             if line.starts_with("data: ") {
                                 let json_str = line.strip_prefix("data: ").unwrap_or("").trim();
                                 if json_str == "[DONE]" || json_str.is_empty() { continue; }
-                                
+
                                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
                                     if let Some(content) = json.get("candidates").and_then(|c| c.get(0)).and_then(|c| c.get("content")).and_then(|c| c.get("parts")).and_then(|p| p.get(0)).and_then(|p| p.get("text")).and_then(|t| t.as_str()) {
                                         yield Ok(content.to_string());
@@ -818,8 +832,13 @@ impl OpenAiCompatProvider {
 
     fn resolve_model(&self, complexity: &request::TaskComplexity) -> &str {
         match complexity {
-            request::TaskComplexity::Fast => self.fast_model.as_deref().unwrap_or(&self.default_model),
-            request::TaskComplexity::Reasoning => self.reasoning_model.as_deref().unwrap_or(&self.default_model),
+            request::TaskComplexity::Fast => {
+                self.fast_model.as_deref().unwrap_or(&self.default_model)
+            }
+            request::TaskComplexity::Reasoning => self
+                .reasoning_model
+                .as_deref()
+                .unwrap_or(&self.default_model),
             request::TaskComplexity::Balanced => &self.default_model,
         }
     }
@@ -836,7 +855,8 @@ impl OpenAiCompatProvider {
                 if m.image_base64s.is_empty() {
                     serde_json::json!({ "role": m.role.to_string(), "content": m.content })
                 } else {
-                    let mut content_parts = vec![serde_json::json!({ "type": "text", "text": m.content })];
+                    let mut content_parts =
+                        vec![serde_json::json!({ "type": "text", "text": m.content })];
                     for img in &m.image_base64s {
                         content_parts.push(serde_json::json!({
                             "type": "image_url",
@@ -867,8 +887,13 @@ impl OpenAiCompatProvider {
                 fn enforce_strict_schema(val: &mut serde_json::Value) {
                     if let Some(obj) = val.as_object_mut() {
                         if obj.get("type").and_then(|t| t.as_str()) == Some("object") {
-                            obj.insert("additionalProperties".to_string(), serde_json::json!(false));
-                            if let Some(props) = obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+                            obj.insert(
+                                "additionalProperties".to_string(),
+                                serde_json::json!(false),
+                            );
+                            if let Some(props) =
+                                obj.get_mut("properties").and_then(|p| p.as_object_mut())
+                            {
                                 let mut keys = Vec::new();
                                 for (k, v) in props.iter_mut() {
                                     keys.push(serde_json::json!(k.clone()));
@@ -881,7 +906,7 @@ impl OpenAiCompatProvider {
                                 enforce_strict_schema(items);
                             }
                         }
-                        
+
                         for key in &["anyOf", "allOf", "oneOf"] {
                             if let Some(arr) = obj.get_mut(*key).and_then(|a| a.as_array_mut()) {
                                 for item in arr.iter_mut() {
@@ -893,7 +918,7 @@ impl OpenAiCompatProvider {
                 }
                 enforce_strict_schema(&mut strict_schema);
 
-                body["response_format"] = serde_json::json!({ 
+                body["response_format"] = serde_json::json!({
                     "type": "json_schema",
                     "json_schema": {
                         "name": "structured_output",
@@ -936,10 +961,9 @@ impl LlmProvider for OpenAiCompatProvider {
             .map_err(|e| AppError::LlmGateway(format!("{} request failed: {e}", self.kind)))?;
 
         let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| AppError::LlmGateway(format!("{} failed to read response: {e}", self.kind)))?;
+        let text = resp.text().await.map_err(|e| {
+            AppError::LlmGateway(format!("{} failed to read response: {e}", self.kind))
+        })?;
 
         let json: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|_| {
             serde_json::json!({
@@ -1002,16 +1026,15 @@ impl LlmProvider for OpenAiCompatProvider {
         })
     }
 
-
     async fn health_check(&self) -> bool {
         let url = match self.kind {
             ProviderKind::Ollama => {
                 let base = self.base_url.trim_end_matches("/v1").trim_end_matches('/');
                 format!("{}/api/tags", base)
-            },
+            }
             ProviderKind::LmStudio | ProviderKind::OpenAi => {
                 format!("{}/models", self.base_url.trim_end_matches('/'))
-            },
+            }
             _ => format!("{}/models", self.base_url.trim_end_matches('/')),
         };
 
@@ -1033,14 +1056,18 @@ impl LlmProvider for OpenAiCompatProvider {
                     match self.complete(&ping).await {
                         Ok(_) => true,
                         Err(e) => {
-                            tracing::error!("health_check fallback failed for provider {}: {:?}", self.kind, e);
+                            tracing::error!(
+                                "health_check fallback failed for provider {}: {:?}",
+                                self.kind,
+                                e
+                            );
                             false
                         }
                     }
                 } else {
                     true
                 }
-            },
+            }
             Err(e) => {
                 tracing::error!("health_check failed for provider {}: {:?}", self.kind, e);
                 false
@@ -1083,8 +1110,13 @@ impl AnthropicProvider {
 
     fn resolve_model(&self, complexity: &request::TaskComplexity) -> &str {
         match complexity {
-            request::TaskComplexity::Fast => self.fast_model.as_deref().unwrap_or(&self.default_model),
-            request::TaskComplexity::Reasoning => self.reasoning_model.as_deref().unwrap_or(&self.default_model),
+            request::TaskComplexity::Fast => {
+                self.fast_model.as_deref().unwrap_or(&self.default_model)
+            }
+            request::TaskComplexity::Reasoning => self
+                .reasoning_model
+                .as_deref()
+                .unwrap_or(&self.default_model),
             request::TaskComplexity::Balanced => &self.default_model,
         }
     }
@@ -1155,7 +1187,8 @@ impl AnthropicProvider {
                 "description": "Output a structured JSON object matching the given schema",
                 "input_schema": schema
             }]);
-            body["tool_choice"] = serde_json::json!({ "type": "tool", "name": "structured_output" });
+            body["tool_choice"] =
+                serde_json::json!({ "type": "tool", "name": "structured_output" });
         }
 
         body
@@ -1164,14 +1197,17 @@ impl AnthropicProvider {
 
 #[async_trait]
 impl LlmProvider for AnthropicProvider {
-    fn model(&self) -> &str { &self.default_model }
+    fn model(&self) -> &str {
+        &self.default_model
+    }
 
     async fn complete(&self, req: &LlmRequest) -> AppResult<LlmResponse> {
         let model = self.resolve_model(&req.complexity);
         let body = self.build_body(req, model);
         let start = Instant::now();
 
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
@@ -1182,26 +1218,31 @@ impl LlmProvider for AnthropicProvider {
             .map_err(|e| AppError::LlmGateway(format!("Anthropic request failed: {e}")))?;
 
         let status = resp.status();
-        let text = resp.text().await
+        let text = resp
+            .text()
+            .await
             .map_err(|e| AppError::LlmGateway(format!("Anthropic failed to read response: {e}")))?;
 
-        let json: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|_| {
-            serde_json::json!({ "error": { "message": text.trim() } })
-        });
+        let json: serde_json::Value = serde_json::from_str(&text)
+            .unwrap_or_else(|_| serde_json::json!({ "error": { "message": text.trim() } }));
 
         if !status.is_success() {
-            let msg = json["error"]["message"].as_str()
-                .unwrap_or("Unknown Anthropic error").to_string();
-            return Err(AppError::LlmGateway(format!("Anthropic API error {status}: {msg}")));
+            let msg = json["error"]["message"]
+                .as_str()
+                .unwrap_or("Unknown Anthropic error")
+                .to_string();
+            return Err(AppError::LlmGateway(format!(
+                "Anthropic API error {status}: {msg}"
+            )));
         }
 
         // Anthropic response: content blocks can be "text" or "tool_use".
         // When using tool-calling for structured output, extract `input` from tool_use block.
         let content = {
             let blocks = json["content"].as_array();
-            let tool_block = blocks.as_ref().and_then(|arr| {
-                arr.iter().find(|b| b["type"].as_str() == Some("tool_use"))
-            });
+            let tool_block = blocks
+                .as_ref()
+                .and_then(|arr| arr.iter().find(|b| b["type"].as_str() == Some("tool_use")));
             if let Some(tool) = tool_block {
                 // tool_use.input is already a JSON object â€” serialize back to string
                 serde_json::to_string(&tool["input"]).unwrap_or_default()
@@ -1222,12 +1263,15 @@ impl LlmProvider for AnthropicProvider {
         let prompt_tokens = json["usage"]["input_tokens"].as_u64().unwrap_or(0) as u32;
         let completion_tokens = json["usage"]["output_tokens"].as_u64().unwrap_or(0) as u32;
 
-
         Ok(LlmResponse {
             request_id: req.request_id,
             content,
             stop_reason,
-            usage: LlmUsage { prompt_tokens, completion_tokens, total_tokens: prompt_tokens + completion_tokens },
+            usage: LlmUsage {
+                prompt_tokens,
+                completion_tokens,
+                total_tokens: prompt_tokens + completion_tokens,
+            },
             provider: "anthropic".into(),
             model: model.to_string(),
             from_cache: false,
@@ -1235,7 +1279,6 @@ impl LlmProvider for AnthropicProvider {
             received_at: Utc::now(),
         })
     }
-
 
     async fn health_check(&self) -> bool {
         // Anthropic has no public /models endpoint; send a minimal ping.
@@ -1297,7 +1340,9 @@ struct ProviderHealthCache {
 
 impl ProviderHealthCache {
     fn new() -> Self {
-        Self { inner: HashMap::new() }
+        Self {
+            inner: HashMap::new(),
+        }
     }
 
     /// Returns `true` if the provider is currently in cooldown.
@@ -1311,7 +1356,10 @@ impl ProviderHealthCache {
     }
 
     fn mark_down(&mut self, key: &str, cooldown_secs: u64, reason: impl Into<String>) {
-        self.inner.insert(key.to_string(), (Instant::now(), cooldown_secs, reason.into()));
+        self.inner.insert(
+            key.to_string(),
+            (Instant::now(), cooldown_secs, reason.into()),
+        );
     }
 
     fn mark_up(&mut self, key: &str) {
@@ -1326,7 +1374,7 @@ impl ProviderHealthCache {
         } else if e.contains("400") || e.contains("bad request") {
             600 // 10 min â€“ likely config error, no point retrying fast
         } else {
-            60  // 1 min for connection / 404 / 5xx
+            60 // 1 min for connection / 404 / 5xx
         }
     }
 }
@@ -1405,65 +1453,141 @@ impl LlmGateway {
         let mut map = std::collections::HashMap::<String, Arc<dyn LlmProvider>>::new();
 
         // Helper to extract tier models for a specific provider
-        let get_models = |provider_name: &str, fallback_dm: &str| -> (String, Option<String>, Option<String>) {
-            let mut dm = fallback_dm.to_string();
-            let mut fm = None;
-            let mut rm = None;
-            if cfg.default_provider == provider_name { dm = cfg.default_model.clone(); }
-            if cfg.fast_provider == provider_name { fm = Some(cfg.fast_model.clone()); }
-            if cfg.reasoning_provider == provider_name { rm = Some(cfg.reasoning_model.clone()); }
-            (dm, fm, rm)
-        };
+        let get_models =
+            |provider_name: &str, fallback_dm: &str| -> (String, Option<String>, Option<String>) {
+                let mut dm = fallback_dm.to_string();
+                let mut fm = None;
+                let mut rm = None;
+                if cfg.default_provider == provider_name {
+                    dm = cfg.default_model.clone();
+                }
+                if cfg.fast_provider == provider_name {
+                    fm = Some(cfg.fast_model.clone());
+                }
+                if cfg.reasoning_provider == provider_name {
+                    rm = Some(cfg.reasoning_model.clone());
+                }
+                (dm, fm, rm)
+            };
 
         // Gemini
-        if let Some(key) = cfg.credentials.gemini_api_key.as_deref().filter(|k| !k.is_empty()) {
+        if let Some(key) = cfg
+            .credentials
+            .gemini_api_key
+            .as_deref()
+            .filter(|k| !k.is_empty())
+        {
             let (dm, fm, rm) = get_models("gemini", "gemini-2.0-flash");
-            map.insert("gemini".to_string(), Arc::new(GeminiProvider::new(key, dm, fm, rm)));
+            map.insert(
+                "gemini".to_string(),
+                Arc::new(GeminiProvider::new(key, dm, fm, rm)),
+            );
         }
 
         // OpenAI
-        if let Some(key) = cfg.credentials.openai_api_key.as_deref().filter(|k| !k.is_empty()) {
+        if let Some(key) = cfg
+            .credentials
+            .openai_api_key
+            .as_deref()
+            .filter(|k| !k.is_empty())
+        {
             let (dm, fm, rm) = get_models("openai", "gpt-4o");
-            map.insert("openai".to_string(), Arc::new(OpenAiCompatProvider::new(
-                ProviderKind::OpenAi, dm, fm, rm, "https://api.openai.com/v1", Some(key.to_string()),
-            )));
+            map.insert(
+                "openai".to_string(),
+                Arc::new(OpenAiCompatProvider::new(
+                    ProviderKind::OpenAi,
+                    dm,
+                    fm,
+                    rm,
+                    "https://api.openai.com/v1",
+                    Some(key.to_string()),
+                )),
+            );
         }
 
         // Anthropic
-        if let Some(key) = cfg.credentials.anthropic_api_key.as_deref().filter(|k| !k.is_empty()) {
+        if let Some(key) = cfg
+            .credentials
+            .anthropic_api_key
+            .as_deref()
+            .filter(|k| !k.is_empty())
+        {
             let (dm, fm, rm) = get_models("anthropic", "claude-3-5-sonnet-20241022");
-            map.insert("anthropic".to_string(), Arc::new(AnthropicProvider::new(key, dm, fm, rm)));
+            map.insert(
+                "anthropic".to_string(),
+                Arc::new(AnthropicProvider::new(key, dm, fm, rm)),
+            );
         }
 
         // Z.ai
-        if let Some(key) = cfg.credentials.zai_api_key.as_deref().filter(|k| !k.is_empty()) {
+        if let Some(key) = cfg
+            .credentials
+            .zai_api_key
+            .as_deref()
+            .filter(|k| !k.is_empty())
+        {
             let (dm, fm, rm) = get_models("z.ai", "zai-model");
-            map.insert("z.ai".to_string(), Arc::new(OpenAiCompatProvider::new(
-                ProviderKind::OpenAi, dm, fm, rm, "https://api.z.ai/v1", Some(key.to_string()),
-            )));
+            map.insert(
+                "z.ai".to_string(),
+                Arc::new(OpenAiCompatProvider::new(
+                    ProviderKind::OpenAi,
+                    dm,
+                    fm,
+                    rm,
+                    "https://api.z.ai/v1",
+                    Some(key.to_string()),
+                )),
+            );
         }
 
         // Ollama
-        let ollama_ep = cfg.credentials.ollama_endpoint.clone().unwrap_or_else(|| "http://localhost:11434/v1".to_string());
+        let ollama_ep = cfg
+            .credentials
+            .ollama_endpoint
+            .clone()
+            .unwrap_or_else(|| "http://localhost:11434/v1".to_string());
         let mut ep = ollama_ep.trim_end_matches('/').to_string();
-        if !ep.ends_with("/v1") { ep.push_str("/v1"); }
+        if !ep.ends_with("/v1") {
+            ep.push_str("/v1");
+        }
         let (dm, fm, rm) = get_models("ollama", "__auto__");
-        map.insert("ollama".to_string(), Arc::new(OpenAiCompatProvider::new(
-            ProviderKind::Ollama, dm, fm, rm, ep, None,
-        )));
+        map.insert(
+            "ollama".to_string(),
+            Arc::new(OpenAiCompatProvider::new(
+                ProviderKind::Ollama,
+                dm,
+                fm,
+                rm,
+                ep,
+                None,
+            )),
+        );
 
         // LM Studio
-        let lm_ep = cfg.credentials.lmstudio_endpoint.clone().unwrap_or_else(|| "http://localhost:1234/v1".to_string());
+        let lm_ep = cfg
+            .credentials
+            .lmstudio_endpoint
+            .clone()
+            .unwrap_or_else(|| "http://localhost:1234/v1".to_string());
         let mut ep2 = lm_ep.trim_end_matches('/').to_string();
-        if !ep2.ends_with("/v1") { ep2.push_str("/v1"); }
+        if !ep2.ends_with("/v1") {
+            ep2.push_str("/v1");
+        }
         let (dm, fm, rm) = get_models("lmstudio", "local-model");
-        map.insert("lmstudio".to_string(), Arc::new(OpenAiCompatProvider::new(
-            ProviderKind::LmStudio, dm, fm, rm, ep2, None,
-        )));
+        map.insert(
+            "lmstudio".to_string(),
+            Arc::new(OpenAiCompatProvider::new(
+                ProviderKind::LmStudio,
+                dm,
+                fm,
+                rm,
+                ep2,
+                None,
+            )),
+        );
 
         map
     }
-
 
     // â”€â”€ Main API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1478,14 +1602,20 @@ impl LlmGateway {
     /// 429 â†’ 5-min backoff. 400 â†’ 10-min backoff. Other â†’ 1-min backoff.
     #[instrument(skip(self, req), fields(request_id = %req.request_id))]
     /// Stream the response (if supported by provider)
-    pub async fn complete_stream(&self, req: LlmRequest) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>> {
+    pub async fn complete_stream(
+        &self,
+        req: LlmRequest,
+    ) -> AppResult<std::pin::Pin<Box<dyn futures::Stream<Item = AppResult<String>> + Send + 'static>>>
+    {
         let cfg = self.config.read().await;
         let provider_key = match req.complexity {
             crate::llm_gateway::request::TaskComplexity::Fast => cfg.fast_provider.clone(),
-            crate::llm_gateway::request::TaskComplexity::Reasoning => cfg.reasoning_provider.clone(),
+            crate::llm_gateway::request::TaskComplexity::Reasoning => {
+                cfg.reasoning_provider.clone()
+            }
             _ => cfg.default_provider.clone(),
         };
-        
+
         // Find the provider without deadlocking
         let mut found_provider = None;
         {
@@ -1496,11 +1626,13 @@ impl LlmGateway {
                 found_provider = Some(p.clone());
             }
         }
-        
+
         if let Some(p) = found_provider {
             p.complete_stream(&req).await
         } else {
-            Err(crate::AppError::LlmGateway("No LLM provider available".into()))
+            Err(crate::AppError::LlmGateway(
+                "No LLM provider available".into(),
+            ))
         }
     }
 
@@ -1541,11 +1673,15 @@ impl LlmGateway {
         let mut routing_queue: Vec<String> = vec![target_provider.clone()];
         // Add cloud fallbacks
         for k in &cloud_order {
-            if *k != target_provider.as_str() { routing_queue.push(k.to_string()); }
+            if *k != target_provider.as_str() {
+                routing_queue.push(k.to_string());
+            }
         }
         // Add local fallbacks
         for k in &local_order {
-            if *k != target_provider.as_str() { routing_queue.push(k.to_string()); }
+            if *k != target_provider.as_str() {
+                routing_queue.push(k.to_string());
+            }
         }
         drop(cfg); // release read lock before network calls
 
@@ -1586,7 +1722,10 @@ impl LlmGateway {
                 if !endpoint.is_empty() && !Self::tcp_reachable(endpoint).await {
                     let reason = format!("TCP unreachable at {endpoint}");
                     warn!(provider = provider_key, %reason, "Local provider offline, skipping");
-                    self.health.lock().await.mark_down(provider_key, 60, &reason);
+                    self.health
+                        .lock()
+                        .await
+                        .mark_down(provider_key, 60, &reason);
                     skipped_log.push(format!("{provider_key}: {reason}"));
                     continue;
                 }
@@ -1598,7 +1737,8 @@ impl LlmGateway {
             if provider_key == "ollama" && p.model() == "__auto__" {
                 let ollama_base_url = {
                     let cfg2 = self.config.read().await;
-                    cfg2.credentials.ollama_endpoint
+                    cfg2.credentials
+                        .ollama_endpoint
                         .clone()
                         .unwrap_or_else(|| "http://localhost:11434/v1".to_string())
                         .trim_end_matches("/v1")
@@ -1607,15 +1747,17 @@ impl LlmGateway {
                 };
                 let tags_url = format!("{}/api/tags", ollama_base_url);
                 let discovered = match reqwest::get(&tags_url).await {
-                    Ok(resp) if resp.status().is_success() => {
-                        resp.json::<serde_json::Value>().await.ok()
-                            .and_then(|json| {
-                                json["models"].as_array()
-                                    .and_then(|arr| arr.first())
-                                    .and_then(|m| m["name"].as_str())
-                                    .map(String::from)
-                            })
-                    }
+                    Ok(resp) if resp.status().is_success() => resp
+                        .json::<serde_json::Value>()
+                        .await
+                        .ok()
+                        .and_then(|json| {
+                            json["models"]
+                                .as_array()
+                                .and_then(|arr| arr.first())
+                                .and_then(|m| m["name"].as_str())
+                                .map(String::from)
+                        }),
                     _ => None,
                 };
 
@@ -1625,19 +1767,36 @@ impl LlmGateway {
                         // Rebuild the Ollama provider with the real model name
                         let ep = {
                             let c = self.config.read().await;
-                            let raw = c.credentials.ollama_endpoint.clone()
+                            let raw = c
+                                .credentials
+                                .ollama_endpoint
+                                .clone()
                                 .unwrap_or_else(|| "http://localhost:11434/v1".to_string());
                             let mut e = raw.trim_end_matches('/').to_string();
-                            if !e.ends_with("/v1") { e.push_str("/v1"); }
+                            if !e.ends_with("/v1") {
+                                e.push_str("/v1");
+                            }
                             e
                         };
                         let new_p: Arc<dyn LlmProvider> = Arc::new(OpenAiCompatProvider::new(
-                            ProviderKind::Ollama, model_name, None, None, ep, None,
+                            ProviderKind::Ollama,
+                            model_name,
+                            None,
+                            None,
+                            ep,
+                            None,
                         ));
                         // Persist to provider map so future calls also use the discovered model
-                        self.providers.write().await.insert("ollama".to_string(), new_p.clone());
+                        self.providers
+                            .write()
+                            .await
+                            .insert("ollama".to_string(), new_p.clone());
                         // Execute immediately with the new provider (no retry for fallback)
-                        info!(tier = tier + 1, provider = "ollama", "[9Router] Attempting provider (auto-model)");
+                        info!(
+                            tier = tier + 1,
+                            provider = "ollama",
+                            "[9Router] Attempting provider (auto-model)"
+                        );
                         match new_p.complete(&req).await {
                             Ok(resp) => {
                                 self.metrics.lock().await.fallbacks_triggered += 1;
@@ -1655,7 +1814,10 @@ impl LlmGateway {
                                 let err_str = e.to_string();
                                 let cooldown = ProviderHealthCache::cooldown_for_error(&err_str);
                                 warn!(provider = "ollama", error = %err_str, cooldown_secs = cooldown, "[9Router] Ollama auto-model failed");
-                                self.health.lock().await.mark_down("ollama", cooldown, &err_str);
+                                self.health
+                                    .lock()
+                                    .await
+                                    .mark_down("ollama", cooldown, &err_str);
                                 error_log.push(format!("ollama: {err_str}"));
                                 continue;
                             }
@@ -1663,7 +1825,10 @@ impl LlmGateway {
                     }
                     None => {
                         let reason = "No models installed in Ollama";
-                        warn!(provider = "ollama", reason, "[9Router] Skipping Ollama (no models)");
+                        warn!(
+                            provider = "ollama",
+                            reason, "[9Router] Skipping Ollama (no models)"
+                        );
                         skipped_log.push(format!("ollama: {reason}"));
                         self.health.lock().await.mark_down("ollama", 60, reason);
                         continue;
@@ -1671,25 +1836,35 @@ impl LlmGateway {
                 }
             }
 
-
             // 4c. Pre-flight HTTP Health Check for fallback providers
             // Skip for primary (tier 0) to avoid 1-RTT latency penalty on happy path.
             if tier > 0 {
-                info!(tier = tier + 1, provider = provider_key, "[9Router] Running health check for fallback provider");
+                info!(
+                    tier = tier + 1,
+                    provider = provider_key,
+                    "[9Router] Running health check for fallback provider"
+                );
                 let is_healthy = tokio::time::timeout(Duration::from_secs(3), p.health_check())
                     .await
                     .unwrap_or(false);
 
                 if !is_healthy {
                     let reason = "Health check failed or timed out";
-                    warn!(provider = provider_key, reason, "[9Router] Skipping offline fallback provider");
+                    warn!(
+                        provider = provider_key,
+                        reason, "[9Router] Skipping offline fallback provider"
+                    );
                     skipped_log.push(format!("{provider_key}: {reason}"));
                     self.health.lock().await.mark_down(provider_key, 60, reason);
                     continue;
                 }
             }
 
-            info!(tier = tier + 1, provider = provider_key, "[9Router] Attempting provider");
+            info!(
+                tier = tier + 1,
+                provider = provider_key,
+                "[9Router] Attempting provider"
+            );
 
             // 4d. Execute: primary gets retry logic; fallbacks try once
             let result = if tier == 0 {
@@ -1728,12 +1903,21 @@ impl LlmGateway {
                         cooldown_secs = cooldown,
                         "[9Router] Provider failed, entering cooldown"
                     );
-                    self.health.lock().await.mark_down(provider_key, cooldown, &err_str);
+                    self.health
+                        .lock()
+                        .await
+                        .mark_down(provider_key, cooldown, &err_str);
                     error_log.push(format!("{provider_key}: {err_str}"));
-                    
+
                     let model_name = p.model().to_string();
                     let model_key = format!("{}/{}", provider_key, model_name);
-                    *self.metrics.lock().await.failure_per_model.entry(model_key).or_insert(0) += 1;
+                    *self
+                        .metrics
+                        .lock()
+                        .await
+                        .failure_per_model
+                        .entry(model_key)
+                        .or_insert(0) += 1;
                 }
             }
         }
@@ -1749,7 +1933,9 @@ impl LlmGateway {
             parts.push(format!("Skipped (cooldown): [{}]", skipped_log.join(", ")));
         }
         if parts.is_empty() {
-            parts.push("No providers configured. Please add an API key in Settings â†’ LLM.".to_string());
+            parts.push(
+                "No providers configured. Please add an API key in Settings â†’ LLM.".to_string(),
+            );
         }
 
         Err(AppError::LlmGateway(format!(
@@ -1834,8 +2020,6 @@ impl LlmGateway {
 
     // â”€â”€ Configuration management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-
-
     /// Return the current configuration.
     pub async fn config(&self) -> LlmConfig {
         self.config.read().await.clone()
@@ -1909,24 +2093,22 @@ impl LlmGateway {
         }
     }
 
-
     /// 9Router-style pre-flight: open a TCP connection within 2 s.
     /// Used to skip local providers (Ollama, LM Studio) that aren't running.
     async fn tcp_reachable(addr: &str) -> bool {
         use tokio::net::TcpStream;
-        match tokio::time::timeout(
-            Duration::from_secs(2),
-            TcpStream::connect(addr),
-        )
-        .await
-        {
+        match tokio::time::timeout(Duration::from_secs(2), TcpStream::connect(addr)).await {
             Ok(Ok(_)) => true,
             _ => false,
         }
     }
 
     /// Attempt the provider with exponential-backoff retry.
-    async fn try_provider_with_retry(&self, provider: &Arc<dyn LlmProvider>, req: &LlmRequest) -> AppResult<LlmResponse> {
+    async fn try_provider_with_retry(
+        &self,
+        provider: &Arc<dyn LlmProvider>,
+        req: &LlmRequest,
+    ) -> AppResult<LlmResponse> {
         for (attempt, &delay_ms) in RETRY_DELAYS_MS.iter().enumerate() {
             match provider.complete(req).await {
                 Ok(resp) => {
@@ -1955,8 +2137,6 @@ impl LlmGateway {
 
         Err(AppError::LlmGateway("All retry attempts exhausted".into()))
     }
-
-
 
     fn is_retryable_error(err: &AppError) -> bool {
         let msg = err.to_string().to_lowercase();
@@ -2108,7 +2288,9 @@ mod tests {
         let providers = gw.providers.blocking_read();
         // Default config has no API keys â†’ no cloud providers registered
         assert!(
-            !providers.contains_key("gemini") && !providers.contains_key("openai") && !providers.contains_key("anthropic"),
+            !providers.contains_key("gemini")
+                && !providers.contains_key("openai")
+                && !providers.contains_key("anthropic"),
             "Expected no cloud providers without API keys"
         );
         // Local providers (ollama/lmstudio) are always registered
@@ -2266,7 +2448,10 @@ mod tests {
         let provider = GeminiProvider::new("api-key", "gemini-2.0-flash", None, None);
         let body = provider.build_body(&req);
 
-        assert_eq!(body["systemInstruction"]["parts"][0]["text"], "sys instruction");
+        assert_eq!(
+            body["systemInstruction"]["parts"][0]["text"],
+            "sys instruction"
+        );
         assert_eq!(body["contents"][0]["role"], "user");
         assert_eq!(body["contents"][0]["parts"][0]["text"], "hello");
         assert_eq!(body["generationConfig"]["temperature"], 0.5);
@@ -2283,8 +2468,13 @@ mod tests {
         .with_max_tokens(100);
 
         let provider = OpenAiCompatProvider::new(
-            ProviderKind::OpenAi, "gpt-4o", None, None,
-            "https://api.openai.com/v1", Some("api-key".into()));
+            ProviderKind::OpenAi,
+            "gpt-4o",
+            None,
+            None,
+            "https://api.openai.com/v1",
+            Some("api-key".into()),
+        );
         let body = provider.build_body(&req);
 
         assert_eq!(body["messages"][0]["role"], "system");
@@ -2324,15 +2514,17 @@ mod tests {
     }
 
     // â”€â”€ Mock Provider & Fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    
+
     struct MockProvider {
         kind: ProviderKind,
         should_fail: bool,
     }
-    
+
     #[async_trait]
     impl LlmProvider for MockProvider {
-        fn model(&self) -> &str { "mock-model" }
+        fn model(&self) -> &str {
+            "mock-model"
+        }
         async fn complete(&self, req: &LlmRequest) -> AppResult<LlmResponse> {
             if self.should_fail {
                 return Err(AppError::LlmGateway("HTTP 503 Service unavailable".into()));
@@ -2350,7 +2542,9 @@ mod tests {
             })
         }
 
-    async fn health_check(&self) -> bool { !self.should_fail }
+        async fn health_check(&self) -> bool {
+            !self.should_fail
+        }
     }
 
     #[tokio::test]
@@ -2359,17 +2553,31 @@ mod tests {
         let gw = LlmGateway::new(AppConfig::default().llm);
         {
             let mut p = gw.providers.write().await;
-            p.insert("openai".to_string(),
-                Arc::new(MockProvider { kind: ProviderKind::OpenAi, should_fail: true }));
-            p.insert("ollama".to_string(),
-                Arc::new(MockProvider { kind: ProviderKind::Ollama, should_fail: false }));
+            p.insert(
+                "openai".to_string(),
+                Arc::new(MockProvider {
+                    kind: ProviderKind::OpenAi,
+                    should_fail: true,
+                }),
+            );
+            p.insert(
+                "ollama".to_string(),
+                Arc::new(MockProvider {
+                    kind: ProviderKind::Ollama,
+                    should_fail: false,
+                }),
+            );
         }
         // Set active provider to openai so routing tries it first, then falls back to ollama.
         gw.config.write().await.default_provider = "openai".to_string();
-        
+
         let req = LlmRequest::new(vec![LlmMessage::user("test")]).with_max_tokens(10);
         let result = gw.complete(req).await;
-        assert!(result.is_ok(), "Should fallback to ollama and succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should fallback to ollama and succeed: {:?}",
+            result.err()
+        );
         assert_eq!(result.unwrap().provider, "Ollama (Local)");
     }
 }
@@ -2379,9 +2587,9 @@ mod tests {
 // =============================================================================
 
 pub mod genai_bridge {
+    use anyhow::{Context, Result};
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
-    use anyhow::{Result, Context};
     use tracing::{debug, info};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2423,12 +2631,11 @@ pub mod genai_bridge {
             let client = if let Some(key) = api_key {
                 use genai::resolver::{AuthData, AuthResolver};
                 let key_owned = key.to_string();
-                let auth_resolver = AuthResolver::from_resolver_fn(
-                    move |_model_iden: genai::ModelIden| {
+                let auth_resolver =
+                    AuthResolver::from_resolver_fn(move |_model_iden: genai::ModelIden| {
                         let key_clone = key_owned.clone();
                         Ok(Some(AuthData::from_single(key_clone)))
-                    }
-                );
+                    });
                 genai::ClientBuilder::default()
                     .with_auth_resolver(auth_resolver)
                     .build()
@@ -2439,14 +2646,19 @@ pub mod genai_bridge {
         }
 
         fn mcp_to_genai_tools(mcp_tools: &[crate::mcp::McpTool]) -> Vec<genai::chat::Tool> {
-            mcp_tools.iter().map(|t| {
-                genai::chat::Tool::new(t.name.clone())
-                    .with_description(t.description.clone())
-                    .with_schema(t.input_schema.clone())
-            }).collect()
+            mcp_tools
+                .iter()
+                .map(|t| {
+                    genai::chat::Tool::new(t.name.clone())
+                        .with_description(t.description.clone())
+                        .with_schema(t.input_schema.clone())
+                })
+                .collect()
         }
 
-        fn build_chat_messages(messages: &[ToolChatMessage]) -> (String, Vec<genai::chat::ChatMessage>) {
+        fn build_chat_messages(
+            messages: &[ToolChatMessage],
+        ) -> (String, Vec<genai::chat::ChatMessage>) {
             let mut chat_messages = Vec::new();
             let mut system_text = String::new();
             for msg in messages {
@@ -2463,10 +2675,10 @@ pub mod genai_bridge {
                     }
                     ToolChatMessage::ToolResults(results) => {
                         for result in results {
-                            chat_messages.push(genai::chat::ChatMessage::user(
-                                format!("[Tool Result]\nTool: {}\nResult:\n{}",
-                                    result.tool_name, result.content)
-                            ));
+                            chat_messages.push(genai::chat::ChatMessage::user(format!(
+                                "[Tool Result]\nTool: {}\nResult:\n{}",
+                                result.tool_name, result.content
+                            )));
                         }
                     }
                 }
@@ -2480,7 +2692,7 @@ pub mod genai_bridge {
             tools: &[crate::mcp::McpTool],
             temperature: f64,
         ) -> Result<ToolAwareResponse> {
-            use genai::chat::{ChatRequest, ChatOptions};
+            use genai::chat::{ChatOptions, ChatRequest};
 
             let (system_text, chat_messages) = Self::build_chat_messages(messages);
             let genai_tools = Self::mcp_to_genai_tools(tools);
@@ -2496,21 +2708,26 @@ pub mod genai_bridge {
             let chat_options = ChatOptions::default().with_temperature(temperature);
             info!(model = %self.model, tools = tools.len(), "GenAI: executing chat with tools");
 
-            let response = self.client
+            let response = self
+                .client
                 .exec_chat(&self.model, chat_req, Some(&chat_options))
                 .await
                 .context("GenAI exec_chat failed")?;
 
             let tool_calls = response.tool_calls();
             if !tool_calls.is_empty() {
-                let native_calls: Vec<NativeToolCall> = tool_calls.iter().map(|tc| {
-                    NativeToolCall {
+                let native_calls: Vec<NativeToolCall> = tool_calls
+                    .iter()
+                    .map(|tc| NativeToolCall {
                         call_id: tc.call_id.clone(),
                         tool_name: tc.fn_name.clone(),
                         arguments: tc.fn_arguments.clone(),
-                    }
-                }).collect();
-                info!(count = native_calls.len(), "GenAI: LLM requested tool calls");
+                    })
+                    .collect();
+                info!(
+                    count = native_calls.len(),
+                    "GenAI: LLM requested tool calls"
+                );
                 return Ok(ToolAwareResponse::ToolCalls(native_calls));
             }
 
@@ -2545,10 +2762,10 @@ impl LlmGateway {
             (cfg.default_provider.as_str(), cfg.default_model.clone())
         };
         let key = match provider {
-            "gemini"    => cfg.credentials.gemini_api_key.clone(),
+            "gemini" => cfg.credentials.gemini_api_key.clone(),
             "anthropic" => cfg.credentials.anthropic_api_key.clone(),
-            "openai"    => cfg.credentials.openai_api_key.clone(),
-            _           => cfg.credentials.gemini_api_key.clone(),
+            "openai" => cfg.credentials.openai_api_key.clone(),
+            _ => cfg.credentials.gemini_api_key.clone(),
         };
         (key, model)
     }

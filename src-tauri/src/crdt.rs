@@ -1,9 +1,11 @@
+use automerge::{
+    sync::Message as SyncMessage, sync::State as SyncState, sync::SyncDoc, AutoCommit,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use automerge::{AutoCommit, sync::State as SyncState, sync::Message as SyncMessage, sync::SyncDoc};
-use uuid::Uuid;
 use tracing::info;
+use uuid::Uuid;
 
 /// Represents a single collaboratively edited document using Automerge.
 pub struct CrdtDocument {
@@ -32,22 +34,16 @@ impl CrdtDocument {
         client_id: &str,
         message: SyncMessage,
     ) -> Result<(), automerge::AutomergeError> {
-        let sync_state = self
-            .sync_states
-            .entry(client_id.to_string())
-            .or_default();
-        
+        let sync_state = self.sync_states.entry(client_id.to_string()).or_default();
+
         self.doc.sync().receive_sync_message(sync_state, message)?;
         Ok(())
     }
 
     /// Generates a sync message to send to a client, if necessary.
     pub fn generate_sync_message(&mut self, client_id: &str) -> Option<SyncMessage> {
-        let sync_state = self
-            .sync_states
-            .entry(client_id.to_string())
-            .or_default();
-        
+        let sync_state = self.sync_states.entry(client_id.to_string()).or_default();
+
         self.doc.sync().generate_sync_message(sync_state)
     }
 }
@@ -89,15 +85,17 @@ impl CrdtManager {
         message_bytes: &[u8],
     ) -> Result<Option<Vec<u8>>, String> {
         let mut docs = self.documents.write().await;
-        
-        let doc = docs.get_mut(doc_id).ok_or_else(|| format!("Document {} not found", doc_id))?;
-        
+
+        let doc = docs
+            .get_mut(doc_id)
+            .ok_or_else(|| format!("Document {} not found", doc_id))?;
+
         let message = SyncMessage::decode(message_bytes)
             .map_err(|e| format!("Failed to decode sync message: {}", e))?;
-            
+
         doc.receive_sync_message(client_id, message)
             .map_err(|e| format!("Failed to apply sync message: {}", e))?;
-            
+
         if let Some(response_msg) = doc.generate_sync_message(client_id) {
             Ok(Some(response_msg.encode()))
         } else {
@@ -106,11 +104,17 @@ impl CrdtManager {
     }
 
     /// Generate a sync message to bring a client up to date.
-    pub async fn get_sync_message(&self, doc_id: &str, client_id: &str) -> Result<Option<Vec<u8>>, String> {
+    pub async fn get_sync_message(
+        &self,
+        doc_id: &str,
+        client_id: &str,
+    ) -> Result<Option<Vec<u8>>, String> {
         let mut docs = self.documents.write().await;
-        
-        let doc = docs.get_mut(doc_id).ok_or_else(|| format!("Document {} not found", doc_id))?;
-        
+
+        let doc = docs
+            .get_mut(doc_id)
+            .ok_or_else(|| format!("Document {} not found", doc_id))?;
+
         if let Some(msg) = doc.generate_sync_message(client_id) {
             Ok(Some(msg.encode()))
         } else {

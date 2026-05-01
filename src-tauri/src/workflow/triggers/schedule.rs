@@ -35,9 +35,9 @@ impl Trigger for ScheduleTrigger {
             "Starting ScheduleTrigger"
         );
 
-        let mut sched = JobScheduler::new()
-            .await
-            .map_err(|e| WorkflowError::TriggerError(format!("Failed to create scheduler: {}", e)))?;
+        let mut sched = JobScheduler::new().await.map_err(|e| {
+            WorkflowError::TriggerError(format!("Failed to create scheduler: {}", e))
+        })?;
 
         let wf_id_clone = workflow_id.clone();
         let job = Job::new_async(cron_str.as_str(), move |_uuid, mut _l| {
@@ -67,10 +67,9 @@ impl Trigger for ScheduleTrigger {
             .await
             .map_err(|e| WorkflowError::TriggerError(format!("Failed to add job: {}", e)))?;
 
-        sched
-            .start()
-            .await
-            .map_err(|e| WorkflowError::TriggerError(format!("Failed to start scheduler: {}", e)))?;
+        sched.start().await.map_err(|e| {
+            WorkflowError::TriggerError(format!("Failed to start scheduler: {}", e))
+        })?;
 
         // Background task to wait for cancellation and shutdown the scheduler
         tokio::spawn(async move {

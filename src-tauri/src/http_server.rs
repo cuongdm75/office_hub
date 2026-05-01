@@ -1,14 +1,15 @@
 use axum::{
-    routing::{get, get_service, post, delete},
-    Router, Json, extract::{Multipart, State, Path as AxumPath},
+    extract::{Multipart, Path as AxumPath, State},
+    routing::{delete, get, get_service, post},
+    Json, Router,
 };
-use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::services::ServeDir;
-use tracing::{info, error};
 use serde_json::Value;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
+use tracing::{error, info};
 
 #[derive(Clone)]
 struct AppState {
@@ -27,10 +28,12 @@ async fn handle_upload(mut multipart: Multipart) -> Json<Value> {
         let file_name = field.file_name().unwrap_or("upload.tmp").to_string();
         let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
         let file_path = upload_dir.join(&unique_name);
-        
+
         if let Ok(data) = field.bytes().await {
             if let Err(e) = std::fs::write(&file_path, &data) {
-                return Json(serde_json::json!({ "error": format!("Failed to write file: {}", e) }));
+                return Json(
+                    serde_json::json!({ "error": format!("Failed to write file: {}", e) }),
+                );
             }
             saved_path = Some(file_path);
             break; // Just handle the first file for now
@@ -51,7 +54,8 @@ async fn list_artifacts(State(state): State<Arc<AppState>>) -> Json<Value> {
             if let Ok(metadata) = entry.metadata() {
                 if metadata.is_file() {
                     let file_name = entry.file_name().to_string_lossy().to_string();
-                    let timestamp = metadata.modified()
+                    let timestamp = metadata
+                        .modified()
                         .ok()
                         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
                         .unwrap_or_default();
@@ -75,10 +79,17 @@ async fn list_artifacts(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(serde_json::json!({ "artifacts": files }))
 }
 
-async fn delete_artifact(State(state): State<Arc<AppState>>, AxumPath(filename): AxumPath<String>) -> Json<Value> {
+async fn delete_artifact(
+    State(state): State<Arc<AppState>>,
+    AxumPath(filename): AxumPath<String>,
+) -> Json<Value> {
     let file_path = state.public_dir.join(&filename);
     // Basic security check to prevent directory traversal
-    if !file_path.starts_with(&state.public_dir) || filename.contains("..") || filename.contains("/") || filename.contains("\\") {
+    if !file_path.starts_with(&state.public_dir)
+        || filename.contains("..")
+        || filename.contains("/")
+        || filename.contains("\\")
+    {
         return Json(serde_json::json!({ "error": "Invalid filename" }));
     }
 

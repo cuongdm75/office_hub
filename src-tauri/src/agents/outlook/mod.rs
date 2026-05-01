@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // Office Hub – agents/outlook/mod.rs
 //
 // Outlook Agent – MS Graph API Integration (Phase 3)
@@ -6,12 +6,12 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tracing::{info, instrument, warn, error};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::{error, info, instrument, warn};
 
 use crate::agents::{Agent, AgentId, AgentStatus};
 use crate::orchestrator::{AgentOutput, AgentTask};
@@ -46,7 +46,7 @@ impl Default for OutlookAgentConfig {
 #[cfg(windows)]
 fn try_com_fallback_read_inbox(max_results: u64) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for read_inbox via PowerShell...");
-    
+
     let ps_script = format!(
         r#"
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -79,7 +79,7 @@ fn try_com_fallback_read_inbox(max_results: u64) -> anyhow::Result<AgentOutput> 
         max_results
     );
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let mut utf16_bytes = Vec::new();
     for c in ps_script.encode_utf16() {
         utf16_bytes.extend_from_slice(&c.to_le_bytes());
@@ -105,12 +105,20 @@ fn try_com_fallback_read_inbox(max_results: u64) -> anyhow::Result<AgentOutput> 
             let subj = e["subject"].as_str().unwrap_or("(no subject)");
             let sender = e["sender"].as_str().unwrap_or("");
             let preview = e["bodyPreview"].as_str().unwrap_or("");
-            list.push_str(&format!("- **{}** (from: {})\n  _{}_\n", subj, sender, preview.replace('\n', " ")));
+            list.push_str(&format!(
+                "- **{}** (from: {})\n  _{}_\n",
+                subj,
+                sender,
+                preview.replace('\n', " ")
+            ));
         }
     }
 
     Ok(AgentOutput {
-        content: format!("Đã lấy {} email từ Inbox qua COM Automation:\n\n{}", count, list),
+        content: format!(
+            "Đã lấy {} email từ Inbox qua COM Automation:\n\n{}",
+            count, list
+        ),
         committed: true,
         tokens_used: None,
         metadata: Some(serde_json::json!({
@@ -124,13 +132,15 @@ fn try_com_fallback_read_inbox(max_results: u64) -> anyhow::Result<AgentOutput> 
 
 #[cfg(not(windows))]
 fn try_com_fallback_read_inbox(_max_results: u64) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
 fn try_com_fallback_search_emails(query: &str, max_results: u64) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for search_emails via PowerShell...");
-    
+
     let safe_query = query.replace("'", "''");
 
     let ps_script = format!(
@@ -169,7 +179,7 @@ fn try_com_fallback_search_emails(query: &str, max_results: u64) -> anyhow::Resu
         safe_query, safe_query, max_results
     );
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let mut utf16_bytes = Vec::new();
     for c in ps_script.encode_utf16() {
         utf16_bytes.extend_from_slice(&c.to_le_bytes());
@@ -186,8 +196,9 @@ fn try_com_fallback_search_emails(query: &str, max_results: u64) -> anyhow::Resu
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let emails_val: serde_json::Value = serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
-    
+    let emails_val: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
+
     // ConvertTo-Json in PowerShell 5.1 unrolls single-element arrays into objects
     let emails_arr = if emails_val.is_array() {
         emails_val.as_array().unwrap().clone()
@@ -204,11 +215,19 @@ fn try_com_fallback_search_emails(query: &str, max_results: u64) -> anyhow::Resu
         let subj = e["subject"].as_str().unwrap_or("(no subject)");
         let sender = e["sender"].as_str().unwrap_or("");
         let preview = e["bodyPreview"].as_str().unwrap_or("");
-        list.push_str(&format!("- **{}** (from: {})\n  _{}_\n", subj, sender, preview.replace('\n', " ")));
+        list.push_str(&format!(
+            "- **{}** (from: {})\n  _{}_\n",
+            subj,
+            sender,
+            preview.replace('\n', " ")
+        ));
     }
 
     Ok(AgentOutput {
-        content: format!("🔍 Tìm \"{}\" → {} kết quả (qua COM):\n{}", query, count, list),
+        content: format!(
+            "🔍 Tìm \"{}\" → {} kết quả (qua COM):\n{}",
+            query, count, list
+        ),
         committed: false,
         tokens_used: None,
         metadata: Some(serde_json::json!({
@@ -222,13 +241,15 @@ fn try_com_fallback_search_emails(query: &str, max_results: u64) -> anyhow::Resu
 
 #[cfg(not(windows))]
 fn try_com_fallback_search_emails(_query: &str, _max_results: u64) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
 fn try_com_fallback_read_email_by_id(id: &str) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for read_email_by_id via PowerShell...");
-    
+
     let safe_id = id.replace("'", "''");
 
     let ps_script = format!(
@@ -258,7 +279,7 @@ fn try_com_fallback_read_email_by_id(id: &str) -> anyhow::Result<AgentOutput> {
         safe_id
     );
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let mut utf16_bytes = Vec::new();
     for c in ps_script.encode_utf16() {
         utf16_bytes.extend_from_slice(&c.to_le_bytes());
@@ -276,27 +297,31 @@ fn try_com_fallback_read_email_by_id(id: &str) -> anyhow::Result<AgentOutput> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let email: serde_json::Value = serde_json::from_str(&stdout).unwrap_or(serde_json::json!({}));
-    
+
     let subject = email["subject"].as_str().unwrap_or("(no subject)");
     let body = email["body"].as_str().unwrap_or("");
-    
+
     Ok(AgentOutput {
         content: format!("📧 **{}**\n\n{}", subject, body),
         committed: false,
         tokens_used: None,
-        metadata: Some(serde_json::json!({ "email_id": id, "subject": subject, "fallback": "com_automation" })),
+        metadata: Some(
+            serde_json::json!({ "email_id": id, "subject": subject, "fallback": "com_automation" }),
+        ),
     })
 }
 
 #[cfg(not(windows))]
 fn try_com_fallback_read_email_by_id(_id: &str) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
 fn try_com_fallback_send_email(to: &str, subject: &str, body: &str) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for send_email via PowerShell...");
-    
+
     // Escape single quotes for PowerShell string
     let safe_to = to.replace("'", "''");
     let safe_subject = subject.replace("'", "''");
@@ -320,7 +345,7 @@ fn try_com_fallback_send_email(to: &str, subject: &str, body: &str) -> anyhow::R
         safe_to, safe_subject, safe_body
     );
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let mut utf16_bytes = Vec::new();
     for c in ps_script.encode_utf16() {
         utf16_bytes.extend_from_slice(&c.to_le_bytes());
@@ -337,7 +362,10 @@ fn try_com_fallback_send_email(to: &str, subject: &str, body: &str) -> anyhow::R
     }
 
     Ok(AgentOutput {
-        content: format!("Đã gửi email tới '{}' với tiêu đề '{}' qua COM Automation.", to, subject),
+        content: format!(
+            "Đã gửi email tới '{}' với tiêu đề '{}' qua COM Automation.",
+            to, subject
+        ),
         committed: true,
         tokens_used: None,
         metadata: Some(serde_json::json!({
@@ -350,14 +378,25 @@ fn try_com_fallback_send_email(to: &str, subject: &str, body: &str) -> anyhow::R
 }
 
 #[cfg(not(windows))]
-fn try_com_fallback_send_email(_to: &str, _subject: &str, _body: &str) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+fn try_com_fallback_send_email(
+    _to: &str,
+    _subject: &str,
+    _body: &str,
+) -> anyhow::Result<AgentOutput> {
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
-fn try_com_fallback_create_event(subject: &str, body: &str, start: &str, duration_mins: u64) -> anyhow::Result<AgentOutput> {
+fn try_com_fallback_create_event(
+    subject: &str,
+    body: &str,
+    start: &str,
+    duration_mins: u64,
+) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for create_calendar_event via PowerShell...");
-    
+
     let safe_subject = subject.replace("'", "''");
     let safe_body = body.replace("'", "''");
     let safe_start = start.replace("'", "''");
@@ -381,7 +420,7 @@ fn try_com_fallback_create_event(subject: &str, body: &str, start: &str, duratio
         safe_subject, safe_body, safe_start, duration_mins
     );
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let mut utf16_bytes = Vec::new();
     for c in ps_script.encode_utf16() {
         utf16_bytes.extend_from_slice(&c.to_le_bytes());
@@ -410,14 +449,24 @@ fn try_com_fallback_create_event(subject: &str, body: &str, start: &str, duratio
 }
 
 #[cfg(not(windows))]
-fn try_com_fallback_create_event(_subject: &str, _body: &str, _start: &str, _duration_mins: u64) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+fn try_com_fallback_create_event(
+    _subject: &str,
+    _body: &str,
+    _start: &str,
+    _duration_mins: u64,
+) -> anyhow::Result<AgentOutput> {
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
-fn try_com_fallback_read_calendar(days_ahead: u64, max_results: u64) -> anyhow::Result<AgentOutput> {
+fn try_com_fallback_read_calendar(
+    days_ahead: u64,
+    max_results: u64,
+) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for read_calendar via PowerShell...");
-    
+
     // Call the calendar.ps1 script
     let mut script_path = std::env::current_dir()?;
     script_path.push(".agent");
@@ -429,11 +478,16 @@ fn try_com_fallback_read_calendar(days_ahead: u64, max_results: u64) -> anyhow::
     let output = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
-            "-ExecutionPolicy", "Bypass",
-            "-File", &script_path.to_string_lossy(),
-            "-Action", "GetEvents",
-            "-DaysAhead", &days_ahead.to_string(),
-            "-MaxResults", &max_results.to_string()
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            &script_path.to_string_lossy(),
+            "-Action",
+            "GetEvents",
+            "-DaysAhead",
+            &days_ahead.to_string(),
+            "-MaxResults",
+            &max_results.to_string(),
         ])
         .output()?;
 
@@ -443,8 +497,9 @@ fn try_com_fallback_read_calendar(days_ahead: u64, max_results: u64) -> anyhow::
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let events_val: serde_json::Value = serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
-    
+    let events_val: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
+
     let events_arr = if events_val.is_array() {
         events_val.as_array().unwrap().clone()
     } else if events_val.is_object() {
@@ -459,7 +514,10 @@ fn try_com_fallback_read_calendar(days_ahead: u64, max_results: u64) -> anyhow::
         let subj = e["Subject"].as_str().unwrap_or("(no subject)");
         let start = e["Start"].as_str().unwrap_or("");
         let loc = e["Location"].as_str().unwrap_or("");
-        list.push_str(&format!("- **{}** (Bắt đầu: {})\n  _Địa điểm: {}_\n", subj, start, loc));
+        list.push_str(&format!(
+            "- **{}** (Bắt đầu: {})\n  _Địa điểm: {}_\n",
+            subj, start, loc
+        ));
     }
 
     Ok(AgentOutput {
@@ -476,14 +534,19 @@ fn try_com_fallback_read_calendar(days_ahead: u64, max_results: u64) -> anyhow::
 }
 
 #[cfg(not(windows))]
-fn try_com_fallback_read_calendar(_days_ahead: u64, _max_results: u64) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+fn try_com_fallback_read_calendar(
+    _days_ahead: u64,
+    _max_results: u64,
+) -> anyhow::Result<AgentOutput> {
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
 
 #[cfg(windows)]
 fn try_com_fallback_read_tasks(max_results: u64) -> anyhow::Result<AgentOutput> {
     info!("Attempting COM Automation fallback for read_tasks via PowerShell...");
-    
+
     // Call the calendar.ps1 script
     let mut script_path = std::env::current_dir()?;
     script_path.push(".agent");
@@ -495,10 +558,14 @@ fn try_com_fallback_read_tasks(max_results: u64) -> anyhow::Result<AgentOutput> 
     let output = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
-            "-ExecutionPolicy", "Bypass",
-            "-File", &script_path.to_string_lossy(),
-            "-Action", "GetTasks",
-            "-MaxResults", &max_results.to_string()
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            &script_path.to_string_lossy(),
+            "-Action",
+            "GetTasks",
+            "-MaxResults",
+            &max_results.to_string(),
         ])
         .output()?;
 
@@ -508,8 +575,9 @@ fn try_com_fallback_read_tasks(max_results: u64) -> anyhow::Result<AgentOutput> 
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let tasks_val: serde_json::Value = serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
-    
+    let tasks_val: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or(serde_json::json!([]));
+
     let tasks_arr = if tasks_val.is_array() {
         tasks_val.as_array().unwrap().clone()
     } else if tasks_val.is_object() {
@@ -525,7 +593,10 @@ fn try_com_fallback_read_tasks(max_results: u64) -> anyhow::Result<AgentOutput> 
         let due = t["DueDate"].as_str().unwrap_or("Không có hạn");
         let _status = t["Status"].as_i64().unwrap_or(0);
         let pct = t["PercentComplete"].as_i64().unwrap_or(0);
-        list.push_str(&format!("- **{}** (Hạn: {}) - Đã hoàn thành {}%\n", subj, due, pct));
+        list.push_str(&format!(
+            "- **{}** (Hạn: {}) - Đã hoàn thành {}%\n",
+            subj, due, pct
+        ));
     }
 
     Ok(AgentOutput {
@@ -543,9 +614,10 @@ fn try_com_fallback_read_tasks(max_results: u64) -> anyhow::Result<AgentOutput> 
 
 #[cfg(not(windows))]
 fn try_com_fallback_read_tasks(_max_results: u64) -> anyhow::Result<AgentOutput> {
-    Err(anyhow::anyhow!("COM Automation is only supported on Windows"))
+    Err(anyhow::anyhow!(
+        "COM Automation is only supported on Windows"
+    ))
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OutlookAgent
@@ -607,7 +679,8 @@ impl OutlookAgent {
 
         // 2. Perform Device Code Flow
         info!("Initiating MS Graph Device Code Flow...");
-        let client_id = std::env::var("MS_GRAPH_CLIENT_ID").unwrap_or_else(|_| "YOUR_CLIENT_ID_HERE".to_string());
+        let client_id = std::env::var("MS_GRAPH_CLIENT_ID")
+            .unwrap_or_else(|_| "YOUR_CLIENT_ID_HERE".to_string());
         if client_id == "YOUR_CLIENT_ID_HERE" {
             warn!("MS_GRAPH_CLIENT_ID not set. Using mock token.");
             return Ok("mock_oauth_token_123".to_string());
@@ -616,16 +689,27 @@ impl OutlookAgent {
         let tenant = "common";
         let scope = "offline_access Mail.Read Mail.Send";
 
-        let device_code_url = format!("https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode", tenant);
-        let params = [
-            ("client_id", client_id.as_str()),
-            ("scope", scope),
-        ];
+        let device_code_url = format!(
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode",
+            tenant
+        );
+        let params = [("client_id", client_id.as_str()), ("scope", scope)];
 
-        let res = self.client.post(&device_code_url).form(&params).send().await?;
+        let res = self
+            .client
+            .post(&device_code_url)
+            .form(&params)
+            .send()
+            .await?;
         let device_code_data: serde_json::Value = res.json().await?;
 
-        if let (Some(user_code), Some(device_code), Some(verification_uri), Some(message), Some(interval)) = (
+        if let (
+            Some(user_code),
+            Some(device_code),
+            Some(verification_uri),
+            Some(message),
+            Some(interval),
+        ) = (
             device_code_data["user_code"].as_str(),
             device_code_data["device_code"].as_str(),
             device_code_data["verification_uri"].as_str(),
@@ -640,7 +724,10 @@ impl OutlookAgent {
             println!("2. Enter the code: {}", user_code);
             println!("============================================================");
 
-            let token_url = format!("https://login.microsoftonline.com/{}/oauth2/v2.0/token", tenant);
+            let token_url = format!(
+                "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+                tenant
+            );
             let mut attempts = 0;
             let max_attempts = 60; // e.g. 5 minutes total with 5s interval
 
@@ -654,14 +741,19 @@ impl OutlookAgent {
                     ("device_code", device_code),
                 ];
 
-                let token_res = self.client.post(&token_url).form(&token_params).send().await?;
+                let token_res = self
+                    .client
+                    .post(&token_url)
+                    .form(&token_params)
+                    .send()
+                    .await?;
                 let token_data: serde_json::Value = token_res.json().await?;
 
                 if let Some(access_token) = token_data["access_token"].as_str() {
                     info!("Successfully acquired MS Graph token.");
                     let expires_in = token_data["expires_in"].as_i64().unwrap_or(3600);
                     let refresh_token = token_data["refresh_token"].as_str().unwrap_or("");
-                    
+
                     let cache = serde_json::json!({
                         "access_token": access_token,
                         "refresh_token": refresh_token,
@@ -683,9 +775,10 @@ impl OutlookAgent {
     }
 
     async fn refresh_graph_token(&self, refresh_token: &str) -> anyhow::Result<String> {
-        let client_id = std::env::var("MS_GRAPH_CLIENT_ID").unwrap_or_else(|_| "YOUR_CLIENT_ID_HERE".to_string());
+        let client_id = std::env::var("MS_GRAPH_CLIENT_ID")
+            .unwrap_or_else(|_| "YOUR_CLIENT_ID_HERE".to_string());
         let token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-        
+
         let params = [
             ("grant_type", "refresh_token"),
             ("client_id", client_id.as_str()),
@@ -697,15 +790,17 @@ impl OutlookAgent {
 
         if let Some(access_token) = token_data["access_token"].as_str() {
             let expires_in = token_data["expires_in"].as_i64().unwrap_or(3600);
-            let new_refresh_token = token_data["refresh_token"].as_str().unwrap_or(refresh_token);
-            
+            let new_refresh_token = token_data["refresh_token"]
+                .as_str()
+                .unwrap_or(refresh_token);
+
             let cache = serde_json::json!({
                 "access_token": access_token,
                 "refresh_token": new_refresh_token,
                 "expires_at": Utc::now().timestamp() + expires_in
             });
             fs::write(Self::get_token_cache_path(), cache.to_string()).ok();
-            
+
             Ok(access_token.to_string())
         } else {
             Err(anyhow::anyhow!("Failed to refresh token: {:?}", token_data))
@@ -886,17 +981,20 @@ impl Agent for OutlookAgent {
         self.status = AgentStatus::Busy;
 
         let result = match task.action.as_str() {
-            "read_inbox"            => self.handle_read_inbox(&task).await,
-            "send_email"            => self.handle_send_email(&task).await,
-            "read_email_by_id"      => self.handle_read_email_by_id(&task).await,
-            "reply_email"           => self.handle_reply_email(&task).await,
-            "search_emails"         => self.handle_search_emails(&task).await,
+            "read_inbox" => self.handle_read_inbox(&task).await,
+            "send_email" => self.handle_send_email(&task).await,
+            "read_email_by_id" => self.handle_read_email_by_id(&task).await,
+            "reply_email" => self.handle_reply_email(&task).await,
+            "search_emails" => self.handle_search_emails(&task).await,
             "create_calendar_event" => self.handle_create_calendar_event(&task).await,
-            "read_calendar"         => self.handle_read_calendar(&task).await,
-            "read_tasks"            => self.handle_read_tasks(&task).await,
+            "read_calendar" => self.handle_read_calendar(&task).await,
+            "read_tasks" => self.handle_read_tasks(&task).await,
             unknown => {
                 self.error_count += 1;
-                Err(anyhow::anyhow!("OutlookAgent does not support action '{}'", unknown))
+                Err(anyhow::anyhow!(
+                    "OutlookAgent does not support action '{}'",
+                    unknown
+                ))
             }
         };
 
@@ -911,11 +1009,22 @@ impl Agent for OutlookAgent {
 
 impl OutlookAgent {
     async fn handle_read_inbox(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let unread_only = task.parameters.get("unread_only").and_then(|v| v.as_bool()).unwrap_or(true);
-        let max_results = task.parameters.get("max_results").and_then(|v| v.as_u64()).unwrap_or(self.config.max_emails_per_fetch as u64);
+        let unread_only = task
+            .parameters
+            .get("unread_only")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let max_results = task
+            .parameters
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(self.config.max_emails_per_fetch as u64);
 
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         // 1. Try MS Graph API
         if token == "mock_oauth_token_123" {
             warn!("MS Graph token is invalid/mocked.");
@@ -929,15 +1038,21 @@ impl OutlookAgent {
                     }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
-        let filter = if unread_only { "?$filter=isRead eq false" } else { "" };
+
+        let filter = if unread_only {
+            "?$filter=isRead eq false"
+        } else {
+            ""
+        };
         let url = format!("https://graph.microsoft.com/v1.0/me/messages{}", filter);
 
         info!("Calling MS Graph API to read inbox: {}", url);
-        
+
         let response = self.client.get(&url).bearer_auth(&token).send().await?;
         if !response.status().is_success() {
             return Err(anyhow::anyhow!("MS Graph API error: {}", response.status()));
@@ -945,11 +1060,13 @@ impl OutlookAgent {
 
         let data: serde_json::Value = response.json().await?;
         let emails = data["value"].as_array().cloned().unwrap_or_default();
-        
+
         let mut parsed_emails = Vec::new();
         let mut count = 0;
         for item in emails {
-            if count >= max_results { break; }
+            if count >= max_results {
+                break;
+            }
             parsed_emails.push(serde_json::json!({
                 "subject": item["subject"].as_str().unwrap_or(""),
                 "sender": item["sender"]["emailAddress"]["address"].as_str().unwrap_or(""),
@@ -964,11 +1081,20 @@ impl OutlookAgent {
             let subj = e["subject"].as_str().unwrap_or("(no subject)");
             let sender = e["sender"].as_str().unwrap_or("");
             let preview = e["bodyPreview"].as_str().unwrap_or("");
-            list.push_str(&format!("- **{}** (from: {})\n  _{}_\n", subj, sender, preview.replace('\n', " ")));
+            list.push_str(&format!(
+                "- **{}** (from: {})\n  _{}_\n",
+                subj,
+                sender,
+                preview.replace('\n', " ")
+            ));
         }
 
         Ok(AgentOutput {
-            content: format!("Đã lấy {} email từ Inbox (MS Graph API):\n\n{}", parsed_emails.len(), list),
+            content: format!(
+                "Đã lấy {} email từ Inbox (MS Graph API):\n\n{}",
+                parsed_emails.len(),
+                list
+            ),
             committed: true,
             tokens_used: None,
             metadata: Some(serde_json::json!({
@@ -980,12 +1106,27 @@ impl OutlookAgent {
     }
 
     async fn handle_send_email(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let to = task.parameters.get("to").and_then(|v| v.as_str()).unwrap_or("");
-        let subject = task.parameters.get("subject").and_then(|v| v.as_str()).unwrap_or("");
-        let body = task.parameters.get("body").and_then(|v| v.as_str()).unwrap_or("");
+        let to = task
+            .parameters
+            .get("to")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let subject = task
+            .parameters
+            .get("subject")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let body = task
+            .parameters
+            .get("body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         // 1. Try MS Graph API
         if token == "mock_oauth_token_123" {
             warn!("MS Graph token is invalid/mocked.");
@@ -999,10 +1140,12 @@ impl OutlookAgent {
                     }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         let url = "https://graph.microsoft.com/v1.0/me/sendMail";
 
         info!("Calling MS Graph API to send email to {}", to);
@@ -1024,17 +1167,26 @@ impl OutlookAgent {
             "saveToSentItems": "true"
         });
 
-        let response = self.client.post(url)
+        let response = self
+            .client
+            .post(url)
             .bearer_auth(&token)
             .json(&payload)
-            .send().await?;
+            .send()
+            .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("MS Graph API error sending email: {}", response.status()));
+            return Err(anyhow::anyhow!(
+                "MS Graph API error sending email: {}",
+                response.status()
+            ));
         }
 
         Ok(AgentOutput {
-            content: format!("Đã gửi email tới '{}' với tiêu đề '{}' qua MS Graph API.", to, subject),
+            content: format!(
+                "Đã gửi email tới '{}' với tiêu đề '{}' qua MS Graph API.",
+                to, subject
+            ),
             committed: true,
             tokens_used: None,
             metadata: Some(serde_json::json!({
@@ -1046,11 +1198,17 @@ impl OutlookAgent {
     }
 
     async fn handle_read_email_by_id(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let id = task.parameters.get("email_id").and_then(|v| v.as_str())
+        let id = task
+            .parameters
+            .get("email_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Thiếu email_id"))?;
-            
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         if token == "mock_oauth_token_123" {
             if self.config.use_com_fallback {
                 match try_com_fallback_read_email_by_id(id) {
@@ -1058,10 +1216,12 @@ impl OutlookAgent {
                     Err(e) => return Err(anyhow::anyhow!("Both MS Graph API and COM Automation failed for read_email_by_id. Error: {}", e)),
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}", id);
         let response = self.client.get(&url).bearer_auth(&token).send().await?;
         if !response.status().is_success() {
@@ -1079,14 +1239,26 @@ impl OutlookAgent {
     }
 
     async fn handle_reply_email(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let id = task.parameters.get("email_id").and_then(|v| v.as_str())
+        let id = task
+            .parameters
+            .get("email_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Thiếu email_id"))?;
-        let comment = task.parameters.get("body").and_then(|v| v.as_str())
+        let comment = task
+            .parameters
+            .get("body")
+            .and_then(|v| v.as_str())
             .unwrap_or(&task.message);
         let token = self.fetch_graph_token().await?;
         let url = format!("https://graph.microsoft.com/v1.0/me/messages/{}/reply", id);
         let payload = serde_json::json!({ "comment": comment });
-        let res = self.client.post(&url).bearer_auth(&token).json(&payload).send().await?;
+        let res = self
+            .client
+            .post(&url)
+            .bearer_auth(&token)
+            .json(&payload)
+            .send()
+            .await?;
         if !res.status().is_success() {
             return Err(anyhow::anyhow!("Graph reply error: {}", res.status()));
         }
@@ -1099,73 +1271,133 @@ impl OutlookAgent {
     }
 
     async fn handle_search_emails(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let query = task.parameters.get("query").and_then(|v| v.as_str())
+        let query = task
+            .parameters
+            .get("query")
+            .and_then(|v| v.as_str())
             .unwrap_or(&task.message);
-        let max = task.parameters.get("max_results").and_then(|v| v.as_u64()).unwrap_or(10);
-        
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let max = task
+            .parameters
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10);
+
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         if token == "mock_oauth_token_123" {
             if self.config.use_com_fallback {
                 match try_com_fallback_search_emails(query, max) {
                     Ok(out) => return Ok(out),
-                    Err(e) => return Err(anyhow::anyhow!("Both MS Graph API and COM Automation failed for search_emails. Error: {}", e)),
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                        "Both MS Graph API and COM Automation failed for search_emails. Error: {}",
+                        e
+                    ))
+                    }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         let url = format!(
             "https://graph.microsoft.com/v1.0/me/messages?$search=\"{}\"&$top={}",
-            urlencoding::encode(query), max
+            urlencoding::encode(query),
+            max
         );
-        let response = self.client.get(&url)
+        let response = self
+            .client
+            .get(&url)
             .bearer_auth(&token)
             .header("ConsistencyLevel", "eventual")
-            .send().await?;
-            
+            .send()
+            .await?;
+
         if !response.status().is_success() {
             return Err(anyhow::anyhow!("MS Graph API error: {}", response.status()));
         }
-        
+
         let data: serde_json::Value = response.json().await?;
         let emails = data["value"].as_array().cloned().unwrap_or_default();
-        let list = emails.iter().map(|e| format!(
-            "- **{}** (from: {})",
-            e["subject"].as_str().unwrap_or(""),
-            e["sender"]["emailAddress"]["address"].as_str().unwrap_or("")
-        )).collect::<Vec<_>>().join("\n");
+        let list = emails
+            .iter()
+            .map(|e| {
+                format!(
+                    "- **{}** (from: {})",
+                    e["subject"].as_str().unwrap_or(""),
+                    e["sender"]["emailAddress"]["address"]
+                        .as_str()
+                        .unwrap_or("")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         Ok(AgentOutput {
             content: format!("🔍 Tìm \"{}\" → {} kết quả:\n{}", query, emails.len(), list),
             committed: false,
             tokens_used: None,
-            metadata: Some(serde_json::json!({ "query": query, "count": emails.len(), "emails": emails })),
+            metadata: Some(
+                serde_json::json!({ "query": query, "count": emails.len(), "emails": emails }),
+            ),
         })
     }
-    async fn handle_create_calendar_event(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let subject = task.parameters.get("subject").and_then(|v| v.as_str()).unwrap_or("Họp");
-        let body = task.parameters.get("body").and_then(|v| v.as_str()).unwrap_or("");
-        let start = task.parameters.get("start").and_then(|v| v.as_str()).unwrap_or("");
-        let duration_mins = task.parameters.get("duration_mins").and_then(|v| v.as_u64()).unwrap_or(60);
+    async fn handle_create_calendar_event(
+        &mut self,
+        task: &AgentTask,
+    ) -> anyhow::Result<AgentOutput> {
+        let subject = task
+            .parameters
+            .get("subject")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Họp");
+        let body = task
+            .parameters
+            .get("body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let start = task
+            .parameters
+            .get("start")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let duration_mins = task
+            .parameters
+            .get("duration_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(60);
 
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         if token == "mock_oauth_token_123" {
             if self.config.use_com_fallback {
                 match try_com_fallback_create_event(subject, body, start, duration_mins) {
                     Ok(out) => return Ok(out),
-                    Err(e) => return Err(anyhow::anyhow!("Both MS Graph API and COM Automation failed. Error: {}", e)),
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Both MS Graph API and COM Automation failed. Error: {}",
+                            e
+                        ))
+                    }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         let url = "https://graph.microsoft.com/v1.0/me/events";
 
         info!("Calling MS Graph API to create calendar event");
-        
+
         // Parse the provided start datetime string. Fallback to current time if unparseable.
         let parsed_dt = chrono::DateTime::parse_from_rfc3339(start)
             .or_else(|_| chrono::DateTime::parse_from_rfc3339(&format!("{}:00+07:00", start))) // rough fallback
@@ -1189,10 +1421,13 @@ impl OutlookAgent {
             }
         });
 
-        let response = self.client.post(url)
+        let response = self
+            .client
+            .post(url)
             .bearer_auth(&token)
             .json(&payload)
-            .send().await?;
+            .send()
+            .await?;
 
         if !response.status().is_success() {
             let e = response.text().await.unwrap_or_default();
@@ -1200,7 +1435,10 @@ impl OutlookAgent {
         }
 
         Ok(AgentOutput {
-            content: format!("✅ Đã tạo sự kiện '{}' vào lúc {} qua MS Graph API.", subject, start),
+            content: format!(
+                "✅ Đã tạo sự kiện '{}' vào lúc {} qua MS Graph API.",
+                subject, start
+            ),
             committed: true,
             tokens_used: None,
             metadata: Some(serde_json::json!({
@@ -1211,25 +1449,45 @@ impl OutlookAgent {
     }
 
     async fn handle_read_calendar(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let days_ahead = task.parameters.get("days_ahead").and_then(|v| v.as_u64()).unwrap_or(7);
-        let max_results = task.parameters.get("max_results").and_then(|v| v.as_u64()).unwrap_or(20);
+        let days_ahead = task
+            .parameters
+            .get("days_ahead")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(7);
+        let max_results = task
+            .parameters
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20);
 
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         if token == "mock_oauth_token_123" {
             if self.config.use_com_fallback {
                 match try_com_fallback_read_calendar(days_ahead, max_results) {
                     Ok(out) => return Ok(out),
-                    Err(e) => return Err(anyhow::anyhow!("Both MS Graph API and COM Automation failed. Error: {}", e)),
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Both MS Graph API and COM Automation failed. Error: {}",
+                            e
+                        ))
+                    }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         let start_datetime = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
-        let end_datetime = (chrono::Utc::now() + chrono::Duration::days(days_ahead as i64)).format("%Y-%m-%dT%H:%M:%S").to_string();
-        
+        let end_datetime = (chrono::Utc::now() + chrono::Duration::days(days_ahead as i64))
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string();
+
         let url = format!(
             "https://graph.microsoft.com/v1.0/me/calendarview?startdatetime={}&enddatetime={}&$top={}",
             start_datetime, end_datetime, max_results
@@ -1240,20 +1498,33 @@ impl OutlookAgent {
 
         if !response.status().is_success() {
             let e = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("MS Graph API error reading calendar: {}", e));
+            return Err(anyhow::anyhow!(
+                "MS Graph API error reading calendar: {}",
+                e
+            ));
         }
 
         let data: serde_json::Value = response.json().await?;
         let events = data["value"].as_array().cloned().unwrap_or_default();
-        
-        let list = events.iter().map(|e| format!(
-            "- **{}** (Bắt đầu: {})",
-            e["subject"].as_str().unwrap_or(""),
-            e["start"]["dateTime"].as_str().unwrap_or("")
-        )).collect::<Vec<_>>().join("\n");
+
+        let list = events
+            .iter()
+            .map(|e| {
+                format!(
+                    "- **{}** (Bắt đầu: {})",
+                    e["subject"].as_str().unwrap_or(""),
+                    e["start"]["dateTime"].as_str().unwrap_or("")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         Ok(AgentOutput {
-            content: format!("📅 Đã lấy {} lịch họp sắp tới qua MS Graph API:\n\n{}", events.len(), list),
+            content: format!(
+                "📅 Đã lấy {} lịch họp sắp tới qua MS Graph API:\n\n{}",
+                events.len(),
+                list
+            ),
             committed: false,
             tokens_used: None,
             metadata: Some(serde_json::json!({
@@ -1265,21 +1536,35 @@ impl OutlookAgent {
     }
 
     async fn handle_read_tasks(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let max_results = task.parameters.get("max_results").and_then(|v| v.as_u64()).unwrap_or(20);
+        let max_results = task
+            .parameters
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20);
 
-        let token = self.fetch_graph_token().await.unwrap_or_else(|_| "mock_oauth_token_123".to_string());
-        
+        let token = self
+            .fetch_graph_token()
+            .await
+            .unwrap_or_else(|_| "mock_oauth_token_123".to_string());
+
         if token == "mock_oauth_token_123" {
             if self.config.use_com_fallback {
                 match try_com_fallback_read_tasks(max_results) {
                     Ok(out) => return Ok(out),
-                    Err(e) => return Err(anyhow::anyhow!("Both MS Graph API and COM Automation failed. Error: {}", e)),
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Both MS Graph API and COM Automation failed. Error: {}",
+                            e
+                        ))
+                    }
                 }
             } else {
-                return Err(anyhow::anyhow!("MS Graph API failed and COM fallback is disabled."));
+                return Err(anyhow::anyhow!(
+                    "MS Graph API failed and COM fallback is disabled."
+                ));
             }
         }
-        
+
         // Graph API for Microsoft To Do
         let url = format!("https://graph.microsoft.com/v1.0/me/todo/lists/tasks/tasks?$filter=status ne 'completed'&$top={}", max_results);
 
@@ -1293,15 +1578,27 @@ impl OutlookAgent {
 
         let data: serde_json::Value = response.json().await?;
         let tasks = data["value"].as_array().cloned().unwrap_or_default();
-        
-        let list = tasks.iter().map(|t| format!(
-            "- **{}** (Hạn: {})",
-            t["title"].as_str().unwrap_or(""),
-            t["dueDateTime"]["dateTime"].as_str().unwrap_or("Không có hạn")
-        )).collect::<Vec<_>>().join("\n");
+
+        let list = tasks
+            .iter()
+            .map(|t| {
+                format!(
+                    "- **{}** (Hạn: {})",
+                    t["title"].as_str().unwrap_or(""),
+                    t["dueDateTime"]["dateTime"]
+                        .as_str()
+                        .unwrap_or("Không có hạn")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         Ok(AgentOutput {
-            content: format!("📋 Đã lấy {} công việc (Tasks) qua MS Graph API:\n\n{}", tasks.len(), list),
+            content: format!(
+                "📋 Đã lấy {} công việc (Tasks) qua MS Graph API:\n\n{}",
+                tasks.len(),
+                list
+            ),
             committed: false,
             tokens_used: None,
             metadata: Some(serde_json::json!({

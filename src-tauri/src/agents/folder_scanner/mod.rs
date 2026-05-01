@@ -29,11 +29,7 @@
 //   Phase 3 sẽ tích hợp PDF text extraction
 // ============================================================================
 
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    time::Instant,
-};
+use std::{collections::HashMap, path::PathBuf, time::Instant};
 
 use async_trait::async_trait;
 use calamine::{open_workbook_auto, Reader};
@@ -788,90 +784,91 @@ impl FolderScannerAgent {
         let this = &*self;
         let max_concurrent = 4; // TODO: configurable limit
 
-        let results: Vec<(ScannedFileInfo, bool, Option<String>)> = futures::stream::iter(discovered.into_iter().enumerate())
-            .map(|(idx, mut file_info)| {
-                let scan_id_clone = scan_id.clone();
-                let config_clone = config.clone();
-                async move {
-                    if !file_info.category.is_supported() {
-                        file_info.status = FileProcessStatus::Skipped;
-                        file_info.skip_reason = Some("Unsupported file type".into());
-                        return (file_info, false, None);
-                    }
+        let results: Vec<(ScannedFileInfo, bool, Option<String>)> =
+            futures::stream::iter(discovered.into_iter().enumerate())
+                .map(|(idx, mut file_info)| {
+                    let scan_id_clone = scan_id.clone();
+                    let config_clone = config.clone();
+                    async move {
+                        if !file_info.category.is_supported() {
+                            file_info.status = FileProcessStatus::Skipped;
+                            file_info.skip_reason = Some("Unsupported file type".into());
+                            return (file_info, false, None);
+                        }
 
-                    let percent = (idx as f32 / total_supported as f32) * 100.0;
+                        let percent = (idx as f32 / total_supported as f32) * 100.0;
 
-                    // Emit: FileProcessing (reading)
-                    this.emit_progress(ScanProgressEvent::FileProcessing {
-                        scan_id: scan_id_clone.clone(),
-                        file_name: file_info.name.clone(),
-                        file_index: idx + 1,
-                        total_files: total_supported,
-                        percent,
-                        current_stage: "reading".into(),
-                    })
-                    .await;
-
-                    // TODO(phase-3): real file read
-                    let file_content = this.read_file_content(&file_info).await;
-
-                    // Emit: FileProcessing (summarizing)
-                    this.emit_progress(ScanProgressEvent::FileProcessing {
-                        scan_id: scan_id_clone.clone(),
-                        file_name: file_info.name.clone(),
-                        file_index: idx + 1,
-                        total_files: total_supported,
-                        percent,
-                        current_stage: "summarizing".into(),
-                    })
-                    .await;
-
-                    // TODO(phase-3): real LLM summarization
-                    let summary = this
-                        .summarize_content(&file_info, file_content.as_deref(), &config_clone)
+                        // Emit: FileProcessing (reading)
+                        this.emit_progress(ScanProgressEvent::FileProcessing {
+                            scan_id: scan_id_clone.clone(),
+                            file_name: file_info.name.clone(),
+                            file_index: idx + 1,
+                            total_files: total_supported,
+                            percent,
+                            current_stage: "reading".into(),
+                        })
                         .await;
 
-                    match summary {
-                        Ok(s) => {
-                            let preview = s.chars().take(120).collect::<String>();
-                            file_info.summary = Some(s);
-                            file_info.status = FileProcessStatus::Done;
+                        // TODO(phase-3): real file read
+                        let file_content = this.read_file_content(&file_info).await;
 
-                            this.emit_progress(ScanProgressEvent::FileCompleted {
-                                scan_id: scan_id_clone.clone(),
-                                file_name: file_info.name.clone(),
-                                file_index: idx + 1,
-                                total_files: total_supported,
-                                percent: percent + (1.0 / total_supported as f32) * 100.0,
-                                summary_preview: Some(preview),
-                                status: "done".into(),
-                            })
-                            .await;
-                            
-                            (file_info, true, None)
-                        }
-                        Err(e) => {
-                            file_info.status = FileProcessStatus::Error(e.to_string());
-                            
-                            this.emit_progress(ScanProgressEvent::FileCompleted {
-                                scan_id: scan_id_clone.clone(),
-                                file_name: file_info.name.clone(),
-                                file_index: idx + 1,
-                                total_files: total_supported,
-                                percent,
-                                summary_preview: None,
-                                status: "error".into(),
-                            })
+                        // Emit: FileProcessing (summarizing)
+                        this.emit_progress(ScanProgressEvent::FileProcessing {
+                            scan_id: scan_id_clone.clone(),
+                            file_name: file_info.name.clone(),
+                            file_index: idx + 1,
+                            total_files: total_supported,
+                            percent,
+                            current_stage: "summarizing".into(),
+                        })
+                        .await;
+
+                        // TODO(phase-3): real LLM summarization
+                        let summary = this
+                            .summarize_content(&file_info, file_content.as_deref(), &config_clone)
                             .await;
 
-                            (file_info, false, Some(e.to_string()))
+                        match summary {
+                            Ok(s) => {
+                                let preview = s.chars().take(120).collect::<String>();
+                                file_info.summary = Some(s);
+                                file_info.status = FileProcessStatus::Done;
+
+                                this.emit_progress(ScanProgressEvent::FileCompleted {
+                                    scan_id: scan_id_clone.clone(),
+                                    file_name: file_info.name.clone(),
+                                    file_index: idx + 1,
+                                    total_files: total_supported,
+                                    percent: percent + (1.0 / total_supported as f32) * 100.0,
+                                    summary_preview: Some(preview),
+                                    status: "done".into(),
+                                })
+                                .await;
+
+                                (file_info, true, None)
+                            }
+                            Err(e) => {
+                                file_info.status = FileProcessStatus::Error(e.to_string());
+
+                                this.emit_progress(ScanProgressEvent::FileCompleted {
+                                    scan_id: scan_id_clone.clone(),
+                                    file_name: file_info.name.clone(),
+                                    file_index: idx + 1,
+                                    total_files: total_supported,
+                                    percent,
+                                    summary_preview: None,
+                                    status: "error".into(),
+                                })
+                                .await;
+
+                                (file_info, false, Some(e.to_string()))
+                            }
                         }
                     }
-                }
-            })
-            .buffer_unordered(max_concurrent)
-            .collect()
-            .await;
+                })
+                .buffer_unordered(max_concurrent)
+                .collect()
+                .await;
 
         let mut processed_files: Vec<ScannedFileInfo> = Vec::new();
         for (file_info, is_success, error) in results {
@@ -1066,7 +1063,10 @@ impl FolderScannerAgent {
                     results.push(ScannedFileInfo {
                         path: path.clone(),
                         name: name.clone(),
-                        relative_path: path.strip_prefix(&config.folder_path).unwrap_or(&path).to_path_buf(),
+                        relative_path: path
+                            .strip_prefix(&config.folder_path)
+                            .unwrap_or(&path)
+                            .to_path_buf(),
                         extension: extension.clone(),
                         category,
                         size_bytes,
@@ -1108,7 +1108,10 @@ impl FolderScannerAgent {
                 results.push(ScannedFileInfo {
                     path: path.clone(),
                     name,
-                    relative_path: path.strip_prefix(&config.folder_path).unwrap_or(&path).to_path_buf(),
+                    relative_path: path
+                        .strip_prefix(&config.folder_path)
+                        .unwrap_or(&path)
+                        .to_path_buf(),
                     extension,
                     category,
                     size_bytes,
@@ -1283,40 +1286,30 @@ impl FolderScannerAgent {
                 .ok()
                 .flatten()
             }
-            FileCategory::Email => {
-                tokio::fs::read_to_string(&file.path)
-                    .await
-                    .ok()
-                    .map(|raw| {
-                        let headers: Vec<String> = raw
-                            .lines()
-                            .take_while(|l| !l.is_empty())
-                            .filter(|l| {
-                                l.starts_with("From:")
-                                    || l.starts_with("Subject:")
-                                    || l.starts_with("Date:")
-                                    || l.starts_with("To:")
-                            })
-                            .map(String::from)
-                            .collect();
-                        let body_start = raw
-                            .find("\r\n\r\n")
-                            .or_else(|| raw.find("\n\n"))
-                            .unwrap_or(raw.len());
-                        let body: String = raw[body_start..].chars().take(500).collect();
-                        format!("[Email]\n{}\n\n{}", headers.join("\n"), body)
+            FileCategory::Email => tokio::fs::read_to_string(&file.path).await.ok().map(|raw| {
+                let headers: Vec<String> = raw
+                    .lines()
+                    .take_while(|l| !l.is_empty())
+                    .filter(|l| {
+                        l.starts_with("From:")
+                            || l.starts_with("Subject:")
+                            || l.starts_with("Date:")
+                            || l.starts_with("To:")
                     })
-            }
-            FileCategory::Image => {
-                tokio::fs::read(&file.path)
-                    .await
-                    .ok()
-                    .map(|bytes| {
-                        use base64::Engine;
-                        let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
-                        format!("[IMAGE_BASE64]\n{}", b64)
-                    })
-            }
+                    .map(String::from)
+                    .collect();
+                let body_start = raw
+                    .find("\r\n\r\n")
+                    .or_else(|| raw.find("\n\n"))
+                    .unwrap_or(raw.len());
+                let body: String = raw[body_start..].chars().take(500).collect();
+                format!("[Email]\n{}\n\n{}", headers.join("\n"), body)
+            }),
+            FileCategory::Image => tokio::fs::read(&file.path).await.ok().map(|bytes| {
+                use base64::Engine;
+                let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+                format!("[IMAGE_BASE64]\n{}", b64)
+            }),
             FileCategory::Unknown => None,
         }
     }
@@ -1339,25 +1332,34 @@ impl FolderScannerAgent {
         let mut image_base64s = vec![];
 
         if text_content.starts_with("[IMAGE_BASE64]\n") {
-            let b64 = text_content.trim_start_matches("[IMAGE_BASE64]\n").trim().to_string();
+            let b64 = text_content
+                .trim_start_matches("[IMAGE_BASE64]\n")
+                .trim()
+                .to_string();
             image_base64s.push(b64);
             text_content = format!("(Hình ảnh đính kèm: {})", file.name);
         }
 
-        let lang = if config.report_language == "vi" { "tiếng Việt" } else { "English" };
+        let lang = if config.report_language == "vi" {
+            "tiếng Việt"
+        } else {
+            "English"
+        };
         let detail = match config.detail_level.as_str() {
-            "brief"    => "1-2 câu ngắn gọn",
+            "brief" => "1-2 câu ngắn gọn",
             "detailed" => "5-10 câu chi tiết kèm số liệu",
-            _          => "3-5 câu nêu nội dung chính và số liệu",
+            _ => "3-5 câu nêu nội dung chính và số liệu",
         };
 
         if let Some(llm_arc) = &self.llm_gateway {
             let llm = llm_arc.read().await;
             let prompt = format!(
                 "File: `{}`\nLoại: {:?}\nNội dung:\n---\n{}\n---\nViết tóm tắt {} bằng {}.",
-                file.name, file.category,
+                file.name,
+                file.category,
                 &text_content[..text_content.len().min(6000)],
-                detail, lang
+                detail,
+                lang
             );
             let req = crate::llm_gateway::LlmRequest::new(vec![
                 crate::llm_gateway::LlmMessage::system(
@@ -1375,7 +1377,8 @@ impl FolderScannerAgent {
         // Fallback khi không có LLM
         Ok(format!(
             "`{}` ({:?}, {:.1} KB) – {} dòng.",
-            file.name, file.category,
+            file.name,
+            file.category,
             file.size_bytes as f64 / 1024.0,
             content_str.lines().count()
         ))
@@ -1398,28 +1401,44 @@ impl FolderScannerAgent {
         let file_list = done_files
             .iter()
             .take(20)
-            .map(|f| format!("- **{}**: {}", f.name, f.summary.as_deref().unwrap_or("(không có tóm tắt)")))
+            .map(|f| {
+                format!(
+                    "- **{}**: {}",
+                    f.name,
+                    f.summary.as_deref().unwrap_or("(không có tóm tắt)")
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
         if let Some(llm_arc) = &self.llm_gateway {
             let llm = llm_arc.read().await;
-            let lang = if config.report_language == "vi" { "tiếng Việt" } else { "English" };
+            let lang = if config.report_language == "vi" {
+                "tiếng Việt"
+            } else {
+                "English"
+            };
             let prompt = format!(
                 "Đây là tóm tắt {} file trong folder `{}`:\n{}\n\nViết tổng quan 5-8 câu về nội dung và chủ đề chính bằng {}.",
                 done_files.len(), config.folder_path.display(), file_list, lang
             );
-            let req = crate::llm_gateway::LlmRequest::new(vec![
-                crate::llm_gateway::LlmMessage::user(prompt),
-            ])
-            .with_max_tokens(768)
-            .with_temperature(0.4);
+            let req =
+                crate::llm_gateway::LlmRequest::new(vec![crate::llm_gateway::LlmMessage::user(
+                    prompt,
+                )])
+                .with_max_tokens(768)
+                .with_temperature(0.4);
             if let Ok(resp) = llm.complete(req).await {
                 return Some(resp.content);
             }
         }
 
-        Some(format!("Đã xử lý {}/{} file.\n\n{}", done_files.len(), files.len(), file_list))
+        Some(format!(
+            "Đã xử lý {}/{} file.\n\n{}",
+            done_files.len(),
+            files.len(),
+            file_list
+        ))
     }
 
     // ── Output generation ─────────────────────────────────────────────────────
@@ -1441,8 +1460,14 @@ impl FolderScannerAgent {
             .unwrap_or_else(|| "scan".to_string());
 
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-        let prefix = config.output_filename_prefix.as_deref().unwrap_or(&folder_name);
-        let output_dir = config.output_dir.clone().unwrap_or_else(|| config.folder_path.clone());
+        let prefix = config
+            .output_filename_prefix
+            .as_deref()
+            .unwrap_or(&folder_name);
+        let output_dir = config
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| config.folder_path.clone());
 
         if let Err(e) = tokio::fs::create_dir_all(&output_dir).await {
             warn!(error = %e, "Could not create output directory");
@@ -1464,57 +1489,100 @@ impl FolderScannerAgent {
 
         for format in formats_to_generate {
             let ext = match &format {
-                ScanOutputFormat::WordReport   => "docx",
-                ScanOutputFormat::PptSlides    => "pptx",
+                ScanOutputFormat::WordReport => "docx",
+                ScanOutputFormat::PptSlides => "pptx",
                 ScanOutputFormat::ExcelSummary => "xlsx",
-                ScanOutputFormat::All          => unreachable!(),
+                ScanOutputFormat::All => unreachable!(),
             };
             let output_path = output_dir.join(format!("{}_{}_TongHop.{}", prefix, timestamp, ext));
 
             match &format {
                 ScanOutputFormat::WordReport => {
-                    let report = done_files.iter()
-                        .map(|f| format!("## {}\n{}\n", f.name, f.summary.as_deref().unwrap_or("(không có tóm tắt)")))
-                        .collect::<Vec<_>>().join("\n");
+                    let report = done_files
+                        .iter()
+                        .map(|f| {
+                            format!(
+                                "## {}\n{}\n",
+                                f.name,
+                                f.summary.as_deref().unwrap_or("(không có tóm tắt)")
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
                     let out_str = output_path.to_string_lossy().to_string();
                     let _ = tokio::task::spawn_blocking(move || {
                         let word = com_word::WordApplication::connect_or_launch()?;
                         word.create_report_from_template(None, &report, Some(&out_str))
-                    }).await;
+                    })
+                    .await;
                 }
                 ScanOutputFormat::PptSlides => {
-                    let slides: Vec<crate::agents::office_master::com_ppt::SlideSpec> = done_files.iter()
+                    let slides: Vec<crate::agents::office_master::com_ppt::SlideSpec> = done_files
+                        .iter()
                         .map(|f| crate::agents::office_master::com_ppt::SlideSpec {
                             title: f.name.clone(),
-                            body_lines: f.summary.as_deref().unwrap_or("")
-                                .lines().take(4).map(String::from).collect(),
+                            body_lines: f
+                                .summary
+                                .as_deref()
+                                .unwrap_or("")
+                                .lines()
+                                .take(4)
+                                .map(String::from)
+                                .collect(),
                             layout: 2,
-                        }).collect();
+                        })
+                        .collect();
                     let out_str = output_path.to_string_lossy().to_string();
                     let _ = tokio::task::spawn_blocking(move || {
                         let ppt = com_ppt::PowerPointApplication::connect_or_launch()?;
                         ppt.create_from_outline(None, &slides, &out_str, None)
-                    }).await;
+                    })
+                    .await;
                 }
                 ScanOutputFormat::ExcelSummary => {
-                    let headers = ["Tên file".to_string(), "Loại".to_string(),
-                        "Kích thước (KB)".to_string(), "Tóm tắt".to_string()];
-                    let rows: Vec<Vec<String>> = done_files.iter().map(|f| vec![
-                        f.name.clone(),
-                        format!("{:?}", f.category),
-                        format!("{:.1}", f.size_bytes as f64 / 1024.0),
-                        f.summary.as_deref().unwrap_or("").chars().take(200).collect(),
-                    ]).collect();
+                    let headers = [
+                        "Tên file".to_string(),
+                        "Loại".to_string(),
+                        "Kích thước (KB)".to_string(),
+                        "Tóm tắt".to_string(),
+                    ];
+                    let rows: Vec<Vec<String>> = done_files
+                        .iter()
+                        .map(|f| {
+                            vec![
+                                f.name.clone(),
+                                format!("{:?}", f.category),
+                                format!("{:.1}", f.size_bytes as f64 / 1024.0),
+                                f.summary
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .chars()
+                                    .take(200)
+                                    .collect(),
+                            ]
+                        })
+                        .collect();
                     let out_str = output_path.to_string_lossy().to_string();
                     let _ = tokio::task::spawn_blocking(move || {
-                        let excel = crate::agents::analyst::excel_com::ExcelApplication::connect_or_launch()?;
+                        let excel =
+                            crate::agents::analyst::excel_com::ExcelApplication::connect_or_launch(
+                            )?;
                         excel.open_workbook(&out_str)?;
-                        let values: Vec<Vec<serde_json::Value>> =
-                            std::iter::once(headers.iter().map(|h| serde_json::Value::String(h.clone())).collect())
-                            .chain(rows.iter().map(|r| r.iter().map(|c| serde_json::Value::String(c.clone())).collect()))
-                            .collect();
+                        let values: Vec<Vec<serde_json::Value>> = std::iter::once(
+                            headers
+                                .iter()
+                                .map(|h| serde_json::Value::String(h.clone()))
+                                .collect(),
+                        )
+                        .chain(rows.iter().map(|r| {
+                            r.iter()
+                                .map(|c| serde_json::Value::String(c.clone()))
+                                .collect()
+                        }))
+                        .collect();
                         excel.write_range_2d("Sheet1", "A1", &values, None)
-                    }).await;
+                    })
+                    .await;
                 }
                 ScanOutputFormat::All => unreachable!(),
             }
@@ -1524,9 +1592,21 @@ impl FolderScannerAgent {
                 format: format.clone(),
                 path: output_path,
                 size_bytes,
-                page_count:  if matches!(&format, ScanOutputFormat::WordReport)   { Some(1) } else { None },
-                sheet_count: if matches!(&format, ScanOutputFormat::ExcelSummary) { Some(1) } else { None },
-                slide_count: if matches!(&format, ScanOutputFormat::PptSlides)    { Some(done_files.len() as u32) } else { None },
+                page_count: if matches!(&format, ScanOutputFormat::WordReport) {
+                    Some(1)
+                } else {
+                    None
+                },
+                sheet_count: if matches!(&format, ScanOutputFormat::ExcelSummary) {
+                    Some(1)
+                } else {
+                    None
+                },
+                slide_count: if matches!(&format, ScanOutputFormat::PptSlides) {
+                    Some(done_files.len() as u32)
+                } else {
+                    None
+                },
             });
         }
 
@@ -1694,7 +1774,7 @@ impl FolderScannerAgent {
                 all_metrics.insert(f.name.clone(), metrics);
             }
         }
-        
+
         Ok(AgentOutput {
             content: format!("Trích xuất {} file Excel/CSV", excel_files.len()),
             committed: false,
@@ -1956,7 +2036,6 @@ impl Agent for FolderScannerAgent {
             },
         ]
     }
-
 
     fn status(&self) -> AgentStatus {
         self.status.clone()

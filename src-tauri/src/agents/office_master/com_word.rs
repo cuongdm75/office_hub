@@ -8,8 +8,8 @@
 use windows::{
     core::BSTR,
     Win32::System::Com::{
-        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch,
-        CLSCTX_LOCAL_SERVER, COINIT_APARTMENTTHREADED,
+        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch, CLSCTX_LOCAL_SERVER,
+        COINIT_APARTMENTTHREADED,
     },
 };
 
@@ -83,7 +83,9 @@ impl WordApplication {
             if let Ok(dv) = docs.invoke_method("Item", vec![var_i4(i)]) {
                 if let Ok(disp) = IDispatch::try_from(&dv) {
                     let doc = ComObject::new(disp);
-                    let name = doc.get_property("FullName").ok()
+                    let name = doc
+                        .get_property("FullName")
+                        .ok()
                         .and_then(|v| BSTR::try_from(&v).ok())
                         .map(|b| b.to_string())
                         .unwrap_or_default();
@@ -94,11 +96,16 @@ impl WordApplication {
             }
         }
 
-        let doc_var = docs.invoke_method("Open", vec![
-            var_bstr(file_path),
-            var_bool(false),        // ConfirmConversions
-            var_bool(read_only),    // ReadOnly
-        ]).map_err(|e| anyhow::anyhow!("Documents.Open('{}') failed: {}", file_path, e))?;
+        let doc_var = docs
+            .invoke_method(
+                "Open",
+                vec![
+                    var_bstr(file_path),
+                    var_bool(false),     // ConfirmConversions
+                    var_bool(read_only), // ReadOnly
+                ],
+            )
+            .map_err(|e| anyhow::anyhow!("Documents.Open('{}') failed: {}", file_path, e))?;
 
         let doc_disp = IDispatch::try_from(&doc_var)
             .map_err(|e| anyhow::anyhow!("Open returned non-object: {}", e))?;
@@ -127,8 +134,7 @@ impl WordApplication {
         let doc = self.open_document(file_path, true)?;
 
         let paragraphs_obj = doc.get_property_obj("Paragraphs")?;
-        let para_count = i32::try_from(&paragraphs_obj.get_property("Count")?)
-            .unwrap_or(0);
+        let para_count = i32::try_from(&paragraphs_obj.get_property("Count")?).unwrap_or(0);
 
         let mut paragraphs = Vec::with_capacity(para_count as usize);
         for i in 1..=para_count {
@@ -136,7 +142,9 @@ impl WordApplication {
                 if let Ok(pdisp) = IDispatch::try_from(&pv) {
                     let para = ComObject::new(pdisp);
                     if let Ok(range) = para.get_property_obj("Range") {
-                        let text = range.get_property("Text").ok()
+                        let text = range
+                            .get_property("Text")
+                            .ok()
                             .and_then(|v| BSTR::try_from(&v).ok())
                             .map(|b| b.to_string().trim_end_matches('\r').to_string())
                             .unwrap_or_default();
@@ -148,13 +156,15 @@ impl WordApplication {
             }
         }
 
-        let table_count = doc.get_property_obj("Tables")
+        let table_count = doc
+            .get_property_obj("Tables")
             .ok()
             .and_then(|t| t.get_property("Count").ok())
             .and_then(|v| i32::try_from(&v).ok())
             .unwrap_or(0) as usize;
 
-        let word_count = doc.get_property_obj("Words")
+        let word_count = doc
+            .get_property_obj("Words")
             .ok()
             .and_then(|w| w.get_property("Count").ok())
             .and_then(|v| i32::try_from(&v).ok())
@@ -297,7 +307,9 @@ impl WordApplication {
     /// Appends a paragraph break before the text so it starts on a new line.
     #[cfg(windows)]
     pub fn insert_text_at_cursor(&self, text: &str, new_paragraph: bool) -> anyhow::Result<String> {
-        let selection = self.app.get_property_obj("Selection")
+        let selection = self
+            .app
+            .get_property_obj("Selection")
             .map_err(|_| anyhow::anyhow!("No active Word document open"))?;
 
         if new_paragraph {
@@ -309,32 +321,48 @@ impl WordApplication {
         selection.invoke_method("TypeText", vec![var_bstr(text)])?;
 
         // Retrieve current doc name for reporting
-        let doc_name = self.app.get_property_obj("ActiveDocument").ok()
+        let doc_name = self
+            .app
+            .get_property_obj("ActiveDocument")
+            .ok()
             .and_then(|d| d.get_property("Name").ok())
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_else(|| "document".to_string());
 
-        Ok(format!("Inserted {} characters into '{}'", text.len(), doc_name))
+        Ok(format!(
+            "Inserted {} characters into '{}'",
+            text.len(),
+            doc_name
+        ))
     }
 
     #[cfg(not(windows))]
-    pub fn insert_text_at_cursor(&self, _text: &str, _new_paragraph: bool) -> anyhow::Result<String> {
+    pub fn insert_text_at_cursor(
+        &self,
+        _text: &str,
+        _new_paragraph: bool,
+    ) -> anyhow::Result<String> {
         Ok("Word COM Automation is only supported on Windows".to_string())
     }
 
     /// Replace the entire content of the active document.
     #[cfg(windows)]
     pub fn replace_active_document(&self, text: &str) -> anyhow::Result<String> {
-        let active_doc = self.app.get_property_obj("ActiveDocument")
+        let active_doc = self
+            .app
+            .get_property_obj("ActiveDocument")
             .map_err(|_| anyhow::anyhow!("No active Word document open"))?;
 
-        let content = active_doc.get_property_obj("Content")
+        let content = active_doc
+            .get_property_obj("Content")
             .map_err(|_| anyhow::anyhow!("Failed to get Content of ActiveDocument"))?;
 
         content.set_property("Text", var_bstr(text))?;
 
-        let doc_name = active_doc.get_property("Name").ok()
+        let doc_name = active_doc
+            .get_property("Name")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_else(|| "document".to_string());
@@ -350,12 +378,16 @@ impl WordApplication {
     /// Save the active document.
     #[cfg(windows)]
     pub fn save_active_document(&self) -> anyhow::Result<String> {
-        let active_doc = self.app.get_property_obj("ActiveDocument")
+        let active_doc = self
+            .app
+            .get_property_obj("ActiveDocument")
             .map_err(|_| anyhow::anyhow!("No active Word document open"))?;
 
         active_doc.invoke_method("Save", vec![])?;
 
-        let doc_name = active_doc.get_property("Name").ok()
+        let doc_name = active_doc
+            .get_property("Name")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_else(|| "document".to_string());
@@ -371,13 +403,18 @@ impl WordApplication {
     /// Extract text from the active document.
     #[cfg(windows)]
     pub fn extract_active_document(&self) -> anyhow::Result<String> {
-        let active_doc = self.app.get_property_obj("ActiveDocument")
+        let active_doc = self
+            .app
+            .get_property_obj("ActiveDocument")
             .map_err(|_| anyhow::anyhow!("No active Word document open"))?;
 
-        let content = active_doc.get_property_obj("Content")
+        let content = active_doc
+            .get_property_obj("Content")
             .map_err(|_| anyhow::anyhow!("Failed to get Content of ActiveDocument"))?;
 
-        let text = content.get_property("Text").ok()
+        let text = content
+            .get_property("Text")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string().trim_end_matches('\r').to_string())
             .unwrap_or_default();
@@ -399,11 +436,14 @@ impl WordApplication {
         output_path: &str,
     ) -> anyhow::Result<String> {
         let docs = self.app.get_property_obj("Documents")?;
-        let doc_var = docs.invoke_method("Open", vec![
-            var_bstr(file_path),
-            var_bool(false),
-            var_bool(true), // ReadOnly
-        ])?;
+        let doc_var = docs.invoke_method(
+            "Open",
+            vec![
+                var_bstr(file_path),
+                var_bool(false),
+                var_bool(true), // ReadOnly
+            ],
+        )?;
         let doc = ComObject::new(
             IDispatch::try_from(&doc_var)
                 .map_err(|e| anyhow::anyhow!("Document not object: {}", e))?,
@@ -421,12 +461,22 @@ impl WordApplication {
             find.set_property("Forward", var_bool(true))?;
             find.set_property("Wrap", var_i4(1))?; // wdFindContinue
 
-            find.invoke_method("Execute", vec![
-                var_bstr(""), var_bool(false), var_bool(false), var_bool(false),
-                var_bool(false), var_bool(false), var_bool(true), var_i4(1),
-                var_bool(false), var_bstr(""),
-                var_i4(2), // wdReplaceAll
-            ])?;
+            find.invoke_method(
+                "Execute",
+                vec![
+                    var_bstr(""),
+                    var_bool(false),
+                    var_bool(false),
+                    var_bool(false),
+                    var_bool(false),
+                    var_bool(false),
+                    var_bool(true),
+                    var_i4(1),
+                    var_bool(false),
+                    var_bstr(""),
+                    var_i4(2), // wdReplaceAll
+                ],
+            )?;
         }
 
         // wdFormatTemplate = 1
@@ -483,14 +533,19 @@ impl WordApplication {
     #[cfg(windows)]
     pub fn convert_pdf_to_docx(&self, pdf_path: &str, output_path: &str) -> anyhow::Result<String> {
         let docs = self.app.get_property_obj("Documents")?;
-        
+
         // Open PDF natively (False for ConfirmConversions)
-        let doc_var = docs.invoke_method("Open", vec![
-            var_bstr(pdf_path),
-            var_bool(false),
-            var_bool(true), // ReadOnly
-        ]).map_err(|e| anyhow::anyhow!("Failed to open PDF natively in Word: {}", e))?;
-        
+        let doc_var = docs
+            .invoke_method(
+                "Open",
+                vec![
+                    var_bstr(pdf_path),
+                    var_bool(false),
+                    var_bool(true), // ReadOnly
+                ],
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to open PDF natively in Word: {}", e))?;
+
         let doc = ComObject::new(
             IDispatch::try_from(&doc_var)
                 .map_err(|e| anyhow::anyhow!("Document not object: {}", e))?,
@@ -500,11 +555,18 @@ impl WordApplication {
         doc.invoke_method("SaveAs2", vec![var_bstr(output_path), var_i4(12)])?;
         Self::close_document(&doc, false)?;
 
-        Ok(format!("Successfully converted PDF to DOCX at: {}", output_path))
+        Ok(format!(
+            "Successfully converted PDF to DOCX at: {}",
+            output_path
+        ))
     }
 
     #[cfg(not(windows))]
-    pub fn convert_pdf_to_docx(&self, _pdf_path: &str, _output_path: &str) -> anyhow::Result<String> {
+    pub fn convert_pdf_to_docx(
+        &self,
+        _pdf_path: &str,
+        _output_path: &str,
+    ) -> anyhow::Result<String> {
         Ok("Word COM Automation is only supported on Windows".to_string())
     }
 
@@ -514,13 +576,20 @@ impl WordApplication {
         let doc = self.open_document(file_path, true)?;
 
         // ExportAsFixedFormat: wdExportFormatPDF = 17
-        doc.invoke_method("ExportAsFixedFormat", vec![
-            var_bstr(output_path),
-            var_i4(17), // ExportFormat
-        ]).map_err(|e| anyhow::anyhow!("ExportAsFixedFormat failed: {}", e))?;
+        doc.invoke_method(
+            "ExportAsFixedFormat",
+            vec![
+                var_bstr(output_path),
+                var_i4(17), // ExportFormat
+            ],
+        )
+        .map_err(|e| anyhow::anyhow!("ExportAsFixedFormat failed: {}", e))?;
 
         Self::close_document(&doc, false)?;
-        Ok(format!("Successfully exported DOCX to PDF at: {}", output_path))
+        Ok(format!(
+            "Successfully exported DOCX to PDF at: {}",
+            output_path
+        ))
     }
 
     #[cfg(not(windows))]
@@ -547,19 +616,33 @@ impl WordApplication {
             find.invoke_method("ClearFormatting", vec![])?;
             let replacement = find.get_property_obj("Replacement")?;
             replacement.invoke_method("ClearFormatting", vec![])?;
-            
+
             find.set_property("Text", var_bstr(old_text))?;
             replacement.set_property("Text", var_bstr(new_text))?;
             find.set_property("Forward", var_bool(true))?;
             find.set_property("Wrap", var_i4(1))?; // wdFindContinue
 
-            let success = find.invoke_method("Execute", vec![
-                var_bstr(""), var_bool(false), var_bool(false), var_bool(false),
-                var_bool(false), var_bool(false), var_bool(true), var_i4(1),
-                var_bool(false), var_bstr(""),
-                var_i4(2), // wdReplaceAll
-            ]).ok().and_then(|v| bool::try_from(&v).ok()).unwrap_or(false);
-            
+            let success = find
+                .invoke_method(
+                    "Execute",
+                    vec![
+                        var_bstr(""),
+                        var_bool(false),
+                        var_bool(false),
+                        var_bool(false),
+                        var_bool(false),
+                        var_bool(false),
+                        var_bool(true),
+                        var_i4(1),
+                        var_bool(false),
+                        var_bstr(""),
+                        var_i4(2), // wdReplaceAll
+                    ],
+                )
+                .ok()
+                .and_then(|v| bool::try_from(&v).ok())
+                .unwrap_or(false);
+
             if success {
                 count += 1;
             }
@@ -568,7 +651,10 @@ impl WordApplication {
         doc.invoke_method("Save", vec![])?;
         Self::close_document(&doc, false)?;
 
-        Ok(format!("Replaced {} items while preserving format in '{}'", count, file_path))
+        Ok(format!(
+            "Replaced {} items while preserving format in '{}'",
+            count, file_path
+        ))
     }
 
     #[cfg(not(windows))]
@@ -583,18 +669,22 @@ impl WordApplication {
 
     /// Convert Markdown string to HTML and paste into Word to create a DOCX natively
     #[cfg(windows)]
-    pub fn convert_md_to_docx(&self, md_content: &str, output_path: &str) -> anyhow::Result<String> {
+    pub fn convert_md_to_docx(
+        &self,
+        md_content: &str,
+        output_path: &str,
+    ) -> anyhow::Result<String> {
         // Very basic MD to HTML converter for Native Word consumption.
         // Word perfectly parses <h1>, <p>, <ul>, <b>, <i> into Native Styles!
         let mut html = String::from("<html><body>");
         let mut in_list = false;
-        
+
         for line in md_content.lines() {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            
+
             let mut formatted = line.to_string();
             // Basic bold/italic replacements
             formatted = formatted.replace("**", "<b>").replace("__", "<b>");
@@ -602,11 +692,11 @@ impl WordApplication {
             let mut b_count = 0;
             while let Some(pos) = formatted.find("<b>") {
                 if b_count % 2 != 0 {
-                    formatted.replace_range(pos..pos+3, "</b>");
+                    formatted.replace_range(pos..pos + 3, "</b>");
                 }
                 b_count += 1;
             }
-            
+
             if line.starts_with("# ") {
                 html.push_str(&format!("<h1>{}</h1>\n", &formatted[2..]));
             } else if line.starts_with("## ") {
@@ -639,12 +729,17 @@ impl WordApplication {
 
         // Open temp HTML in Word
         let docs = self.app.get_property_obj("Documents")?;
-        let doc_var = docs.invoke_method("Open", vec![
-            var_bstr(temp_html.to_string_lossy().as_ref()),
-            var_bool(false),
-            var_bool(false),
-        ]).map_err(|e| anyhow::anyhow!("Failed to open HTML in Word: {}", e))?;
-        
+        let doc_var = docs
+            .invoke_method(
+                "Open",
+                vec![
+                    var_bstr(temp_html.to_string_lossy().as_ref()),
+                    var_bool(false),
+                    var_bool(false),
+                ],
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to open HTML in Word: {}", e))?;
+
         let doc = ComObject::new(
             IDispatch::try_from(&doc_var)
                 .map_err(|e| anyhow::anyhow!("Document not object: {}", e))?,
@@ -653,46 +748,65 @@ impl WordApplication {
         // SaveAs2 wdFormatXMLDocument = 12
         doc.invoke_method("SaveAs2", vec![var_bstr(output_path), var_i4(12)])?;
         Self::close_document(&doc, false)?;
-        
+
         // Clean up temp file
         let _ = std::fs::remove_file(temp_html);
 
-        Ok(format!("Successfully converted Markdown to DOCX at: {}", output_path))
+        Ok(format!(
+            "Successfully converted Markdown to DOCX at: {}",
+            output_path
+        ))
     }
 
     #[cfg(not(windows))]
-    pub fn convert_md_to_docx(&self, _md_content: &str, _output_path: &str) -> anyhow::Result<String> {
+    pub fn convert_md_to_docx(
+        &self,
+        _md_content: &str,
+        _output_path: &str,
+    ) -> anyhow::Result<String> {
         Ok("Word COM Automation is only supported on Windows".to_string())
     }
 
     /// Insert an image at the current cursor position.
     #[cfg(windows)]
     pub fn add_picture(&self, image_path: &str, width: f32, height: f32) -> anyhow::Result<String> {
-        let selection = self.app.get_property_obj("Selection")
+        let selection = self
+            .app
+            .get_property_obj("Selection")
             .map_err(|_| anyhow::anyhow!("No active Word document open"))?;
 
         let inline_shapes = selection.get_property_obj("InlineShapes")?;
-        
-        let shape_var = inline_shapes.invoke_method("AddPicture", vec![
-            var_bstr(image_path),
-            var_bool(false), // LinkToFile
-            var_bool(true),  // SaveWithDocument
-        ]).map_err(|e| anyhow::anyhow!("Failed to AddPicture: {}", e))?;
-        
+
+        let shape_var = inline_shapes
+            .invoke_method(
+                "AddPicture",
+                vec![
+                    var_bstr(image_path),
+                    var_bool(false), // LinkToFile
+                    var_bool(true),  // SaveWithDocument
+                ],
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to AddPicture: {}", e))?;
+
         let shape = ComObject::new(IDispatch::try_from(&shape_var)?);
-        
+
         if width > 0.0 {
             let _ = shape.set_property("Width", var_r4(width));
         }
         if height > 0.0 {
             let _ = shape.set_property("Height", var_r4(height));
         }
-        
+
         Ok(format!("Chèn ảnh thành công vào Word từ {}", image_path))
     }
 
     #[cfg(not(windows))]
-    pub fn add_picture(&self, _image_path: &str, _width: f32, _height: f32) -> anyhow::Result<String> {
+    pub fn add_picture(
+        &self,
+        _image_path: &str,
+        _width: f32,
+        _height: f32,
+    ) -> anyhow::Result<String> {
         Ok("Word COM Automation is only supported on Windows".to_string())
     }
 
@@ -700,7 +814,9 @@ impl WordApplication {
 
     #[cfg(windows)]
     fn backup_document(&self, doc: &ComObject, backup_dir: Option<&str>) -> anyhow::Result<()> {
-        let full_name = doc.get_property("FullName").ok()
+        let full_name = doc
+            .get_property("FullName")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_default();
@@ -710,7 +826,10 @@ impl WordApplication {
         }
 
         let path = std::path::Path::new(&full_name);
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("document");
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("document");
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("docx");
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
 

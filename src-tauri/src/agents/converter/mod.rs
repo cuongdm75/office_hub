@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // Office Hub – agents/converter/mod.rs
 //
 // Converter Agent – MCP Skill Learning & Server Packaging
@@ -41,11 +41,14 @@ impl ConverterAgent {
 
         while let Some(start_idx) = response[current_pos..].find("```") {
             let abs_start = current_pos + start_idx;
-            let line_end = response[abs_start..].find('\n').map(|i| abs_start + i).unwrap_or(abs_start + 3);
-            
+            let line_end = response[abs_start..]
+                .find('\n')
+                .map(|i| abs_start + i)
+                .unwrap_or(abs_start + 3);
+
             let header = &response[abs_start + 3..line_end];
             let mut path = None;
-            
+
             if let Some(path_idx) = header.find("path=") {
                 path = Some(header[path_idx + 5..].trim().to_string());
             } else if let Some(path_idx) = header.find("path:") {
@@ -56,10 +59,10 @@ impl ConverterAgent {
             if let Some(end_idx) = response[content_start..].find("```") {
                 let abs_end = content_start + end_idx;
                 let content = &response[content_start..abs_end];
-                
+
                 let mut final_content = content.trim_start();
                 let mut final_path = path;
-                
+
                 if final_path.is_none() {
                     if let Some(first_line_end) = final_content.find('\n') {
                         let first_line = &final_content[..first_line_end];
@@ -71,7 +74,14 @@ impl ConverterAgent {
                             } else {
                                 ""
                             };
-                            final_path = Some(path_str.replace("-->", "").replace("*/", "").replace("<!--", "").trim().to_string());
+                            final_path = Some(
+                                path_str
+                                    .replace("-->", "")
+                                    .replace("*/", "")
+                                    .replace("<!--", "")
+                                    .trim()
+                                    .to_string(),
+                            );
                             final_content = &final_content[first_line_end + 1..];
                         }
                     }
@@ -80,7 +90,10 @@ impl ConverterAgent {
                 if let Some(p) = final_path {
                     files.push((p, final_content.trim().to_string()));
                 } else {
-                    files.push((format!("unnamed_{}.md", files.len()), final_content.trim().to_string()));
+                    files.push((
+                        format!("unnamed_{}.md", files.len()),
+                        final_content.trim().to_string(),
+                    ));
                 }
 
                 current_pos = abs_end + 3;
@@ -88,11 +101,11 @@ impl ConverterAgent {
                 break;
             }
         }
-        
+
         if files.is_empty() {
             files.push(("unnamed_0.md".to_string(), response.trim().to_string()));
         }
-        
+
         files
     }
 }
@@ -134,7 +147,9 @@ impl Agent for ConverterAgent {
         vec![
             crate::mcp::McpTool {
                 name: "analyze_and_convert_zip_skill".to_string(),
-                description: "Phân tích, convert và cài đặt một skill từ file nén ZIP. Tham số: `zip_path`.".to_string(),
+                description:
+                    "Phân tích, convert và cài đặt một skill từ file nén ZIP. Tham số: `zip_path`."
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -146,7 +161,8 @@ impl Agent for ConverterAgent {
             },
             crate::mcp::McpTool {
                 name: "learn_skill_from_docs".to_string(),
-                description: "Học và sinh skill từ tài liệu API/hướng dẫn. Tham số: `url`.".to_string(),
+                description: "Học và sinh skill từ tài liệu API/hướng dẫn. Tham số: `url`."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -158,7 +174,9 @@ impl Agent for ConverterAgent {
             },
             crate::mcp::McpTool {
                 name: "edit".to_string(),
-                description: "Tạo hoặc sửa đổi một quy trình làm việc (Workflow). Tham số: `workflow_desc`.".to_string(),
+                description:
+                    "Tạo hoặc sửa đổi một quy trình làm việc (Workflow). Tham số: `workflow_desc`."
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -167,7 +185,7 @@ impl Agent for ConverterAgent {
                     "required": ["workflow_desc"]
                 }),
                 tags: vec![],
-            }
+            },
         ]
     }
 
@@ -179,7 +197,10 @@ impl Agent for ConverterAgent {
         self.status = AgentStatus::Busy;
         let result = match task.action.as_str() {
             "edit" => {
-                let llm_arc = task.llm_gateway.as_ref().ok_or_else(|| anyhow::anyhow!("LLM Gateway missing"))?;
+                let llm_arc = task
+                    .llm_gateway
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("LLM Gateway missing"))?;
                 let workflow_desc = task.message.as_str();
 
                 let prompt = format!(
@@ -209,12 +230,14 @@ impl Agent for ConverterAgent {
                     workflow_desc
                 );
 
-                let req = crate::llm_gateway::LlmRequest::new(vec![crate::llm_gateway::LlmMessage::user(prompt)]);
+                let req = crate::llm_gateway::LlmRequest::new(vec![
+                    crate::llm_gateway::LlmMessage::user(prompt),
+                ]);
                 let llm = llm_arc.read().await;
                 let resp = llm.complete(req).await?;
 
                 let parsed_files = Self::parse_multi_file_output(&resp.content);
-                
+
                 let mut base_dir = std::env::current_dir().unwrap_or_default();
                 if base_dir.ends_with("src-tauri") {
                     base_dir = base_dir.parent().unwrap().to_path_buf();
@@ -224,7 +247,8 @@ impl Agent for ConverterAgent {
                 for (mut file_path, file_content) in parsed_files {
                     if file_path.starts_with("unnamed_") {
                         // Mặc định ném vào workflow nếu LLM quên path
-                        file_path = format!(".agent/workflows/{}", file_path.replace(".md", ".yaml"));
+                        file_path =
+                            format!(".agent/workflows/{}", file_path.replace(".md", ".yaml"));
                     }
                     let full_path = base_dir.join(&file_path);
                     if let Some(parent) = full_path.parent() {
@@ -235,7 +259,11 @@ impl Agent for ConverterAgent {
                 }
 
                 Ok(AgentOutput {
-                    content: format!("Đã tạo thành công {} file cấu hình:\n- {}", saved_paths.len(), saved_paths.join("\n- ")),
+                    content: format!(
+                        "Đã tạo thành công {} file cấu hình:\n- {}",
+                        saved_paths.len(),
+                        saved_paths.join("\n- ")
+                    ),
                     committed: true,
                     tokens_used: Some(resp.usage.total_tokens),
                     metadata: Some(serde_json::json!({
@@ -244,7 +272,11 @@ impl Agent for ConverterAgent {
                 })
             }
             "analyze_and_convert_zip_skill" => {
-                let zip_path = task.parameters.get("zip_path").and_then(|v| v.as_str()).unwrap_or("");
+                let zip_path = task
+                    .parameters
+                    .get("zip_path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 if zip_path.is_empty() {
                     return Ok(AgentOutput {
                         content: "Thiếu tham số 'zip_path' (đường dẫn file zip).".to_string(),
@@ -254,10 +286,15 @@ impl Agent for ConverterAgent {
                     });
                 }
 
-                let temp_dir = std::env::temp_dir().join(format!("office_hub_temp_zip_{}", uuid::Uuid::new_v4()));
+                let temp_dir = std::env::temp_dir()
+                    .join(format!("office_hub_temp_zip_{}", uuid::Uuid::new_v4()));
                 let _ = tokio::fs::create_dir_all(&temp_dir).await;
 
-                let cmd = format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", zip_path, temp_dir.display());
+                let cmd = format!(
+                    "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+                    zip_path,
+                    temp_dir.display()
+                );
                 let output = std::process::Command::new("powershell")
                     .arg("-NoProfile")
                     .arg("-Command")
@@ -268,16 +305,32 @@ impl Agent for ConverterAgent {
                     Ok(out) if out.status.success() => {
                         let mut aggregated = String::new();
                         // Hàm helper đọc đệ quy
-                        async fn read_dir_recursive(dir: &std::path::Path, base: &std::path::Path, out: &mut String) {
+                        async fn read_dir_recursive(
+                            dir: &std::path::Path,
+                            base: &std::path::Path,
+                            out: &mut String,
+                        ) {
                             if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
                                 while let Ok(Some(entry)) = entries.next_entry().await {
                                     let path = entry.path();
                                     if path.is_file() {
-                                        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
-                                        if ["md", "rhai", "yaml", "json", "txt", "js", "ts", "py"].contains(&ext.as_str()) {
+                                        let ext = path
+                                            .extension()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("")
+                                            .to_lowercase();
+                                        if ["md", "rhai", "yaml", "json", "txt", "js", "ts", "py"]
+                                            .contains(&ext.as_str())
+                                        {
                                             if let Ok(content) = std::fs::read_to_string(&path) {
-                                                let rel_path = path.strip_prefix(base).unwrap_or(&path).to_string_lossy();
-                                                out.push_str(&format!("=== {} ===\n{}\n\n", rel_path, content));
+                                                let rel_path = path
+                                                    .strip_prefix(base)
+                                                    .unwrap_or(&path)
+                                                    .to_string_lossy();
+                                                out.push_str(&format!(
+                                                    "=== {} ===\n{}\n\n",
+                                                    rel_path, content
+                                                ));
                                             }
                                         }
                                     } else if path.is_dir() {
@@ -286,20 +339,25 @@ impl Agent for ConverterAgent {
                                 }
                             }
                         }
-                        
+
                         read_dir_recursive(&temp_dir, &temp_dir, &mut aggregated).await;
                         let _ = tokio::fs::remove_dir_all(&temp_dir).await;
 
                         if aggregated.is_empty() {
                             return Ok(AgentOutput {
-                                content: "Không tìm thấy file text/code nào trong file zip để phân tích.".to_string(),
+                                content:
+                                    "Không tìm thấy file text/code nào trong file zip để phân tích."
+                                        .to_string(),
                                 committed: false,
                                 tokens_used: None,
                                 metadata: None,
                             });
                         }
 
-                        let llm_arc = task.llm_gateway.as_ref().ok_or_else(|| anyhow::anyhow!("LLM Gateway missing"))?;
+                        let llm_arc = task
+                            .llm_gateway
+                            .as_ref()
+                            .ok_or_else(|| anyhow::anyhow!("LLM Gateway missing"))?;
                         let prompt = format!(
                             "Bạn là chuyên gia phân tích và tích hợp Skill cho hệ thống Office Hub.\n\
                             Người dùng vừa cung cấp một mã nguồn Kỹ năng (Skill) được lấy từ nguồn bên ngoài dưới dạng file nén. Dưới đây là nội dung giải nén được:\n\n\
@@ -322,12 +380,14 @@ impl Agent for ConverterAgent {
                             aggregated
                         );
 
-                        let req = crate::llm_gateway::LlmRequest::new(vec![crate::llm_gateway::LlmMessage::user(prompt)]);
+                        let req = crate::llm_gateway::LlmRequest::new(vec![
+                            crate::llm_gateway::LlmMessage::user(prompt),
+                        ]);
                         let llm = llm_arc.read().await;
                         let resp = llm.complete(req).await?;
 
                         let parsed_files = Self::parse_multi_file_output(&resp.content);
-                        
+
                         let mut base_dir = std::env::current_dir().unwrap_or_default();
                         if base_dir.ends_with("src-tauri") {
                             base_dir = base_dir.parent().unwrap().to_path_buf();
@@ -348,7 +408,14 @@ impl Agent for ConverterAgent {
                         }
 
                         // Lọc bỏ các đoạn code block trong response để trả về report thuần túy
-                        let report_text = resp.content.split("```").step_by(2).collect::<Vec<&str>>().join("\n").trim().to_string();
+                        let report_text = resp
+                            .content
+                            .split("```")
+                            .step_by(2)
+                            .collect::<Vec<&str>>()
+                            .join("\n")
+                            .trim()
+                            .to_string();
 
                         Ok(AgentOutput {
                             content: format!("Đã phân tích và cài đặt skill mới.\n\n[BÁO CÁO PHÂN TÍCH VÀ DEPENDENCIES]\n{}\n\n[CÁC FILE ĐÃ TẠO]\n- {}", report_text, saved_paths.join("\n- ")),
@@ -386,7 +453,7 @@ impl Agent for ConverterAgent {
                     .get("url")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 let llm_arc = task
                     .llm_gateway
                     .as_ref()
@@ -394,8 +461,11 @@ impl Agent for ConverterAgent {
 
                 let docs_content = if !url.is_empty() {
                     match reqwest::get(url).await {
-                        Ok(resp) => resp.text().await.unwrap_or_else(|_| format!("Không thể đọc nội dung từ {}", url)),
-                        Err(e) => format!("Lỗi tải trang: {}", e)
+                        Ok(resp) => resp
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| format!("Không thể đọc nội dung từ {}", url)),
+                        Err(e) => format!("Lỗi tải trang: {}", e),
                     }
                 } else {
                     "Không có tài liệu nào được cung cấp.".to_string()
@@ -433,7 +503,10 @@ impl Agent for ConverterAgent {
                 let resp = llm.complete(req).await?;
 
                 let parsed_files = Self::parse_multi_file_output(&resp.content);
-                let (mut _file_path, mut code) = parsed_files.into_iter().next().unwrap_or_else(|| ("unnamed_skill.md".to_string(), resp.content.clone()));
+                let (mut _file_path, mut code) = parsed_files
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| ("unnamed_skill.md".to_string(), resp.content.clone()));
 
                 // Fallback nếu LLM lỗi
                 if code.is_empty() {
@@ -454,16 +527,20 @@ impl Agent for ConverterAgent {
                 if base_dir.ends_with("src-tauri") {
                     base_dir = base_dir.parent().unwrap().to_path_buf();
                 }
-                
+
                 // Override path based on parsed skill_name
                 let mut path = base_dir.join(".agent").join("skills").join(&skill_name);
                 tokio::fs::create_dir_all(&path).await?;
-                
+
                 path.push("SKILL.md");
                 tokio::fs::write(&path, &code).await?;
 
                 Ok(AgentOutput {
-                    content: format!("Đã tạo thành công Declarative Skill '{}' tại: {}", skill_name, path.display()),
+                    content: format!(
+                        "Đã tạo thành công Declarative Skill '{}' tại: {}",
+                        skill_name,
+                        path.display()
+                    ),
                     committed: true,
                     tokens_used: Some(resp.usage.total_tokens),
                     metadata: Some(serde_json::json!({

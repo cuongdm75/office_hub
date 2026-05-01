@@ -23,18 +23,12 @@
 //     └── call_tool()          (public API used by Orchestrator)
 // ============================================================================
 
+pub mod agent_mcp_adapter;
 pub mod broker;
 pub mod internal_servers;
 pub mod native_chart;
-pub mod agent_mcp_adapter;
 
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    process::Stdio,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, path::PathBuf, process::Stdio, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
@@ -233,7 +227,6 @@ pub fn get_tool_alias(tool_name: &str) -> String {
         }
     }
 }
-
 
 /// Result of a tools/list call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1166,7 +1159,11 @@ impl McpRegistry {
         match source {
             McpServerSource::NpmPackage { package, .. } => {
                 // "@modelcontextprotocol/server-filesystem" → "server-filesystem"
-                package.split('/').next_back().unwrap_or(package).to_string()
+                package
+                    .split('/')
+                    .next_back()
+                    .unwrap_or(package)
+                    .to_string()
             }
             McpServerSource::CargoBin { crate_name, .. } => crate_name.clone(),
             McpServerSource::PythonScript { script_path, .. } => script_path
@@ -1478,10 +1475,13 @@ mod tests {
         }
 
         let reg = McpRegistry::new();
-        
+
         // 1. Install mock server
-        let server_id = reg.install("python:mock_mcp_server.py").await.expect("Should install mock server");
-        
+        let server_id = reg
+            .install("python:mock_mcp_server.py")
+            .await
+            .expect("Should install mock server");
+
         // Check registry state
         let entry = reg.inner.servers.get(&server_id).unwrap();
         println!("Server entry: {:?}", entry.value());
@@ -1496,14 +1496,17 @@ mod tests {
         assert_eq!(suggestions[0].tool.name, "echo");
 
         // 3. Test tool call
-        let result = reg.call_tool(
-            "echo",
-            Some(serde_json::json!({"message": "Hello, MCP!"}))
-        ).await.expect("Tool call should succeed");
+        let result = reg
+            .call_tool("echo", Some(serde_json::json!({"message": "Hello, MCP!"})))
+            .await
+            .expect("Tool call should succeed");
 
         assert_eq!(result.is_error, false);
         assert_eq!(result.content.len(), 1);
-        assert_eq!(result.content[0].text.as_deref(), Some("Mock Server Echo: Hello, MCP!"));
+        assert_eq!(
+            result.content[0].text.as_deref(),
+            Some("Mock Server Echo: Hello, MCP!")
+        );
 
         // 4. Uninstall server
         reg.uninstall(&server_id).await.expect("Should uninstall");

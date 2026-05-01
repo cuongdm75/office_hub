@@ -1,23 +1,29 @@
+use office_hub_lib::agents::com_utils::dispatch::ComObject;
+use office_hub_lib::agents::com_utils::dispatch::{var_bool, var_bstr, var_i4, var_optional};
 use office_hub_lib::agents::office_master::com_word::WordApplication;
-use office_hub_lib::agents::com_utils::dispatch::{var_bstr, var_i4, var_optional, var_bool};
 use std::convert::TryFrom;
 use windows::Win32::System::Com::IDispatch;
-use office_hub_lib::agents::com_utils::dispatch::ComObject;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Khoi dong Office Hub COM Automation...");
 
     let word = WordApplication::connect_or_launch()?;
-    
+
     println!("Ket noi thanh cong! Dang mo Word va tao van ban moi...");
     // Make Word visible
     word.app.set_property("Visible", var_bool(true))?;
 
     let docs = word.app.get_property_obj("Documents")?;
-    let doc_var = docs.invoke_method("Add", vec![
-        var_optional(), var_optional(), var_optional(), var_optional()
-    ])?;
+    let doc_var = docs.invoke_method(
+        "Add",
+        vec![
+            var_optional(),
+            var_optional(),
+            var_optional(),
+            var_optional(),
+        ],
+    )?;
     let doc = ComObject::new(IDispatch::try_from(&doc_var).unwrap());
 
     println!("Dang trinh bay can trang, chinh le...");
@@ -55,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
         "Tiếng suối trong như tiếng hát xa,",
         "Trăng lồng cổ thụ bóng lồng hoa.",
         "Cảnh khuya như vẽ người chưa ngủ,",
-        "Chưa ngủ vì lo nỗi nước nhà."
+        "Chưa ngủ vì lo nỗi nước nhà.",
     ];
 
     for line in poem {

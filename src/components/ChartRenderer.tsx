@@ -78,7 +78,7 @@ export function ChartRenderer() {
   // Default color palette
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  let seriesObj: any = {
+  const seriesObj: any = {
     data: yAxisData,
     type: chart_type === 'bar' ? 'bar' : chart_type === 'pie' ? 'pie' : chart_type === 'scatter' ? 'scatter' : 'line',
     smooth: chart_type === 'line',

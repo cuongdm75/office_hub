@@ -436,7 +436,7 @@ pub mod startup {
         }
         false
     }
-    
+
     #[cfg(not(windows))]
     pub fn is_registered() -> bool {
         false
@@ -704,7 +704,6 @@ pub mod qrcode {
             }
         }
 
-
         // Primary URL (first in list = highest priority)
         let primary_url = all_urls
             .first()
@@ -766,18 +765,18 @@ pub mod tray {
     //!   ─────────────────────
     //!   ❌ Quit                  → shutdown and exit
 
-    use tauri::{AppHandle, Emitter, Manager};
     use tauri::menu::{MenuBuilder, MenuItemBuilder};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    use tauri::{AppHandle, Emitter, Manager};
     use tracing::info;
 
     /// Build and register the system tray icon.
     ///
     /// Called once from `lib.rs`'s `setup()` callback.
     pub fn setup_tray(app: &AppHandle) -> anyhow::Result<()> {
-        let quit  = MenuItemBuilder::with_id("quit",  "❌ Quit").build(app)?;
-        let open  = MenuItemBuilder::with_id("open",  "✅ Open Office Hub").build(app)?;
-        let qr    = MenuItemBuilder::with_id("qr",    "📱 Mobile Pairing QR").build(app)?;
+        let quit = MenuItemBuilder::with_id("quit", "❌ Quit").build(app)?;
+        let open = MenuItemBuilder::with_id("open", "✅ Open Office Hub").build(app)?;
+        let qr = MenuItemBuilder::with_id("qr", "📱 Mobile Pairing QR").build(app)?;
         let settings = MenuItemBuilder::with_id("settings", "⚙ Settings").build(app)?;
 
         let menu = MenuBuilder::new(app)
@@ -795,10 +794,14 @@ pub mod tray {
             .menu(&menu)
             .on_menu_event(|app, event| handle_tray_menu_event(app, event.id().as_ref()))
             .on_tray_icon_event(|tray, event| {
-                if matches!(event, TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up, ..
-                }) {
+                if matches!(
+                    event,
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    }
+                ) {
                     // Left-click → show/focus window
                     if let Some(window) = tray.app_handle().get_webview_window("main") {
                         let _ = window.show();
@@ -966,19 +969,22 @@ pub mod commands {
     #[tauri::command]
     pub async fn install_office_addin() -> CmdResult<()> {
         let mut current_dir = std::env::current_dir().map_err(e)?;
-        
+
         // Nếu đang chạy ở chế độ dev, current_dir có thể là `src-tauri`
         if current_dir.ends_with("src-tauri") {
             if let Some(parent) = current_dir.parent() {
                 current_dir = parent.to_path_buf();
             }
         }
-        
+
         let addin_dir = current_dir.join("office-addin");
         let script_path = addin_dir.join("Setup-OfficeAddin.ps1");
 
         if !script_path.exists() {
-            return Err(format!("Setup-OfficeAddin.ps1 not found at {:?}", script_path));
+            return Err(format!(
+                "Setup-OfficeAddin.ps1 not found at {:?}",
+                script_path
+            ));
         }
 
         // Run the PowerShell script. It handles UAC elevation internally for the LocalMachine cert.
@@ -996,7 +1002,11 @@ pub mod commands {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
-            tracing::error!("Add-in install failed. stdout: {}, stderr: {}", stdout, stderr);
+            tracing::error!(
+                "Add-in install failed. stdout: {}, stderr: {}",
+                stdout,
+                stderr
+            );
             return Err(format!("Installation failed: {}", stderr));
         }
 

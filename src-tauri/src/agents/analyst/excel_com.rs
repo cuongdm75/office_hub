@@ -9,8 +9,8 @@
 use windows::{
     core::BSTR,
     Win32::System::Com::{
-        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch,
-        CLSCTX_LOCAL_SERVER, COINIT_APARTMENTTHREADED,
+        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch, CLSCTX_LOCAL_SERVER,
+        COINIT_APARTMENTTHREADED,
     },
 };
 
@@ -120,7 +120,7 @@ impl ExcelApplication {
             "Open",
             vec![
                 var_bstr(file_path),
-                var_i4(0),   // UpdateLinks = 0
+                var_i4(0),       // UpdateLinks = 0
                 var_bool(false), // ReadOnly = false
             ],
         )?;
@@ -178,9 +178,7 @@ impl ExcelApplication {
                 let rows = ur
                     .get_property("Rows")
                     .ok()
-                    .and_then(|v| {
-                        IDispatch::try_from(&v).ok().map(ComObject::new)
-                    })
+                    .and_then(|v| IDispatch::try_from(&v).ok().map(ComObject::new))
                     .and_then(|r| r.get_property("Count").ok())
                     .and_then(|v| i32::try_from(&v).ok())
                     .unwrap_or(0) as usize;
@@ -188,9 +186,7 @@ impl ExcelApplication {
                 let cols = ur
                     .get_property("Columns")
                     .ok()
-                    .and_then(|v| {
-                        IDispatch::try_from(&v).ok().map(ComObject::new)
-                    })
+                    .and_then(|v| IDispatch::try_from(&v).ok().map(ComObject::new))
                     .and_then(|r| r.get_property("Count").ok())
                     .and_then(|v| i32::try_from(&v).ok())
                     .unwrap_or(0) as usize;
@@ -228,10 +224,14 @@ impl ExcelApplication {
     /// Works even when the workbook is on SharePoint / OneDrive.
     #[cfg(windows)]
     pub fn get_active_workbook_structure(&self) -> anyhow::Result<WorkbookStructure> {
-        let wb = self.app.get_property_obj("ActiveWorkbook")
+        let wb = self
+            .app
+            .get_property_obj("ActiveWorkbook")
             .map_err(|_| anyhow::anyhow!("No active workbook in Excel"))?;
 
-        let full_name = wb.get_property("FullName").ok()
+        let full_name = wb
+            .get_property("FullName")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_else(|| "<active workbook>".into());
@@ -247,18 +247,24 @@ impl ExcelApplication {
                 .map_err(|e| anyhow::anyhow!("Sheet Item not object: {}", e))?;
             let sheet = ComObject::new(sheet_disp);
 
-            let name = sheet.get_property("Name").ok()
+            let name = sheet
+                .get_property("Name")
+                .ok()
                 .and_then(|v| BSTR::try_from(&v).ok())
                 .map(|b| b.to_string())
                 .unwrap_or_else(|| format!("Sheet{}", i));
 
             let (used_rows, used_cols) = if let Ok(ur) = sheet.get_property_obj("UsedRange") {
-                let rows = ur.get_property("Rows").ok()
+                let rows = ur
+                    .get_property("Rows")
+                    .ok()
                     .and_then(|v| IDispatch::try_from(&v).ok().map(ComObject::new))
                     .and_then(|r| r.get_property("Count").ok())
                     .and_then(|v| i32::try_from(&v).ok())
                     .unwrap_or(0) as usize;
-                let cols = ur.get_property("Columns").ok()
+                let cols = ur
+                    .get_property("Columns")
+                    .ok()
                     .and_then(|v| IDispatch::try_from(&v).ok().map(ComObject::new))
                     .and_then(|r| r.get_property("Count").ok())
                     .and_then(|v| i32::try_from(&v).ok())
@@ -268,7 +274,12 @@ impl ExcelApplication {
                 (0, 0)
             };
 
-            sheet_infos.push(SheetInfo { name, index: i as usize, used_rows, used_cols });
+            sheet_infos.push(SheetInfo {
+                name,
+                index: i as usize,
+                used_rows,
+                used_cols,
+            });
         }
 
         Ok(WorkbookStructure {
@@ -326,10 +337,13 @@ impl ExcelApplication {
         sheet_name: &str,
         range: &str,
     ) -> anyhow::Result<(Vec<String>, Vec<Vec<serde_json::Value>>)> {
-        let wb = self.app.get_property_obj("ActiveWorkbook")
+        let wb = self
+            .app
+            .get_property_obj("ActiveWorkbook")
             .map_err(|_| anyhow::anyhow!("No active workbook"))?;
         let sheets = wb.get_property_obj("Sheets")?;
-        let sheet_var = sheets.invoke_method("Item", vec![var_bstr(sheet_name)])
+        let sheet_var = sheets
+            .invoke_method("Item", vec![var_bstr(sheet_name)])
             .map_err(|e| anyhow::anyhow!("Sheet '{}' not found: {}", sheet_name, e))?;
         let sheet = ComObject::new(
             IDispatch::try_from(&sheet_var)
@@ -339,7 +353,9 @@ impl ExcelApplication {
         // Get range object on that sheet
         let range_var = sheet
             .invoke_method("Range", vec![var_bstr(range)])
-            .map_err(|e| anyhow::anyhow!("Range('{}') on sheet '{}' failed: {}", range, sheet_name, e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("Range('{}') on sheet '{}' failed: {}", range, sheet_name, e)
+            })?;
         let range_com = ComObject::new(
             IDispatch::try_from(&range_var)
                 .map_err(|e| anyhow::anyhow!("Range not object: {}", e))?,
@@ -480,7 +496,9 @@ impl ExcelApplication {
 
         self.backup_active_workbook(backup_dir)?;
 
-        let wb = self.app.get_property_obj("ActiveWorkbook")
+        let wb = self
+            .app
+            .get_property_obj("ActiveWorkbook")
             .map_err(|_| anyhow::anyhow!("No active workbook"))?;
         let sheets = wb.get_property_obj("Sheets")?;
         let sheet_var = sheets
@@ -553,18 +571,19 @@ impl ExcelApplication {
     /// Scan a sheet (or all sheets) for formula errors.
     /// Returns list of `FormulaError` records.
     #[cfg(windows)]
-    pub fn audit_formulas(
-        &self,
-        sheet_name: Option<&str>,
-    ) -> anyhow::Result<Vec<FormulaError>> {
-        let wb = self.app.get_property_obj("ActiveWorkbook")
+    pub fn audit_formulas(&self, sheet_name: Option<&str>) -> anyhow::Result<Vec<FormulaError>> {
+        let wb = self
+            .app
+            .get_property_obj("ActiveWorkbook")
             .map_err(|_| anyhow::anyhow!("No active workbook"))?;
         let sheets = wb.get_property_obj("Sheets")?;
         let sheet_count = i32::try_from(&sheets.get_property("Count")?).unwrap_or(0);
 
         let mut errors: Vec<FormulaError> = Vec::new();
 
-        let error_strings = ["#REF!", "#VALUE!", "#NAME?", "#N/A", "#DIV/0!", "#NULL!", "#NUM!"];
+        let error_strings = [
+            "#REF!", "#VALUE!", "#NAME?", "#N/A", "#DIV/0!", "#NULL!", "#NUM!",
+        ];
 
         for si in 1..=sheet_count {
             let sheet_var = sheets.invoke_method("Item", vec![var_i4(si)])?;
@@ -611,10 +630,11 @@ impl ExcelApplication {
 
             for r in 1..=row_count {
                 for c in 1..=col_count {
-                    let cell_var = match used_range.invoke_method("Cells", vec![var_i4(r), var_i4(c)]) {
-                        Ok(v) => v,
-                        Err(_) => continue,
-                    };
+                    let cell_var =
+                        match used_range.invoke_method("Cells", vec![var_i4(r), var_i4(c)]) {
+                            Ok(v) => v,
+                            Err(_) => continue,
+                        };
                     let cell = match IDispatch::try_from(&cell_var).ok().map(ComObject::new) {
                         Some(c) => c,
                         None => continue,
@@ -672,7 +692,9 @@ impl ExcelApplication {
     /// Save the active workbook.
     #[cfg(windows)]
     pub fn save_active_workbook(&self) -> anyhow::Result<()> {
-        let wb = self.app.get_property_obj("ActiveWorkbook")
+        let wb = self
+            .app
+            .get_property_obj("ActiveWorkbook")
             .map_err(|_| anyhow::anyhow!("No active workbook to save"))?;
         wb.invoke_method("Save", vec![])?;
         Ok(())
@@ -705,7 +727,10 @@ impl ExcelApplication {
         }
 
         let path = std::path::Path::new(&full_name);
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("workbook");
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("workbook");
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("xlsx");
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
 
@@ -740,10 +765,7 @@ impl ExcelApplication {
                     );
                 }
             } else if act_f.abs() > 1e-10 {
-                anyhow::bail!(
-                    "Hard-Truth Verification FAILED: expected 0, got {}",
-                    act_f
-                );
+                anyhow::bail!("Hard-Truth Verification FAILED: expected 0, got {}", act_f);
             }
         } else if expected.trim() != actual.trim() {
             // Text mismatch is a warning, not a hard error

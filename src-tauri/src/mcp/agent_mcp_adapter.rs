@@ -1,14 +1,14 @@
-use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use serde_json::Value;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::broker::InternalMcpServer;
 use super::{McpTool, ToolCallResult, ToolContent};
 use crate::agents::Agent;
-use crate::orchestrator::{intent::Intent, AgentTask};
 use crate::llm_gateway::LlmGateway;
+use crate::orchestrator::{intent::Intent, AgentTask};
 
 /// A wrapper that exposes any `Agent` implementation as an `InternalMcpServer`.
 /// This enables Agent-to-Agent communication directly via the MCP Broker.
@@ -48,7 +48,10 @@ impl InternalMcpServer for AgentMcpAdapter {
             for action in agent_guard.supported_actions() {
                 tools.push(McpTool {
                     name: action.clone(),
-                    description: format!("Execute action '{}' on agent '{}'", action, self.agent_id),
+                    description: format!(
+                        "Execute action '{}' on agent '{}'",
+                        action, self.agent_id
+                    ),
                     input_schema: serde_json::json!({
                         "type": "object",
                         "properties": {
@@ -66,13 +69,15 @@ impl InternalMcpServer for AgentMcpAdapter {
 
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         let args_obj = arguments.clone().unwrap_or_else(|| serde_json::json!({}));
-        
-        let session_id = args_obj.get("session_id")
+
+        let session_id = args_obj
+            .get("session_id")
             .and_then(|v| v.as_str())
             .unwrap_or("agent-to-agent-session")
             .to_string();
-            
-        let message = args_obj.get("message")
+
+        let message = args_obj
+            .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -84,7 +89,7 @@ impl InternalMcpServer for AgentMcpAdapter {
                 let mut map = std::collections::HashMap::new();
                 map.insert("raw".to_string(), val.clone());
                 map
-            },
+            }
             None => {
                 // If no nested 'parameters' object, use the whole argument map minus session_id/message
                 if let Value::Object(map) = &args_obj {
@@ -109,15 +114,22 @@ impl InternalMcpServer for AgentMcpAdapter {
             llm_gateway: self.llm_gateway.clone(),
             global_policy: None,
             knowledge_context: None,
-            parent_task_id: args_obj.get("parent_task_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            parent_task_id: args_obj
+                .get("parent_task_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             dependencies: vec![],
         };
 
         let mut agent_guard = self.agent.write().await;
-        
+
         // Ensure the action is supported
         if !agent_guard.supported_actions().contains(&name.to_string()) {
-            return Err(anyhow!("Action '{}' is not supported by agent '{}'", name, self.agent_id));
+            return Err(anyhow!(
+                "Action '{}' is not supported by agent '{}'",
+                name,
+                self.agent_id
+            ));
         }
 
         match agent_guard.execute(task).await {
@@ -126,7 +138,8 @@ impl InternalMcpServer for AgentMcpAdapter {
                 let mut full_result = output.content;
                 if let Some(metadata) = output.metadata {
                     full_result.push_str("\n\n---\nMetadata:\n");
-                    full_result.push_str(&serde_json::to_string_pretty(&metadata).unwrap_or_default());
+                    full_result
+                        .push_str(&serde_json::to_string_pretty(&metadata).unwrap_or_default());
                 }
 
                 Ok(ToolCallResult {
@@ -139,17 +152,15 @@ impl InternalMcpServer for AgentMcpAdapter {
                     is_error: false,
                 })
             }
-            Err(e) => {
-                Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some(format!("Agent Execution Error: {}", e)),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
-            }
+            Err(e) => Ok(ToolCallResult {
+                content: vec![ToolContent {
+                    content_type: "text".to_string(),
+                    text: Some(format!("Agent Execution Error: {}", e)),
+                    data: None,
+                    mime_type: None,
+                }],
+                is_error: true,
+            }),
         }
     }
 }

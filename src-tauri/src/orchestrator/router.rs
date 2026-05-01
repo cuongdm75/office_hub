@@ -28,10 +28,7 @@
 //!                            nếu fail → reject hoặc retry
 //! ```
 
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -45,7 +42,8 @@ use crate::{
     orchestrator::{
         intent::{Intent, IntentCategory},
         rule_engine::RuleEngine,
-        session::Session, RouteDecision,
+        session::Session,
+        RouteDecision,
     },
     AppError, AppResult,
 };
@@ -353,7 +351,7 @@ impl Router {
         };
 
         let mut agent_guard = agent_arc.write().await;
-        
+
         let agent_kind = match route.agent_id.to_string().as_str() {
             "analyst" => AgentKind::Analyst,
             "office_master" => AgentKind::OfficeMaster,
@@ -378,7 +376,7 @@ impl Router {
         match agent_result {
             Ok(output) => {
                 self.record_success(&agent_kind, duration_ms);
-                
+
                 // Construct response
                 let resp = AgentResponse {
                     request_id: Uuid::new_v4(),
@@ -398,7 +396,7 @@ impl Router {
                     crate::orchestrator::rule_engine::ValidationTarget::LlmResponse,
                     output.content,
                 );
-                // self.rule_engine.validate(val_req).await; 
+                // self.rule_engine.validate(val_req).await;
 
                 Ok(resp)
             }
@@ -774,12 +772,16 @@ impl Router {
         _registry: &AgentRegistry,
     ) -> AppResult<RouteDecision> {
         let category = IntentCategory::from(intent);
-        let route_entry = self.routing_table.get(&category).cloned().unwrap_or(RouteEntry {
-            primary_agent: AgentKind::Analyst,
-            _fallback_agent: None,
-            force_hitl: false,
-            _timeout_secs: 30,
-        });
+        let route_entry = self
+            .routing_table
+            .get(&category)
+            .cloned()
+            .unwrap_or(RouteEntry {
+                primary_agent: AgentKind::Analyst,
+                _fallback_agent: None,
+                force_hitl: false,
+                _timeout_secs: 30,
+            });
 
         let agent_id = match route_entry.primary_agent {
             AgentKind::Analyst => AgentId::analyst(),
@@ -800,5 +802,3 @@ impl Router {
         })
     }
 }
-
-

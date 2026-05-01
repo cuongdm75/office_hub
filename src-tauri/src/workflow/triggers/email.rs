@@ -32,13 +32,13 @@ impl Trigger for EmailTrigger {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_lowercase();
-            
+
         let sender_filter = config
             .get("sender_filter")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_lowercase();
-            
+
         let poll_interval_sec = config
             .get("poll_interval")
             .and_then(|v| v.as_u64())
@@ -87,10 +87,10 @@ async fn poll_inbox(
     let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("office-hub");
     path.push("msgraph_token.json");
-    
+
     let data = std::fs::read_to_string(&path).unwrap_or_default();
     let cache: Value = serde_json::from_str(&data).unwrap_or_default();
-    
+
     let token = match cache["access_token"].as_str() {
         Some(t) => t,
         None => {
@@ -98,7 +98,7 @@ async fn poll_inbox(
             return Ok(()); // Token doesn't exist, user hasn't authenticated yet
         }
     };
-    
+
     let expires_at = cache["expires_at"].as_i64().unwrap_or(0);
     let now = Utc::now().timestamp();
     if now > expires_at - 60 {
@@ -109,35 +109,39 @@ async fn poll_inbox(
     // 2. Call MS Graph API to get unread messages
     let url = "https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false";
     let res = client.get(url).bearer_auth(token).send().await?;
-    
+
     if !res.status().is_success() {
         warn!("Graph API request failed: {}", res.status());
         return Ok(());
     }
-    
+
     let data: Value = res.json().await?;
     let emails = data["value"].as_array().cloned().unwrap_or_default();
-    
+
     for item in emails {
         let subject = item["subject"].as_str().unwrap_or("").to_lowercase();
-        let sender = item["sender"]["emailAddress"]["address"].as_str().unwrap_or("").to_lowercase();
+        let sender = item["sender"]["emailAddress"]["address"]
+            .as_str()
+            .unwrap_or("")
+            .to_lowercase();
         let id = item["id"].as_str().unwrap_or("");
-        
+
         let match_subject = subject_filter.is_empty() || subject.contains(subject_filter);
         let match_sender = sender_filter.is_empty() || sender.contains(sender_filter);
-        
+
         if match_subject && match_sender {
             info!("EmailTrigger matched email: {} from {}", subject, sender);
-            
+
             // Mark as read
             let mark_read_url = format!("https://graph.microsoft.com/v1.0/me/messages/{}", id);
             let payload = serde_json::json!({ "isRead": true });
-            let _ = client.patch(&mark_read_url)
+            let _ = client
+                .patch(&mark_read_url)
                 .bearer_auth(token)
                 .json(&payload)
                 .send()
                 .await;
-                
+
             // Send trigger event
             let event = TriggerEvent {
                 workflow_id: workflow_id.to_string(),
@@ -150,7 +154,7 @@ async fn poll_inbox(
                 }),
                 fired_at: Utc::now(),
             };
-            
+
             if let Err(e) = tx.send(event).await {
                 error!("Failed to send EmailTrigger event: {}", e);
             }

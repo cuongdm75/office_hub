@@ -8,13 +8,15 @@
 use windows::{
     core::BSTR,
     Win32::System::Com::{
-        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch,
-        CLSCTX_LOCAL_SERVER, COINIT_APARTMENTTHREADED,
+        CLSIDFromProgID, CoCreateInstance, CoInitializeEx, IDispatch, CLSCTX_LOCAL_SERVER,
+        COINIT_APARTMENTTHREADED,
     },
 };
 
 #[cfg(windows)]
-use crate::agents::com_utils::dispatch::{var_bool, var_bstr, var_i4, var_r4, var_optional, ComObject};
+use crate::agents::com_utils::dispatch::{
+    var_bool, var_bstr, var_i4, var_optional, var_r4, ComObject,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -83,7 +85,9 @@ impl PowerPointApplication {
 
         let mut titles = Vec::with_capacity(count);
         for i in 1..=(count as i32) {
-            let title = self.get_slide_title(&slides, i).unwrap_or_else(|_| format!("Slide {}", i));
+            let title = self
+                .get_slide_title(&slides, i)
+                .unwrap_or_else(|_| format!("Slide {}", i));
             titles.push(title);
         }
 
@@ -140,10 +144,8 @@ impl PowerPointApplication {
         }
 
         for (idx, spec) in slides.iter().enumerate() {
-            let slide_var = slides_col.invoke_method("Add", vec![
-                var_i4((idx + 1) as i32),
-                var_i4(spec.layout),
-            ])?;
+            let slide_var = slides_col
+                .invoke_method("Add", vec![var_i4((idx + 1) as i32), var_i4(spec.layout)])?;
             let slide = ComObject::new(
                 IDispatch::try_from(&slide_var)
                     .map_err(|e| anyhow::anyhow!("Slide not object: {}", e))?,
@@ -230,7 +232,8 @@ impl PowerPointApplication {
         self.backup_presentation(&pres, backup_dir)?;
 
         let slides = pres.get_property_obj("Slides")?;
-        let slide_var = slides.invoke_method("Item", vec![var_i4(slide_index)])
+        let slide_var = slides
+            .invoke_method("Item", vec![var_i4(slide_index)])
             .map_err(|e| anyhow::anyhow!("Slide {} not found: {}", slide_index, e))?;
         let slide = ComObject::new(
             IDispatch::try_from(&slide_var)
@@ -243,7 +246,8 @@ impl PowerPointApplication {
             shapes.invoke_method("Item", vec![var_i4(n)])
         } else {
             shapes.invoke_method("Item", vec![var_bstr(shape_name_or_index)])
-        }.map_err(|e| anyhow::anyhow!("Shape '{}' not found: {}", shape_name_or_index, e))?;
+        }
+        .map_err(|e| anyhow::anyhow!("Shape '{}' not found: {}", shape_name_or_index, e))?;
 
         let shape = ComObject::new(
             IDispatch::try_from(&shape_var)
@@ -297,7 +301,8 @@ impl PowerPointApplication {
         let shapes = slide.get_property_obj("Shapes")?;
         self.set_placeholder_text(&shapes, 1, &spec.title).ok();
         if !spec.body_lines.is_empty() {
-            self.set_placeholder_text(&shapes, 2, &spec.body_lines.join("\r")).ok();
+            self.set_placeholder_text(&shapes, 2, &spec.body_lines.join("\r"))
+                .ok();
         }
 
         pres.invoke_method("SaveAs", vec![var_bstr(file_path), var_i4(11)])?;
@@ -329,14 +334,18 @@ impl PowerPointApplication {
         self.backup_presentation(&pres, backup_dir)?;
 
         let slides = pres.get_property_obj("Slides")?;
-        let sv = slides.invoke_method("Item", vec![var_i4(slide_index)])
+        let sv = slides
+            .invoke_method("Item", vec![var_i4(slide_index)])
             .map_err(|e| anyhow::anyhow!("Slide {} not found: {}", slide_index, e))?;
         let slide = ComObject::new(IDispatch::try_from(&sv)?);
         slide.invoke_method("Delete", vec![])?;
 
         pres.invoke_method("SaveAs", vec![var_bstr(file_path), var_i4(11)])?;
         self.close_presentation(&pres, false)?;
-        Ok(format!("Deleted slide {} from '{}'", slide_index, file_path))
+        Ok(format!(
+            "Deleted slide {} from '{}'",
+            slide_index, file_path
+        ))
     }
 
     #[cfg(not(windows))]
@@ -370,7 +379,9 @@ impl PowerPointApplication {
             if let Ok(pv) = pres_col.invoke_method("Item", vec![var_i4(i)]) {
                 if let Ok(disp) = IDispatch::try_from(&pv) {
                     let p = ComObject::new(disp);
-                    let name = p.get_property("FullName").ok()
+                    let name = p
+                        .get_property("FullName")
+                        .ok()
                         .and_then(|v| BSTR::try_from(&v).ok())
                         .map(|b| b.to_string())
                         .unwrap_or_default();
@@ -381,12 +392,17 @@ impl PowerPointApplication {
             }
         }
 
-        let pv = pres_col.invoke_method("Open", vec![
-            var_bstr(file_path),
-            var_optional(), // ReadOnly
-            var_optional(), // Untitled
-            var_bool(true), // WithWindow
-        ]).map_err(|e| anyhow::anyhow!("Presentations.Open('{}') failed: {}", file_path, e))?;
+        let pv = pres_col
+            .invoke_method(
+                "Open",
+                vec![
+                    var_bstr(file_path),
+                    var_optional(), // ReadOnly
+                    var_optional(), // Untitled
+                    var_bool(true), // WithWindow
+                ],
+            )
+            .map_err(|e| anyhow::anyhow!("Presentations.Open('{}') failed: {}", file_path, e))?;
 
         let disp = IDispatch::try_from(&pv)
             .map_err(|e| anyhow::anyhow!("Open returned non-object: {}", e))?;
@@ -403,8 +419,14 @@ impl PowerPointApplication {
     }
 
     #[cfg(windows)]
-    fn backup_presentation(&self, pres: &ComObject, backup_dir: Option<&str>) -> anyhow::Result<()> {
-        let full_name = pres.get_property("FullName").ok()
+    fn backup_presentation(
+        &self,
+        pres: &ComObject,
+        backup_dir: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let full_name = pres
+            .get_property("FullName")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_default();
@@ -414,7 +436,10 @@ impl PowerPointApplication {
         }
 
         let path = std::path::Path::new(&full_name);
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("presentation");
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("presentation");
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("pptx");
         let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
 
@@ -477,23 +502,28 @@ impl PowerPointApplication {
     /// Insert text into the active presentation by adding a new slide at the end
     #[cfg(windows)]
     pub fn insert_text_at_cursor(&self, text: &str) -> anyhow::Result<String> {
-        let active_pres = self.app.get_property_obj("ActivePresentation")
+        let active_pres = self
+            .app
+            .get_property_obj("ActivePresentation")
             .map_err(|_| anyhow::anyhow!("No active PowerPoint presentation open"))?;
-        
+
         let slides = active_pres.get_property_obj("Slides")?;
         let count = i32::try_from(&slides.get_property("Count")?).unwrap_or(0);
-        
+
         // ppLayoutText = 2
         let slide_var = slides.invoke_method("Add", vec![var_i4(count + 1), var_i4(2)])?;
         let slide = ComObject::new(IDispatch::try_from(&slide_var)?);
         let shapes = slide.get_property_obj("Shapes")?;
-        
+
         // Title
         self.set_placeholder_text(&shapes, 1, "New Slide").ok();
         // Body
         self.set_placeholder_text(&shapes, 2, text).ok();
 
-        Ok(format!("Added new slide with text at position {}", count + 1))
+        Ok(format!(
+            "Added new slide with text at position {}",
+            count + 1
+        ))
     }
 
     #[cfg(not(windows))]
@@ -503,43 +533,70 @@ impl PowerPointApplication {
 
     /// Insert a picture into the active slide
     #[cfg(windows)]
-    pub fn add_picture(&self, file_path: &str, slide_index: i32, left: f32, top: f32, width: f32, height: f32) -> anyhow::Result<String> {
-        let active_pres = self.app.get_property_obj("ActivePresentation")
+    pub fn add_picture(
+        &self,
+        file_path: &str,
+        slide_index: i32,
+        left: f32,
+        top: f32,
+        width: f32,
+        height: f32,
+    ) -> anyhow::Result<String> {
+        let active_pres = self
+            .app
+            .get_property_obj("ActivePresentation")
             .map_err(|_| anyhow::anyhow!("No active PowerPoint presentation open"))?;
 
         let slides = active_pres.get_property_obj("Slides")?;
-        let slide_var = slides.invoke_method("Item", vec![var_i4(slide_index)])
+        let slide_var = slides
+            .invoke_method("Item", vec![var_i4(slide_index)])
             .map_err(|_| anyhow::anyhow!("Slide {} not found", slide_index))?;
-            
+
         let slide = ComObject::new(IDispatch::try_from(&slide_var)?);
         let shapes = slide.get_property_obj("Shapes")?;
-        
+
         let path_bstr = var_bstr(file_path);
         let link_to_file = var_i4(0); // msoFalse
         let save_with_document = var_i4(-1); // msoTrue
-        
-        let _shape_var = shapes.invoke_method("AddPicture", vec![
-            path_bstr,
-            link_to_file,
-            save_with_document,
-            var_r4(left),
-            var_r4(top),
-            var_r4(width),
-            var_r4(height)
-        ])?;
-        
-        Ok(format!("Inserted picture '{}' into slide {}", file_path, slide_index))
+
+        let _shape_var = shapes.invoke_method(
+            "AddPicture",
+            vec![
+                path_bstr,
+                link_to_file,
+                save_with_document,
+                var_r4(left),
+                var_r4(top),
+                var_r4(width),
+                var_r4(height),
+            ],
+        )?;
+
+        Ok(format!(
+            "Inserted picture '{}' into slide {}",
+            file_path, slide_index
+        ))
     }
 
     #[cfg(not(windows))]
-    pub fn add_picture(&self, _file_path: &str, _slide_index: i32, _left: f32, _top: f32, _width: f32, _height: f32) -> anyhow::Result<String> {
+    pub fn add_picture(
+        &self,
+        _file_path: &str,
+        _slide_index: i32,
+        _left: f32,
+        _top: f32,
+        _width: f32,
+        _height: f32,
+    ) -> anyhow::Result<String> {
         Ok("PowerPoint COM Automation is only supported on Windows".to_string())
     }
 
     /// Replace the entire content of the active presentation (deletes all slides, adds a new one)
     #[cfg(windows)]
     pub fn replace_active_document(&self, text: &str) -> anyhow::Result<String> {
-        let active_pres = self.app.get_property_obj("ActivePresentation")
+        let active_pres = self
+            .app
+            .get_property_obj("ActivePresentation")
             .map_err(|_| anyhow::anyhow!("No active PowerPoint presentation open"))?;
 
         let slides = active_pres.get_property_obj("Slides")?;
@@ -559,8 +616,9 @@ impl PowerPointApplication {
         let slide_var = slides.invoke_method("Add", vec![var_i4(1), var_i4(2)])?;
         let slide = ComObject::new(IDispatch::try_from(&slide_var)?);
         let shapes = slide.get_property_obj("Shapes")?;
-        
-        self.set_placeholder_text(&shapes, 1, "Replaced Content").ok();
+
+        self.set_placeholder_text(&shapes, 1, "Replaced Content")
+            .ok();
         self.set_placeholder_text(&shapes, 2, text).ok();
 
         Ok("Replaced entire presentation with new content".to_string())
@@ -574,12 +632,16 @@ impl PowerPointApplication {
     /// Save the active presentation
     #[cfg(windows)]
     pub fn save_active_document(&self) -> anyhow::Result<String> {
-        let active_pres = self.app.get_property_obj("ActivePresentation")
+        let active_pres = self
+            .app
+            .get_property_obj("ActivePresentation")
             .map_err(|_| anyhow::anyhow!("No active PowerPoint presentation open"))?;
 
         active_pres.invoke_method("Save", vec![])?;
 
-        let doc_name = active_pres.get_property("Name").ok()
+        let doc_name = active_pres
+            .get_property("Name")
+            .ok()
             .and_then(|v| BSTR::try_from(&v).ok())
             .map(|b| b.to_string())
             .unwrap_or_else(|| "presentation".to_string());
@@ -595,7 +657,9 @@ impl PowerPointApplication {
     /// Extract text from all slides in the active presentation
     #[cfg(windows)]
     pub fn extract_active_document(&self) -> anyhow::Result<String> {
-        let active_pres = self.app.get_property_obj("ActivePresentation")
+        let active_pres = self
+            .app
+            .get_property_obj("ActivePresentation")
             .map_err(|_| anyhow::anyhow!("No active PowerPoint presentation open"))?;
 
         let slides = active_pres.get_property_obj("Slides")?;
@@ -609,7 +673,8 @@ impl PowerPointApplication {
                 if let Ok(sd) = IDispatch::try_from(&sv) {
                     let slide = ComObject::new(sd);
                     if let Ok(shapes) = slide.get_property_obj("Shapes") {
-                        let shapes_count = i32::try_from(&shapes.get_property("Count")?).unwrap_or(0);
+                        let shapes_count =
+                            i32::try_from(&shapes.get_property("Count")?).unwrap_or(0);
                         for j in 1..=shapes_count {
                             if let Ok(sh_var) = shapes.invoke_method("Item", vec![var_i4(j)]) {
                                 if let Ok(sh_disp) = IDispatch::try_from(&sh_var) {

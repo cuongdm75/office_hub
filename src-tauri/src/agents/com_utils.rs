@@ -6,11 +6,13 @@
 
 #[cfg(windows)]
 pub mod dispatch {
-    use windows::core::{BSTR, VARIANT, PCWSTR};
-    use windows::Win32::System::Com::{IDispatch, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT, DISPPARAMS, EXCEPINFO, DISPATCH_FLAGS};
-    
-    use windows::Win32::System::Ole::{DISPID_PROPERTYPUT};
-    
+    use windows::core::{BSTR, PCWSTR, VARIANT};
+    use windows::Win32::System::Com::{
+        IDispatch, DISPATCH_FLAGS, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT,
+        DISPPARAMS, EXCEPINFO,
+    };
+
+    use windows::Win32::System::Ole::DISPID_PROPERTYPUT;
 
     pub struct ComObject {
         pub dispatch: IDispatch,
@@ -25,15 +27,17 @@ pub mod dispatch {
             let mut name_wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
             let mut dispid: i32 = 0;
             let mut name_pwstr = PCWSTR(name_wide.as_mut_ptr());
-            
+
             unsafe {
-                self.dispatch.GetIDsOfNames(
-                    &windows::core::GUID::zeroed(),
-                    &name_pwstr,
-                    1,
-                    0x0400, // LOCALE_USER_DEFAULT
-                    &mut dispid,
-                ).map_err(|e| anyhow::anyhow!("GetIDsOfNames failed for {}: {}", name, e))?;
+                self.dispatch
+                    .GetIDsOfNames(
+                        &windows::core::GUID::zeroed(),
+                        &name_pwstr,
+                        1,
+                        0x0400, // LOCALE_USER_DEFAULT
+                        &mut dispid,
+                    )
+                    .map_err(|e| anyhow::anyhow!("GetIDsOfNames failed for {}: {}", name, e))?;
             }
             Ok(dispid)
         }
@@ -56,7 +60,7 @@ pub mod dispatch {
             let mut dispparams = DISPPARAMS::default();
             self.invoke_raw(dispid, DISPATCH_PROPERTYGET, &mut dispparams)
         }
-        
+
         pub fn get_property_obj(&self, name: &str) -> anyhow::Result<ComObject> {
             let var = self.get_property(name)?;
             let disp: IDispatch = core::convert::TryFrom::try_from(&var)
@@ -77,22 +81,29 @@ pub mod dispatch {
             Ok(())
         }
 
-        fn invoke_raw(&self, dispid: i32, flags: DISPATCH_FLAGS, dispparams: &mut DISPPARAMS) -> anyhow::Result<VARIANT> {
+        fn invoke_raw(
+            &self,
+            dispid: i32,
+            flags: DISPATCH_FLAGS,
+            dispparams: &mut DISPPARAMS,
+        ) -> anyhow::Result<VARIANT> {
             let mut result = VARIANT::default();
             let mut excepinfo = EXCEPINFO::default();
             let mut argerr = 0u32;
-            
+
             unsafe {
-                self.dispatch.Invoke(
-                    dispid,
-                    &windows::core::GUID::zeroed(),
-                    0x0400, // LOCALE_USER_DEFAULT
-                    flags,
-                    dispparams,
-                    Some(&mut result),
-                    Some(&mut excepinfo),
-                    Some(&mut argerr),
-                ).map_err(|e| anyhow::anyhow!("Invoke failed: {}", e))?;
+                self.dispatch
+                    .Invoke(
+                        dispid,
+                        &windows::core::GUID::zeroed(),
+                        0x0400, // LOCALE_USER_DEFAULT
+                        flags,
+                        dispparams,
+                        Some(&mut result),
+                        Some(&mut excepinfo),
+                        Some(&mut argerr),
+                    )
+                    .map_err(|e| anyhow::anyhow!("Invoke failed: {}", e))?;
             }
             Ok(result)
         }
@@ -126,7 +137,9 @@ pub mod dispatch {
     #[derive(Debug)]
     pub struct ComObject;
     impl ComObject {
-        pub fn new(_: ()) -> Self { Self }
+        pub fn new(_: ()) -> Self {
+            Self
+        }
     }
     pub fn var_i4(_: i32) {}
     pub fn var_bstr(_: &str) {}
@@ -140,13 +153,13 @@ pub mod watchdog {
     use std::time::Duration;
     use tokio::time;
     use tracing::warn;
-    use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
-    use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetClassNameW, GetWindowThreadProcessId, PostMessageW, WM_CLOSE,
-        GetWindowTextLengthW, GetWindowTextW, GetWindowLongPtrW, GWL_STYLE, WS_POPUP,
-    };
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
     use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetClassNameW, GetWindowLongPtrW, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId, PostMessageW, GWL_STYLE, WM_CLOSE, WS_POPUP,
+    };
 
     /// Spawns a background task that periodically checks for and dismisses blocking Office dialogs.
     pub fn spawn_com_watchdog() {
@@ -170,7 +183,8 @@ pub mod watchdog {
                 let mut process_id = 0;
                 GetWindowThreadProcessId(hwnd, Some(&mut process_id));
                 if process_id != 0 {
-                    let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id).unwrap_or_default();
+                    let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id)
+                        .unwrap_or_default();
                     if !handle.is_invalid() {
                         let mut exe_name = [0u16; 1024];
                         let mut size = exe_name.len() as u32;
@@ -182,10 +196,14 @@ pub mod watchdog {
                             &mut size,
                         );
                         CloseHandle(handle).ok();
-                        
+
                         if res.is_ok() && size > 0 {
-                            let path_str = String::from_utf16_lossy(&exe_name[..size as usize]).to_lowercase();
-                            if path_str.ends_with("excel.exe") || path_str.ends_with("winword.exe") || path_str.ends_with("powerpnt.exe") {
+                            let path_str =
+                                String::from_utf16_lossy(&exe_name[..size as usize]).to_lowercase();
+                            if path_str.ends_with("excel.exe")
+                                || path_str.ends_with("winword.exe")
+                                || path_str.ends_with("powerpnt.exe")
+                            {
                                 // Additional checks: is it a popup, and what is its title?
                                 let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
                                 if (style & WS_POPUP.0) == WS_POPUP.0 {
@@ -195,12 +213,15 @@ pub mod watchdog {
                                         let mut buffer = vec![0u16; (text_len + 1) as usize];
                                         let copied = GetWindowTextW(hwnd, &mut buffer);
                                         if copied > 0 {
-                                            title_lower = String::from_utf16_lossy(&buffer[..copied as usize]).to_lowercase();
+                                            title_lower = String::from_utf16_lossy(
+                                                &buffer[..copied as usize],
+                                            )
+                                            .to_lowercase();
                                         }
                                     }
-                                    
+
                                     // Close if it's a known blocking dialog or if we can't read the title
-                                    let should_close = title_lower.is_empty() 
+                                    let should_close = title_lower.is_empty()
                                         || title_lower.contains("save as")
                                         || title_lower.contains("error")
                                         || title_lower.contains("microsoft excel")

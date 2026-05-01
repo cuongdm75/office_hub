@@ -1,9 +1,9 @@
-use std::sync::Arc;
 use anyhow::Result;
-use std::collections::HashMap;
-use tokio::sync::RwLock;
 use async_trait::async_trait;
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use super::{McpRegistry, McpTool, ToolCallResult};
 
@@ -12,10 +12,10 @@ use super::{McpRegistry, McpTool, ToolCallResult};
 pub trait InternalMcpServer: Send + Sync {
     /// Tên của internal server (ví dụ: "analyst_agent", "policy_server")
     fn name(&self) -> &str;
-    
+
     /// Trả về danh sách các công cụ mà server này cung cấp
     async fn list_tools(&self) -> Result<Vec<McpTool>>;
-    
+
     /// Gọi một công cụ cụ thể
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult>;
 }
@@ -69,7 +69,7 @@ impl McpBroker {
     /// Lấy danh sách toàn bộ tools (bao gồm cả internal và external)
     pub async fn list_all_tools(&self) -> Result<Vec<McpTool>> {
         let mut all_tools = Vec::new();
-        
+
         // Kéo từ Internal
         let servers = self.internal_servers.read().await;
         for entry in servers.values() {
@@ -79,7 +79,7 @@ impl McpBroker {
             }
         }
         drop(servers);
-        
+
         // Kéo từ External (McpRegistry có hàm list_all_tools trả về McpToolWithServer)
         // Chúng ta cần ánh xạ lại thành McpTool
         let external_tools = self.external_registry.list_all_tools();
@@ -136,41 +136,45 @@ impl McpBroker {
             return Ok(all_tools.into_iter().take(limit).collect());
         }
 
-        let mut scored_tools: Vec<(usize, McpTool)> = all_tools.into_iter().map(|tool| {
-            let mut score = 0;
-            let name_lower = tool.name.to_lowercase();
-            let desc_lower = tool.description.to_lowercase();
+        let mut scored_tools: Vec<(usize, McpTool)> = all_tools
+            .into_iter()
+            .map(|tool| {
+                let mut score = 0;
+                let name_lower = tool.name.to_lowercase();
+                let desc_lower = tool.description.to_lowercase();
 
-            for token in &tokens {
-                // Exact name match = highest priority
-                if name_lower == *token {
-                    score += 100;
-                } else if name_lower.contains(token) {
-                    score += 10;
-                }
-                // Description match
-                if desc_lower.contains(token) {
-                    score += 3;
-                }
-                // Tag match – covers alias/synonym keywords (e.g. "excel" → analyze_workbook)
-                for tag in &tool.tags {
-                    let tag_lower = tag.to_lowercase();
-                    if tag_lower == *token {
-                        score += 8; // Exact tag match
-                    } else if tag_lower.contains(token) || token.contains(tag_lower.as_str()) {
-                        score += 5;
+                for token in &tokens {
+                    // Exact name match = highest priority
+                    if name_lower == *token {
+                        score += 100;
+                    } else if name_lower.contains(token) {
+                        score += 10;
+                    }
+                    // Description match
+                    if desc_lower.contains(token) {
+                        score += 3;
+                    }
+                    // Tag match – covers alias/synonym keywords (e.g. "excel" → analyze_workbook)
+                    for tag in &tool.tags {
+                        let tag_lower = tag.to_lowercase();
+                        if tag_lower == *token {
+                            score += 8; // Exact tag match
+                        } else if tag_lower.contains(token) || token.contains(tag_lower.as_str()) {
+                            score += 5;
+                        }
                     }
                 }
-            }
-            (score, tool)
-        }).collect();
+                (score, tool)
+            })
+            .collect();
 
         // Sort by score descending
         scored_tools.sort_by(|a, b| b.0.cmp(&a.0));
 
         // Lấy top `limit` tool có score > 0 (tối đa 8 để tránh context overflow)
         let effective_limit = limit.min(8);
-        let result = scored_tools.into_iter()
+        let result = scored_tools
+            .into_iter()
             .filter(|(s, _)| *s > 0)
             .take(effective_limit)
             .map(|(_, t)| t)

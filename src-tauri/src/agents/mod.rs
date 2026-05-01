@@ -21,14 +21,14 @@
 // ============================================================================
 
 pub mod analyst;
+pub mod com_utils;
 pub mod converter;
 pub mod folder_scanner;
 pub mod office_master;
 pub mod outlook;
-pub mod web_researcher;
 pub mod system;
+pub mod web_researcher;
 pub mod win32_admin;
-pub mod com_utils;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -371,12 +371,7 @@ impl AgentRegistry {
                         let readable = action.replace('_', " ");
                         result.push(crate::mcp::McpTool {
                             name: action.clone(),
-                            description: format!(
-                                "[{}] {} – {}",
-                                agent_name,
-                                readable,
-                                agent_desc
-                            ),
+                            description: format!("[{}] {} – {}", agent_name, readable, agent_desc),
                             input_schema: serde_json::json!({
                                 "type": "object",
                                 "properties": {

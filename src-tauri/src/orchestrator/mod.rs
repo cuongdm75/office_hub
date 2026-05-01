@@ -39,7 +39,6 @@ pub mod plan_monitor;
 pub mod plan_runner;
 pub mod planned_method;
 
-
 use std::collections::HashMap;
 
 use std::sync::Arc;
@@ -62,7 +61,7 @@ use crate::agents::{AgentId, AgentRegistry, AgentStatusInfo};
 
 use crate::llm_gateway::LlmGateway;
 
-use crate::mcp::{McpRegistry, broker::McpBroker};
+use crate::mcp::{broker::McpBroker, McpRegistry};
 
 use self::intent::{Intent, IntentClassifier};
 
@@ -99,33 +98,28 @@ use self::session::{SessionId, SessionStore, SessionSummary};
 pub struct OrchestratorHandle(pub Arc<RwLock<Orchestrator>>);
 
 impl OrchestratorHandle {
-
     pub fn new(orchestrator: Orchestrator) -> Self {
-
         Self(Arc::new(RwLock::new(orchestrator)))
-
     }
 
     /// Set the WebSocket Server instance for HITL manager
 
     pub async fn set_ws_server(&self, ws: Arc<crate::websocket::WebSocketServer>) {
-
         self.0.read().await.hitl_manager.set_ws_server(ws);
-
     }
 
     /// Set the Knowledge Base directory path
 
     pub async fn set_knowledge_dir(&self, dir: std::path::PathBuf) {
-
         let mut inner = self.0.write().await;
 
         inner.knowledge_dir = Some(dir.clone());
 
-        let server = Arc::new(crate::mcp::internal_servers::KnowledgeServer::new(Some(dir)));
+        let server = Arc::new(crate::mcp::internal_servers::KnowledgeServer::new(Some(
+            dir,
+        )));
 
         inner.mcp_broker.register_internal_server(server).await;
-
     }
 
     /// Set the Policies directory path
@@ -176,14 +170,19 @@ impl OrchestratorHandle {
     pub async fn register_scripting_server(&self, app_handle: tauri::AppHandle) {
         let inner = self.0.write().await;
         let skills_dir = inner.skills_dir.clone();
-        let server = Arc::new(crate::mcp::internal_servers::ScriptingServer::new(Some(app_handle), skills_dir));
+        let server = Arc::new(crate::mcp::internal_servers::ScriptingServer::new(
+            Some(app_handle),
+            skills_dir,
+        ));
         inner.mcp_broker.register_internal_server(server).await;
     }
 
     /// Register the Chart Render Server
     pub async fn register_chart_server(&self, app_handle: tauri::AppHandle) {
         let inner = self.0.write().await;
-        let server = Arc::new(crate::mcp::internal_servers::ChartServer::new(Some(app_handle)));
+        let server = Arc::new(crate::mcp::internal_servers::ChartServer::new(Some(
+            app_handle,
+        )));
         inner.mcp_broker.register_internal_server(server).await;
     }
 
@@ -211,7 +210,6 @@ impl OrchestratorHandle {
     /// Set the Memory Store
 
     pub async fn set_memory_store(&self, store: Arc<memory::MemoryStore>) {
-
         let mut inner = self.0.write().await;
 
         inner.memory_store = Some(Arc::clone(&store));
@@ -219,7 +217,6 @@ impl OrchestratorHandle {
         let server = Arc::new(crate::mcp::internal_servers::MemoryServer::new(Some(store)));
 
         inner.mcp_broker.register_internal_server(server).await;
-
     }
 
     /// Process a user chat message end-to-end (classify → route → execute → validate).
@@ -279,11 +276,13 @@ impl OrchestratorHandle {
         let agent_registry = inner.agent_registry.clone();
         let llm_gateway = Some(inner.llm_gateway.clone());
         let mcp_broker = inner.mcp_broker.clone();
-        
+
         let statuses = agent_registry.all_statuses();
         for status in statuses {
             let agent_id = status.id.clone();
-            if let Some(agent_arc) = agent_registry.get_mut(&crate::agents::AgentId::custom(&agent_id)) {
+            if let Some(agent_arc) =
+                agent_registry.get_mut(&crate::agents::AgentId::custom(&agent_id))
+            {
                 let adapter = crate::mcp::agent_mcp_adapter::AgentMcpAdapter::new(
                     agent_id.clone(),
                     agent_arc,
@@ -301,10 +300,21 @@ impl OrchestratorHandle {
 
     pub async fn delete_session(&self, session_id: &str) -> Result<()> {
         let inner = self.0.write().await;
-        
+
         // Clean up handoff file if it exists
-        let agent_dir = inner.skills_dir.as_ref().and_then(|p| p.parent()).map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")).join(".agent"));
-        let handoff_path = agent_dir.join("handoffs").join(format!("session_{}.md", session_id));
+        let agent_dir = inner
+            .skills_dir
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                    .join(".agent")
+            });
+        let handoff_path = agent_dir
+            .join("handoffs")
+            .join(format!("session_{}.md", session_id));
         if handoff_path.exists() {
             let _ = tokio::fs::remove_file(handoff_path).await;
         }
@@ -314,43 +324,35 @@ impl OrchestratorHandle {
     }
 
     pub async fn list_sessions(&self) -> Result<Vec<serde_json::Value>> {
-
         let inner = self.0.read().await;
 
         let summaries = inner.session_store.list_summaries();
 
         Ok(summaries
-
             .into_iter()
-
             .map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null))
-
             .collect())
-
     }
 
     pub async fn get_agent_statuses(&self) -> Result<Vec<AgentStatusInfo>> {
-
         let inner = self.0.read().await;
 
         Ok(inner.agent_registry.all_statuses())
-
     }
 
     pub async fn get_session_store(&self) -> SessionStore {
-
         let inner = self.0.read().await;
 
         inner.session_store.clone()
-
     }
 
     pub async fn init_persistence(&self, dir: impl Into<std::path::PathBuf>) -> Result<()> {
-
         let store = self.get_session_store().await;
 
-        store.init_persistence(dir).await.map_err(|e| anyhow::anyhow!(e))
-
+        store
+            .init_persistence(dir)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))
     }
 
     pub async fn list_mcp_servers(&self) -> Result<Vec<serde_json::Value>> {
@@ -362,58 +364,72 @@ impl OrchestratorHandle {
     }
 
     pub async fn install_mcp_server(&self, source: &str) -> Result<String> {
-
         let inner = self.0.write().await;
 
         inner.mcp_broker.external_registry.install(source).await
-
     }
 
     pub async fn uninstall_mcp_server(&self, server_id: &str) -> Result<()> {
-
         let inner = self.0.write().await;
 
-        inner.mcp_broker.external_registry.uninstall(server_id).await
-
+        inner
+            .mcp_broker
+            .external_registry
+            .uninstall(server_id)
+            .await
     }
 
     pub async fn resolve_hitl(&self, _action_id: &str, _approved: bool) -> Result<()> {
-
         // Obsolete: HitlManager is now accessed via AppState directly.
 
-        Err(anyhow::anyhow!("resolve_hitl should be called directly on AppState::hitl_manager"))
-
+        Err(anyhow::anyhow!(
+            "resolve_hitl should be called directly on AppState::hitl_manager"
+        ))
     }
 
     pub async fn list_pending_hitl(&self) -> Result<Vec<serde_json::Value>> {
-
         let inner = self.0.read().await;
 
         Ok(inner.hitl_manager.list_pending_json())
-
     }
 
     pub async fn check_system_requirements(&self) -> Result<serde_json::Value> {
-
         let inner = self.0.read().await;
 
         inner.check_system_requirements().await
-
     }
 
-    pub async fn execute_agent_action(&self, agent_id: &str, mut task: crate::orchestrator::AgentTask) -> Result<crate::orchestrator::AgentOutput> {
+    pub async fn execute_agent_action(
+        &self,
+        agent_id: &str,
+        mut task: crate::orchestrator::AgentTask,
+    ) -> Result<crate::orchestrator::AgentOutput> {
         let (memory_store, agent, task_session_id, task_action, workspace_id) = {
             let inner = self.0.write().await;
             task.llm_gateway = Some(Arc::clone(&inner.llm_gateway));
-            let agent_arc = inner.agent_registry.get_mut(&crate::agents::AgentId::custom(agent_id))
+            let agent_arc = inner
+                .agent_registry
+                .get_mut(&crate::agents::AgentId::custom(agent_id))
                 .ok_or_else(|| anyhow::anyhow!("Agent {} not found", agent_id))?;
-            let ws_id = inner.session_store.get(&task.session_id).and_then(|s| s.workspace_id.clone());
-            (inner.memory_store.clone(), agent_arc.clone(), task.session_id.clone(), task.action.clone(), ws_id)
+            let ws_id = inner
+                .session_store
+                .get(&task.session_id)
+                .and_then(|s| s.workspace_id.clone());
+            (
+                inner.memory_store.clone(),
+                agent_arc.clone(),
+                task.session_id.clone(),
+                task.action.clone(),
+                ws_id,
+            )
         };
 
         let start_time = std::time::Instant::now();
         let mut agent_guard = agent.write().await;
-        let result = agent_guard.execute(task).await.map_err(|e| anyhow::anyhow!(e));
+        let result = agent_guard
+            .execute(task)
+            .await
+            .map_err(|e| anyhow::anyhow!(e));
         let latency_ms = start_time.elapsed().as_millis() as i64;
 
         if let Some(mem) = memory_store {
@@ -421,7 +437,15 @@ impl OrchestratorHandle {
                 Ok(output) => (output.tokens_used.unwrap_or(0) as usize, "success"),
                 Err(_) => (0usize, "error"),
             };
-            if let Err(e) = mem.log_telemetry(&task_session_id, workspace_id.as_deref(), agent_id, &task_action, latency_ms, tokens, status) {
+            if let Err(e) = mem.log_telemetry(
+                &task_session_id,
+                workspace_id.as_deref(),
+                agent_id,
+                &task_action,
+                latency_ms,
+                tokens,
+                status,
+            ) {
                 tracing::warn!("Failed to log telemetry: {}", e);
             }
         }
@@ -429,19 +453,22 @@ impl OrchestratorHandle {
         result
     }
 
-    pub async fn call_mcp_tool(&self, tool_name: &str, arguments: Option<serde_json::Value>) -> Result<crate::mcp::ToolCallResult> {
-
+    pub async fn call_mcp_tool(
+        &self,
+        tool_name: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> Result<crate::mcp::ToolCallResult> {
         let inner = self.0.read().await;
 
         inner.mcp_broker.call_tool(tool_name, arguments).await
-
     }
 
-    pub fn subscribe_progress(&self) -> Option<tokio::sync::broadcast::Receiver<crate::workflow::WorkflowProgressUpdate>> {
+    pub fn subscribe_progress(
+        &self,
+    ) -> Option<tokio::sync::broadcast::Receiver<crate::workflow::WorkflowProgressUpdate>> {
         let inner = futures::executor::block_on(self.0.read());
         inner.progress_tx.as_ref().map(|tx| tx.subscribe())
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,45 +480,34 @@ impl OrchestratorHandle {
 /// Core orchestrator.  Holds all sub-systems and coordinates their interactions.
 
 pub struct Orchestrator {
-
     /// Classifies free-text messages into structured `Intent` values.
-
     pub intent_classifier: IntentClassifier,
 
     /// Routes classified intents to the correct agent(s).
-
     pub router: Router,
 
     /// Validates agent output against YAML rule files before committing.
-
     pub rule_engine: Arc<RuleEngine>,
 
     /// Persistent conversation/session state.
-
     pub session_store: SessionStore,
 
     /// Registry of all available sub-agents and their current status.
-
     pub agent_registry: AgentRegistry,
 
     /// MCP Broker (plugin ecosystem + internal servers).
-
     pub mcp_broker: Arc<McpBroker>,
 
     /// Human-in-the-Loop approval manager.
-
     pub hitl_manager: Arc<HitlManager>,
 
     /// Reference to the LLM Gateway for intent classification and task execution.
-
     pub llm_gateway: Arc<RwLock<LlmGateway>>,
 
     /// Directory for the Local Knowledge Base (`.md` files)
-
     pub knowledge_dir: Option<std::path::PathBuf>,
 
     /// Directory for the Global Policies (`.md` files)
-
     pub policy_dir: Option<std::path::PathBuf>,
 
     /// Long-term memory store (SQLite FTS5)
@@ -501,22 +517,19 @@ pub struct Orchestrator {
     pub skills_dir: Option<std::path::PathBuf>,
 
     /// Channel to broadcast realtime progress.
-    pub progress_tx: Option<tokio::sync::broadcast::Sender<crate::workflow::WorkflowProgressUpdate>>,
+    pub progress_tx:
+        Option<tokio::sync::broadcast::Sender<crate::workflow::WorkflowProgressUpdate>>,
 
     /// Runtime metrics collected during operation.
-
     metrics: OrchestratorMetrics,
-
 }
 
 impl Orchestrator {
-
     /// Construct a new `Orchestrator` with the given LLM Gateway reference.
 
     /// Note: This uses a placeholder RuleEngine. Call `initialize()` for full setup.
 
     pub fn new(llm_gateway: Arc<RwLock<LlmGateway>>, hitl_manager: Arc<HitlManager>) -> Self {
-
         info!("Initialising Orchestrator");
 
         // Create RuleEngine with default/empty state (full initialization requires async)
@@ -524,7 +537,6 @@ impl Orchestrator {
         let rule_engine = Arc::new(RuleEngine::default());
 
         Self {
-
             intent_classifier: IntentClassifier,
 
             router: Router::new(Arc::clone(&rule_engine)),
@@ -546,9 +558,7 @@ impl Orchestrator {
             skills_dir: None,
             progress_tx: Some(tokio::sync::broadcast::channel(256).0),
             metrics: OrchestratorMetrics::default(),
-
         }
-
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -575,7 +585,7 @@ impl Orchestrator {
                 .session_store
                 .get_or_create(session_id)
                 .context("Failed to retrieve/create session")?;
-            
+
             if session.workspace_id.is_none() && workspace_id.is_some() {
                 session.workspace_id = workspace_id.map(|s| s.to_string());
             }
@@ -615,14 +625,14 @@ impl Orchestrator {
         }
 
         // 2c. search_available_tools: dung khi can tim tool runtime-added
-        mcp_tools_desc.push_str("- search_available_tools (mcp): Tim kiem them cong cu theo tu khoa.\n");
+        mcp_tools_desc
+            .push_str("- search_available_tools (mcp): Tim kiem them cong cu theo tu khoa.\n");
 
         let tools_desc = format!(
             "(Danh sach {} MCP tools va {} Agent tools. Goi theo Tool ID chinh xac.)\n",
-            all_mcp.len(), all_agent_tools.len()
+            all_mcp.len(),
+            all_agent_tools.len()
         );
-
-
 
         let mut project_policy_content = String::new();
         let workspace_instruction = if let Some(wid) = workspace_id {
@@ -630,29 +640,48 @@ impl Orchestrator {
                 let workspace_root = if wid == "default" {
                     kd.parent().unwrap_or(kd.as_path()).to_path_buf()
                 } else {
-                    kd.parent().unwrap_or(kd.as_path()).join("workspaces").join(wid)
+                    kd.parent()
+                        .unwrap_or(kd.as_path())
+                        .join("workspaces")
+                        .join(wid)
                 };
-                
+
                 let policy_dir = workspace_root.join("policies");
                 if policy_dir.exists() {
                     if let Ok(entries) = std::fs::read_dir(&policy_dir) {
                         for entry in entries.flatten() {
                             let path = entry.path();
-                            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("md") {
+                            if path.is_file()
+                                && path.extension().and_then(|e| e.to_str()) == Some("md")
+                            {
                                 if let Ok(content) = std::fs::read_to_string(&path) {
-                                    let filename = path.file_name().unwrap_or_default().to_string_lossy();
-                                    project_policy_content.push_str(&format!("\n--- Mở đầu Policy: {} ---\n", filename));
+                                    let filename =
+                                        path.file_name().unwrap_or_default().to_string_lossy();
+                                    project_policy_content.push_str(&format!(
+                                        "\n--- Mở đầu Policy: {} ---\n",
+                                        filename
+                                    ));
                                     project_policy_content.push_str(&content);
-                                    project_policy_content.push_str(&format!("\n--- Kết thúc Policy: {} ---\n", filename));
+                                    project_policy_content.push_str(&format!(
+                                        "\n--- Kết thúc Policy: {} ---\n",
+                                        filename
+                                    ));
                                 }
                             }
                         }
                     }
                 }
 
-                let root_str = workspace_root.to_string_lossy().to_string().replace("\\", "/");
-                let policies_prompt = if project_policy_content.is_empty() { String::new() } else { format!("\n[PROJECT POLICIES]\nDưới đây là các Policy riêng của dự án này, BẮT BUỘC phải tuân thủ (ưu tiên cao hơn Global Policy nếu có xung đột, trừ khi Global Policy đánh dấu là 'Bắt buộc'):\n{}", project_policy_content) };
-                
+                let root_str = workspace_root
+                    .to_string_lossy()
+                    .to_string()
+                    .replace("\\", "/");
+                let policies_prompt = if project_policy_content.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n[PROJECT POLICIES]\nDưới đây là các Policy riêng của dự án này, BẮT BUỘC phải tuân thủ (ưu tiên cao hơn Global Policy nếu có xung đột, trừ khi Global Policy đánh dấu là 'Bắt buộc'):\n{}", project_policy_content)
+                };
+
                 format!("\n[QUAN TRỌNG: WORKSPACE CONTEXT]\nBạn đang hoạt động trong workspace có ID là: '{}'. Thư mục gốc của workspace này trên ổ đĩa là: `{}`.\n- Dữ liệu đầu vào (file tải lên, ghi âm...) nằm trong thư mục `{}/docs/inbox/`.\n- Kết quả xử lý (file báo cáo, xuất ra) BẮT BUỘC lưu vào thư mục `{}/docs/outbox/`.\n- Nếu người dùng nhắc đến dự án khác (VD: 'Với dự án Beta...'), hãy gọi agent_id = 'orchestrator', action = 'set_active_project' với tham số `project_name` để chuyển ngữ cảnh sang dự án đó.\n- Khi dùng tool `search_memory`, BẮT BUỘC thêm tiền tố `[{}]` vào từ khóa tìm kiếm (VD: `[{}] quy trình mua hàng`).\nKhi gọi các tool tạo file (như `office_master`), bạn phải truyền đường dẫn lưu file tuyệt đối vào thư mục outbox này.\nKhi gọi bất kỳ MCP tool nào liên quan đến dữ liệu (như knowledge, policy...), BẠN BẮT BUỘC phải truyền thêm tham số `\"workspace_id\": \"{}\"` vào arguments của tool.\n{}", wid, root_str, root_str, root_str, wid, wid, wid, policies_prompt)
             } else {
                 format!("\n[QUAN TRỌNG: WORKSPACE CONTEXT]\nBạn đang hoạt động trong workspace có ID là: '{}'.\n- Nếu người dùng nhắc đến dự án khác (VD: 'Với dự án Beta...'), hãy gọi agent_id = 'orchestrator', action = 'set_active_project' với tham số `project_name` để chuyển ngữ cảnh sang dự án đó.\n- Khi dùng tool `search_memory`, BẮT BUỘC thêm tiền tố `[{}]` vào từ khóa tìm kiếm.\nKhi gọi bất kỳ MCP tool nào liên quan đến dữ liệu (như knowledge, policy...), BẠN BẮT BUỘC phải truyền thêm tham số `\"workspace_id\": \"{}\"` vào arguments của tool.\n", wid, wid, wid)
@@ -661,50 +690,49 @@ impl Orchestrator {
             String::new()
         };
 
+        let schema = serde_json::json!({
 
-            let schema = serde_json::json!({
+            "type": "object",
 
-                "type": "object",
+            "properties": {
 
-                "properties": {
+                "thought": { "type": "string" },
 
-                    "thought": { "type": "string" },
+                "direct_response": { "type": "string" },
 
-                    "direct_response": { "type": "string" },
+                "agent_calls": {
 
-                    "agent_calls": {
+                    "type": "array",
 
-                        "type": "array",
+                    "items": {
 
-                        "items": {
+                        "type": "object",
 
-                            "type": "object",
+                        "properties": {
 
-                            "properties": {
+                            "agent_id": { "type": "string" },
 
-                                "agent_id": { "type": "string" },
+                            "action": { "type": "string" },
 
-                                "action": { "type": "string" },
+                            "parameters": { "type": "object" },
 
-                                "parameters": { "type": "object" },
+                            "task_id": { "type": "string" },
 
-                                "task_id": { "type": "string" },
+                            "dependencies": { "type": "array", "items": { "type": "string" } }
 
-                                "dependencies": { "type": "array", "items": { "type": "string" } }
+                        },
 
-                            },
-
-                            "required": ["agent_id", "action"]
-
-                        }
+                        "required": ["agent_id", "action"]
 
                     }
 
-                },
+                }
 
-                "required": ["thought"]
+            },
 
-            });
+            "required": ["thought"]
+
+        });
 
         let system_prompt = format!(
             "Bạn là Office Hub Orchestrator, một trợ lý điều phối Agent.\n\
@@ -764,48 +792,37 @@ impl Orchestrator {
         let mut messages = vec![crate::llm_gateway::LlmMessage::system(system_prompt)];
 
         for msg in &session_clone.messages {
-
             if msg.content.trim().is_empty() {
-
                 continue;
-
             }
 
             let role_str = msg.role.to_string();
 
             let role = match role_str.as_str() {
-
                 "user" => crate::llm_gateway::MessageRole::User,
 
                 _ => crate::llm_gateway::MessageRole::Assistant,
-
             };
 
             messages.push(crate::llm_gateway::LlmMessage {
-
                 role,
 
                 content: msg.content.clone(),
 
                 image_base64s: vec![],
-
             });
-
         }
 
-        
-
         let context_str = if let Some(path) = context_file {
-
             format!("\n[Ngữ cảnh file đang mở: {}]\n", path)
-
         } else {
-
             String::new()
-
         };
 
-        messages.push(crate::llm_gateway::LlmMessage::user(format!("{}{}", message, context_str)));
+        messages.push(crate::llm_gateway::LlmMessage::user(format!(
+            "{}{}",
+            message, context_str
+        )));
 
         let mut final_content = String::new();
 
@@ -818,10 +835,7 @@ impl Orchestrator {
         let max_turns = 5;
 
         for turn_idx in 0..max_turns {
-
             let llm = self.llm_gateway.read().await;
-
-            
 
             // Define JSON schema
 
@@ -831,7 +845,10 @@ impl Orchestrator {
                 .with_json_schema(schema.clone())
                 .with_complexity(crate::llm_gateway::request::TaskComplexity::Reasoning);
 
-            let mut stream = llm.complete_stream(llm_req).await.context("LLM Orchestrator stream failed")?;
+            let mut stream = llm
+                .complete_stream(llm_req)
+                .await
+                .context("LLM Orchestrator stream failed")?;
             drop(llm);
 
             use futures::StreamExt;
@@ -849,7 +866,7 @@ impl Orchestrator {
                         let bytes = accumulated_json.as_bytes();
                         let mut escaped = false;
                         let mut found_end = false;
-                        
+
                         while end_idx < bytes.len() {
                             if bytes[end_idx] == b'\\' && !escaped {
                                 escaped = true;
@@ -864,7 +881,7 @@ impl Orchestrator {
 
                         let raw_thought = &accumulated_json[content_start..end_idx];
                         let parsed_thought = raw_thought.replace("\\n", "\n").replace("\\\"", "\"");
-                        
+
                         if parsed_thought != last_thought {
                             last_thought = parsed_thought.clone();
                             if let Some(ref tx) = progress_tx {
@@ -889,9 +906,6 @@ impl Orchestrator {
                 received_at: chrono::Utc::now(),
             };
 
-
-            
-
             total_tokens += resp.usage.total_tokens;
 
             // Parse the OrchestrationDecision
@@ -899,7 +913,6 @@ impl Orchestrator {
             #[derive(Deserialize, Clone)]
 
             struct AgentCall {
-
                 agent_id: String,
 
                 action: String,
@@ -909,49 +922,53 @@ impl Orchestrator {
                 task_id: Option<String>,
 
                 dependencies: Option<Vec<String>>,
-
             }
-
-            
 
             #[derive(Deserialize)]
 
             struct OrchestrationDecision {
-
                 #[serde(default)]
-
                 thought: String,
 
                 direct_response: Option<String>,
 
                 agent_calls: Option<Vec<AgentCall>>,
-
             }
-            
+
             info!("Raw LLM response: {}", resp.content);
 
             let mut decision: OrchestrationDecision = {
                 let parse_value = |json_str: &str| -> Option<serde_json::Value> {
                     serde_json::from_str(json_str).ok()
                 };
-                
+
                 let mut parsed_val = parse_value(&resp.content);
                 if parsed_val.is_none() {
                     let content = resp.content.trim();
                     let extracted = if let Some(start) = content.find("```json") {
                         if let Some(end) = content[start + 7..].find("```") {
                             content[start + 7..start + 7 + end].trim()
-                        } else { content }
+                        } else {
+                            content
+                        }
                     } else if let Some(start) = content.find("```") {
                         if let Some(end) = content[start + 3..].find("```") {
                             content[start + 3..start + 3 + end].trim()
-                        } else { content }
+                        } else {
+                            content
+                        }
                     } else {
                         let start = content.find('{');
                         let end = content.rfind('}');
                         if let (Some(s), Some(e)) = (start, end) {
-                            if s < e { &content[s..e + 1] } else { content }
-                        } else { content }
+                            if s < e {
+                                &content[s..e + 1]
+                            } else {
+                                content
+                            }
+                        } else {
+                            content
+                        }
                     };
                     parsed_val = parse_value(extracted);
                 }
@@ -1017,9 +1034,9 @@ impl Orchestrator {
             }
 
             if let Some(calls) = decision.agent_calls.filter(|c| !c.is_empty()) {
-
                 let mut remaining_calls = calls.clone();
-                let mut completed_task_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+                let mut completed_task_ids: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
                 let mut all_committed = true;
                 let mut turn_content = String::new();
                 let mut turn_metadata = serde_json::Map::new();
@@ -1046,14 +1063,17 @@ impl Orchestrator {
                     }
 
                     let mut futures = vec![];
-                    
+
                     for call in ready_calls {
                         let agent_id = call.agent_id.clone();
                         let action = call.action.clone();
-                        let params = call.parameters.clone().unwrap_or_else(|| serde_json::json!({}));
+                        let params = call
+                            .parameters
+                            .clone()
+                            .unwrap_or_else(|| serde_json::json!({}));
                         let task_id_opt = call.task_id.clone();
                         let dependencies = call.dependencies.clone().unwrap_or_default();
-                        
+
                         let hitl_manager = Arc::clone(&self.hitl_manager);
                         let llm_gateway = Arc::clone(&self.llm_gateway);
                         let mcp_broker = Arc::clone(&self.mcp_broker);
@@ -1062,12 +1082,17 @@ impl Orchestrator {
                         let context_file_str = context_file.map(String::from);
                         let session_id_str = session_id.to_string();
 
-                        let agent_arc_opt = self.agent_registry.get_mut(&crate::agents::AgentId::custom(&agent_id));
-                        
+                        let agent_arc_opt = self
+                            .agent_registry
+                            .get_mut(&crate::agents::AgentId::custom(&agent_id));
+
                         let mut is_set_project = false;
                         let mut proj_clone = String::new();
                         if agent_id == "orchestrator" && action == "set_active_project" {
-                            let new_proj = params.get("project_name").and_then(|v| v.as_str()).unwrap_or("Global");
+                            let new_proj = params
+                                .get("project_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("Global");
                             if let Some(mut session) = self.session_store.get_mut(&session_id_str) {
                                 session.workspace_id = Some(new_proj.to_string());
                             }
@@ -1079,9 +1104,9 @@ impl Orchestrator {
                             if is_set_project {
                                 return (agent_id.clone(), task_id_opt, true, format!("Đã chuyển ngữ cảnh sang dự án '{}'. Các câu trả lời tiếp theo sẽ dùng trí nhớ và file của dự án này.\n\n", proj_clone), 0, None);
                             }
-                            
+
                             info!(agent = %agent_id, action = %action, "Dispatching to agent");
-                            
+
                             if let Some(tx) = &progress_tx {
                                 let _ = tx.send(crate::workflow::WorkflowProgressUpdate::Step {
                                     run_id: session_id_str.clone(),
@@ -1263,12 +1288,14 @@ impl Orchestrator {
                     }
 
                     let results = futures::future::join_all(futures).await;
-                    
+
                     for (a_id, t_id_opt, committed, content, tokens, meta) in results {
                         if let Some(t_id) = t_id_opt {
                             completed_task_ids.insert(t_id);
                         }
-                        if !committed { all_committed = false; }
+                        if !committed {
+                            all_committed = false;
+                        }
                         turn_content.push_str(&content);
                         total_tokens += tokens;
                         if let Some(m) = meta {
@@ -1281,19 +1308,23 @@ impl Orchestrator {
 
                 if !all_committed && turn_idx < max_turns - 1 {
                     // Append the LLM's raw JSON output as Assistant so it knows what it did
-                    messages.push(crate::llm_gateway::LlmMessage::assistant(resp.content.clone()));
-                    
+                    messages.push(crate::llm_gateway::LlmMessage::assistant(
+                        resp.content.clone(),
+                    ));
+
                     let mut combined_content = format!("Kết quả thực thi từ Agent (Chưa hoàn tất, hãy phân tích và đưa ra quyết định tiếp theo hoặc trả lời trực tiếp):\n{}", turn_content);
                     if !turn_metadata.is_empty() {
-                        let meta_str = serde_json::to_string_pretty(&turn_metadata).unwrap_or_default();
+                        let meta_str =
+                            serde_json::to_string_pretty(&turn_metadata).unwrap_or_default();
                         combined_content.push_str(&format!("\nMetadata từ Agent:\n{}", meta_str));
                     }
-                    
+
                     // Append the tool results (and metadata) as User (from the environment)
                     messages.push(crate::llm_gateway::LlmMessage::user(combined_content));
                     continue;
                 } else {
-                    if let Some(direct) = decision.direct_response.filter(|d| !d.trim().is_empty()) {
+                    if let Some(direct) = decision.direct_response.filter(|d| !d.trim().is_empty())
+                    {
                         final_content = direct;
                     } else {
                         final_content = turn_content;
@@ -1303,34 +1334,29 @@ impl Orchestrator {
                 }
             } else if let Some(direct) = decision.direct_response.filter(|d| !d.trim().is_empty()) {
                 final_content = direct;
-                metadata.insert("handled_by".to_string(), serde_json::json!("orchestrator_direct"));
+                metadata.insert(
+                    "handled_by".to_string(),
+                    serde_json::json!("orchestrator_direct"),
+                );
                 break;
             } else {
-
                 final_content = "Tôi không chắc chắn phải làm gì.".to_string();
 
                 break;
-
             }
-
         }
 
         // ── 5. Rule Engine Validation ─────────────────────────────────────────
 
         let validation_request = ValidationRequest::new(
-
             main_agent.clone(),
-
             ValidationTarget::LlmResponse,
-
             final_content.clone(),
-
         );
 
         let validated = self.rule_engine.validate(validation_request).await;
 
         if !validated.passed {
-
             warn!(
 
                 violations = ?validated.violations,
@@ -1342,30 +1368,26 @@ impl Orchestrator {
             self.metrics.rule_violations += validated.violations.len() as u64;
 
             if !validated.blocking_violations().is_empty() {
-
                 return Err(anyhow!(
-
                     "Output blocked by Rule Engine: {}",
-
                     validated
-
                         .blocking_violations()
-
                         .first()
-
                         .map(|v| v.message.as_str())
-
                         .unwrap_or("unknown violation")
-
                 ));
-
             }
-
         }
 
         // ── 6. Session update ─────────────────────────────────────────────────
 
-        let auto_handoff_enabled = self.llm_gateway.read().await.config().await.auto_handoff_enabled;
+        let auto_handoff_enabled = self
+            .llm_gateway
+            .read()
+            .await
+            .config()
+            .await
+            .auto_handoff_enabled;
 
         let (needs_summarisation, is_first_turn) = {
             if let Some(mut session) = self.session_store.get_mut(session_id) {
@@ -1380,7 +1402,10 @@ impl Orchestrator {
 
                 (session.needs_summarisation(auto_handoff_enabled), is_first)
             } else {
-                tracing::warn!(session_id, "Session was deleted during processing; skipping update");
+                tracing::warn!(
+                    session_id,
+                    "Session was deleted during processing; skipping update"
+                );
                 (false, false)
             }
         };
@@ -1396,7 +1421,6 @@ impl Orchestrator {
         // ── 6.5 Generate Topic ID for New Sessions ────────────────────────────
 
         if is_first_turn {
-
             let prompt = format!(
 
                 "Tạo một cụm từ ngắn (2-4 từ) đại diện cho chủ đề của yêu cầu sau: '{}'. Chỉ trả về chủ đề, không giải thích.",
@@ -1405,18 +1429,21 @@ impl Orchestrator {
 
             );
 
-            if let Ok(resp) = self.llm_gateway.read().await.complete(crate::llm_gateway::LlmRequest::new(vec![crate::llm_gateway::LlmMessage::user(prompt)])).await {
-
+            if let Ok(resp) = self
+                .llm_gateway
+                .read()
+                .await
+                .complete(crate::llm_gateway::LlmRequest::new(vec![
+                    crate::llm_gateway::LlmMessage::user(prompt),
+                ]))
+                .await
+            {
                 let topic = resp.content.trim().trim_matches('"').to_string();
 
                 if let Some(mut s) = self.session_store.get_mut(session_id) {
-
                     s.topic_id = Some(topic);
-
                 }
-
             }
-
         }
 
         // ── 7. Build response ─────────────────────────────────────────────────
@@ -1437,12 +1464,8 @@ impl Orchestrator {
 
         );
 
-        
-
         if let Err(e) = self.session_store.save_session(session_id).await {
-
             tracing::warn!("Failed to persist session {}: {}", session_id, e);
-
         }
 
         // -- 8. Persist to Long-Term Memory -----------------------------------
@@ -1456,16 +1479,19 @@ impl Orchestrator {
                 main_agent,
                 final_content.chars().take(400).collect::<String>(),
             );
-            
-            let workspace_id = self.session_store.get(session_id).and_then(|s| s.workspace_id.clone());
-            
-            if let Err(e) = mem.insert_memory(session_id, workspace_id.as_deref(), &topic, &snippet) {
+
+            let workspace_id = self
+                .session_store
+                .get(session_id)
+                .and_then(|s| s.workspace_id.clone());
+
+            if let Err(e) = mem.insert_memory(session_id, workspace_id.as_deref(), &topic, &snippet)
+            {
                 tracing::warn!("Failed to write long-term memory: {}", e);
             }
         }
 
         Ok(OrchestratorResponse {
-
             content: final_content.trim().to_string(),
 
             intent: Some("LLM_Orchestration".to_string()),
@@ -1477,9 +1503,7 @@ impl Orchestrator {
             duration_ms,
 
             metadata: Some(serde_json::Value::Object(metadata)),
-
         })
-
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1530,15 +1554,27 @@ impl Orchestrator {
         ])
         .with_temperature(0.1);
 
-        let resp = llm.complete(req).await.context("LLM failed to generate handoff")?;
-        
+        let resp = llm
+            .complete(req)
+            .await
+            .context("LLM failed to generate handoff")?;
+
         // Save to .agent/handoffs
-        let agent_dir = self.skills_dir.as_ref().and_then(|p| p.parent()).map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")).join(".agent"));
+        let agent_dir = self
+            .skills_dir
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                    .join(".agent")
+            });
         let handoff_dir = agent_dir.join("handoffs");
         if !handoff_dir.exists() {
             tokio::fs::create_dir_all(&handoff_dir).await?;
         }
-        
+
         let handoff_path = handoff_dir.join(format!("session_{}.md", session_id));
         tokio::fs::write(&handoff_path, &resp.content).await?;
 
@@ -1548,7 +1584,7 @@ impl Orchestrator {
                 .session_store
                 .get_mut(session_id)
                 .ok_or_else(|| anyhow!("Session not found when applying handoff"))?;
-            
+
             session.clear_history();
             session.add_turn(
                 "[Hệ thống tự động reset context]".to_string(),
@@ -1568,29 +1604,22 @@ impl Orchestrator {
     #[instrument(skip(self))]
 
     async fn summarise_session(&mut self, session_id: &str) -> Result<()> {
-
         info!(session_id, "Summarising session context");
 
         // Extract data from session, then release the borrow before the async call
 
         let (turns, tokens, messages, workspace_id) = {
-
             let session = self
-
                 .session_store
-
                 .get_mut(session_id)
-
                 .ok_or_else(|| anyhow!("Session not found during summarisation"))?;
 
             (
-
                 session.turn_count(),
                 session.context_window.tokens_used,
                 session.messages.iter().cloned().collect::<Vec<_>>(),
                 session.workspace_id.clone(),
             )
-
         };
 
         // Acquire LLM guard internally (avokes holding a guard across &mut self boundary)
@@ -1598,47 +1627,40 @@ impl Orchestrator {
         let llm = self.llm_gateway.read().await;
 
         let summary = llm
-
             .summarise_history(&messages)
-
             .await
-
             .context("LLM failed to summarise session history")?;
 
         // Re-acquire mutable session to apply the summary
 
         let (topic, topic_summary) = {
-
             let mut session = self
-
                 .session_store
-
                 .get_mut(session_id)
-
                 .ok_or_else(|| anyhow!("Session not found when applying summary"))?;
 
             session.add_summary(SessionSummary::new(summary.clone(), turns, tokens));
 
-            (session.topic_id.clone().unwrap_or_else(|| "General".to_string()), summary.clone())
-
+            (
+                session
+                    .topic_id
+                    .clone()
+                    .unwrap_or_else(|| "General".to_string()),
+                summary.clone(),
+            )
         };
 
         if let Some(mem) = &self.memory_store {
-
-            if let Err(e) = mem.insert_memory(session_id, workspace_id.as_deref(), &topic, &topic_summary) {
-
+            if let Err(e) =
+                mem.insert_memory(session_id, workspace_id.as_deref(), &topic, &topic_summary)
+            {
                 tracing::warn!("Failed to insert summary into long-term memory: {}", e);
-
             }
-
         }
-
-        
 
         info!(session_id, "Session summary applied and saved to memory");
 
         Ok(())
-
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1656,16 +1678,22 @@ impl Orchestrator {
     /// - LLM connectivity (cloud and/or local)
 
     pub async fn check_system_requirements(&self) -> Result<serde_json::Value> {
-
         let llm = self.llm_gateway.read().await;
 
         let office_com_ok = self.check_office_com();
 
         let uia_ok = self.check_uia();
 
-        let llm_cloud_ok = llm.health_check_provider("gemini").await.unwrap_or(false) || llm.health_check_provider("openai").await.unwrap_or(false) || llm.health_check_provider("anthropic").await.unwrap_or(false) || llm.health_check_provider("z.ai").await.unwrap_or(false);
+        let llm_cloud_ok = llm.health_check_provider("gemini").await.unwrap_or(false)
+            || llm.health_check_provider("openai").await.unwrap_or(false)
+            || llm
+                .health_check_provider("anthropic")
+                .await
+                .unwrap_or(false)
+            || llm.health_check_provider("z.ai").await.unwrap_or(false);
 
-        let llm_local_ok = llm.health_check_provider("ollama").await.unwrap_or(false) || llm.health_check_provider("lmstudio").await.unwrap_or(false);
+        let llm_local_ok = llm.health_check_provider("ollama").await.unwrap_or(false)
+            || llm.health_check_provider("lmstudio").await.unwrap_or(false);
 
         Ok(serde_json::json!({
 
@@ -1682,45 +1710,36 @@ impl Orchestrator {
             "all_ok":      office_com_ok && uia_ok && (llm_cloud_ok || llm_local_ok),
 
         }))
-
     }
 
     #[cfg(windows)]
 
     fn check_office_com(&self) -> bool {
-
         // TODO(phase-3): attempt CoCreateInstance for Excel.Application
 
         // Returns false if Office is not installed or COM registration is broken.
 
         false // placeholder until Phase 3
-
     }
 
     #[cfg(not(windows))]
 
     fn check_office_com(&self) -> bool {
-
         false // COM is Windows-only
-
     }
 
     #[cfg(windows)]
 
     fn check_uia(&self) -> bool {
-
         // TODO(phase-4): check UIAutomationCore.dll availability
 
         false // placeholder until Phase 4
-
     }
 
     #[cfg(not(windows))]
 
     fn check_uia(&self) -> bool {
-
         false // UIA is Windows-only
-
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1743,9 +1762,7 @@ impl Orchestrator {
         workspace_id: Option<&str>,
         progress_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
     ) -> Result<OrchestratorResponse> {
-        use crate::llm_gateway::genai_bridge::{
-            ToolAwareResponse, ToolChatMessage, ToolResult,
-        };
+        use crate::llm_gateway::genai_bridge::{ToolAwareResponse, ToolChatMessage, ToolResult};
         use crate::mcp::McpTool;
 
         let started_at = std::time::Instant::now();
@@ -1761,9 +1778,17 @@ impl Orchestrator {
         let mut mcp_tools: Vec<McpTool> = Vec::new();
 
         // 1. Luôn bao gồm core tools
-        if let Ok(core) = self.mcp_broker.search_tools("search_memory list_policies fs_move_file", 8).await {
+        if let Ok(core) = self
+            .mcp_broker
+            .search_tools("search_memory list_policies fs_move_file", 8)
+            .await
+        {
             for t in core {
-                if t.name == "search_memory" || t.name == "list_policies" || t.name == "search_available_tools" || t.name == "fs_move_file" {
+                if t.name == "search_memory"
+                    || t.name == "list_policies"
+                    || t.name == "search_available_tools"
+                    || t.name == "fs_move_file"
+                {
                     mcp_tools.push(t);
                 }
             }
@@ -1823,7 +1848,9 @@ impl Orchestrator {
             String::new()
         };
 
-        let context_hint = context_file.map(|p| format!("\n[Ngữ cảnh file đang mở: {}]\n", p)).unwrap_or_default();
+        let context_hint = context_file
+            .map(|p| format!("\n[Ngữ cảnh file đang mở: {}]\n", p))
+            .unwrap_or_default();
 
         let system_prompt = format!(
             "Bạn là Office Hub Orchestrator – trợ lý AI đa năng.\n\
@@ -1848,7 +1875,9 @@ impl Orchestrator {
         );
 
         let session_clone = {
-            let mut session = self.session_store.get_or_create(session_id)
+            let mut session = self
+                .session_store
+                .get_or_create(session_id)
                 .context("Failed to retrieve/create session")?;
             if session.workspace_id.is_none() && workspace_id.is_some() {
                 session.workspace_id = workspace_id.map(|s| s.to_string());
@@ -1859,7 +1888,9 @@ impl Orchestrator {
         let mut conv_messages: Vec<ToolChatMessage> = vec![ToolChatMessage::System(system_prompt)];
 
         for msg in &session_clone.messages {
-            if msg.content.trim().is_empty() { continue; }
+            if msg.content.trim().is_empty() {
+                continue;
+            }
             match msg.role.to_string().as_str() {
                 "user" => conv_messages.push(ToolChatMessage::User(msg.content.clone())),
                 _ => conv_messages.push(ToolChatMessage::Assistant(msg.content.clone())),
@@ -1880,16 +1911,27 @@ impl Orchestrator {
             all_tools.extend(dynamically_loaded_tools.clone());
 
             let turn_start = std::time::Instant::now();
-            let response = match bridge.complete_with_tools(&conv_messages, &all_tools, 0.1).await {
+            let response = match bridge
+                .complete_with_tools(&conv_messages, &all_tools, 0.1)
+                .await
+            {
                 Ok(r) => r,
                 Err(e) => {
                     warn!(error = %e, "GenAI bridge failed, falling back to legacy process_message");
                     // Fallback về legacy pipeline
-                    return self.process_message(session_id, message, context_file, workspace_id, progress_tx).await;
+                    return self
+                        .process_message(
+                            session_id,
+                            message,
+                            context_file,
+                            workspace_id,
+                            progress_tx,
+                        )
+                        .await;
                 }
             };
             let turn_latency = turn_start.elapsed().as_millis() as i64;
-            
+
             // Estimate tokens since genai bridge doesn't return usage directly
             let mut input_text_len = 0;
             for msg in &conv_messages {
@@ -1904,17 +1946,29 @@ impl Orchestrator {
                     }
                 }
             }
-            
+
             let output_text_len = match &response {
                 ToolAwareResponse::Text(t) => t.len(),
                 ToolAwareResponse::ToolCalls(calls) => calls.len() * 100, // rough estimate for tool call JSON
             };
-            
+
             let estimated_tokens = (input_text_len / 4).max(1) + (output_text_len / 4).max(1);
-            
+
             if let Some(mem) = &self.memory_store {
-                let action = if matches!(response, ToolAwareResponse::ToolCalls(_)) { "plan_and_route" } else { "final_response" };
-                if let Err(e) = mem.log_telemetry(session_id, workspace_id, "orchestrator", action, turn_latency, estimated_tokens, "success") {
+                let action = if matches!(response, ToolAwareResponse::ToolCalls(_)) {
+                    "plan_and_route"
+                } else {
+                    "final_response"
+                };
+                if let Err(e) = mem.log_telemetry(
+                    session_id,
+                    workspace_id,
+                    "orchestrator",
+                    action,
+                    turn_latency,
+                    estimated_tokens,
+                    "success",
+                ) {
                     tracing::warn!("Failed to log orchestrator telemetry: {}", e);
                 }
             }
@@ -1933,7 +1987,11 @@ impl Orchestrator {
                 }
 
                 ToolAwareResponse::ToolCalls(calls) => {
-                    info!(turn = turn_idx, count = calls.len(), "GenAI: Processing native tool calls");
+                    info!(
+                        turn = turn_idx,
+                        count = calls.len(),
+                        "GenAI: Processing native tool calls"
+                    );
 
                     let mut tool_results: Vec<ToolResult> = Vec::new();
                     let mcp_broker = Arc::clone(&self.mcp_broker);
@@ -1942,32 +2000,49 @@ impl Orchestrator {
                     for call in calls {
                         // Emit thought để UI biết đang xử lý
                         if let Some(ref tx) = progress_tx {
-                            let _ = tx.send(format!("⚙️ Đang {}...", crate::mcp::get_tool_alias(&call.tool_name)));
+                            let _ = tx.send(format!(
+                                "⚙️ Đang {}...",
+                                crate::mcp::get_tool_alias(&call.tool_name)
+                            ));
                         }
 
                         let result_content = match call.tool_name.as_str() {
                             // ── Synthetic: search_available_tools ──────────────
                             "search_available_tools" => {
-                                let query = call.arguments.get("query")
-                                    .and_then(|v| v.as_str()).unwrap_or("");
-                                let limit = call.arguments.get("limit")
-                                    .and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+                                let query = call
+                                    .arguments
+                                    .get("query")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let limit =
+                                    call.arguments
+                                        .get("limit")
+                                        .and_then(|v| v.as_u64())
+                                        .unwrap_or(3) as usize;
 
                                 match mcp_broker.search_tools(query, limit.min(8)).await {
                                     Ok(found_tools) => {
                                         // Load dynamically
                                         for t in &found_tools {
-                                            if !dynamically_loaded_tools.iter().any(|dt| dt.name == t.name)
-                                                && !mcp_tools.iter().any(|mt| mt.name == t.name) {
+                                            if !dynamically_loaded_tools
+                                                .iter()
+                                                .any(|dt| dt.name == t.name)
+                                                && !mcp_tools.iter().any(|mt| mt.name == t.name)
+                                            {
                                                 dynamically_loaded_tools.push(t.clone());
                                             }
                                         }
                                         if found_tools.is_empty() {
                                             "Không tìm thấy tool nào phù hợp.".to_string()
                                         } else {
-                                            format!("Đã nạp {} tool(s): {}",
+                                            format!(
+                                                "Đã nạp {} tool(s): {}",
                                                 found_tools.len(),
-                                                found_tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", ")
+                                                found_tools
+                                                    .iter()
+                                                    .map(|t| t.name.as_str())
+                                                    .collect::<Vec<_>>()
+                                                    .join(", ")
                                             )
                                         }
                                     }
@@ -1978,10 +2053,13 @@ impl Orchestrator {
                             // ── Tool Execution (Agent or MCP Server) ─────────
                             tool_name => {
                                 let start_time = std::time::Instant::now();
-                                
+
                                 // 1. Thử tìm trong AgentRegistry trước
-                                if let Some(agent_id) = self.agent_registry.find_agent_by_action(tool_name) {
-                                    if let Some(agent_arc) = self.agent_registry.get_mut(&agent_id) {
+                                if let Some(agent_id) =
+                                    self.agent_registry.find_agent_by_action(tool_name)
+                                {
+                                    if let Some(agent_arc) = self.agent_registry.get_mut(&agent_id)
+                                    {
                                         let task = AgentTask {
                                             task_id: uuid::Uuid::new_v4().to_string(),
                                             action: tool_name.to_string(),
@@ -1989,7 +2067,14 @@ impl Orchestrator {
                                             message: message.to_string(),
                                             context_file: context_file.map(String::from),
                                             session_id: session_id.to_string(),
-                                            parameters: call.arguments.clone().as_object().cloned().unwrap_or_default().into_iter().collect(),
+                                            parameters: call
+                                                .arguments
+                                                .clone()
+                                                .as_object()
+                                                .cloned()
+                                                .unwrap_or_default()
+                                                .into_iter()
+                                                .collect(),
                                             llm_gateway: Some(Arc::clone(&llm_gateway)),
                                             global_policy: None,
                                             knowledge_context: None,
@@ -2000,13 +2085,24 @@ impl Orchestrator {
                                         let mut agent_guard = agent_arc.write().await;
                                         let result = agent_guard.execute(task).await;
                                         let latency_ms = start_time.elapsed().as_millis() as i64;
-                                        
+
                                         if let Some(mem) = &self.memory_store {
                                             let (tokens, status) = match &result {
-                                                Ok(output) => (output.tokens_used.unwrap_or(0) as usize, "success"),
+                                                Ok(output) => (
+                                                    output.tokens_used.unwrap_or(0) as usize,
+                                                    "success",
+                                                ),
                                                 Err(_) => (0usize, "error"),
                                             };
-                                            if let Err(e) = mem.log_telemetry(session_id, workspace_id.as_deref(), &agent_id.0, tool_name, latency_ms, tokens, status) {
+                                            if let Err(e) = mem.log_telemetry(
+                                                session_id,
+                                                workspace_id.as_deref(),
+                                                &agent_id.0,
+                                                tool_name,
+                                                latency_ms,
+                                                tokens,
+                                                status,
+                                            ) {
                                                 tracing::warn!("Failed to log telemetry: {}", e);
                                             }
                                         }
@@ -2020,15 +2116,25 @@ impl Orchestrator {
                                     }
                                 } else {
                                     // 2. Không tìm thấy Agent hỗ trợ -> fallback cho MCP Broker
-                                    let result = mcp_broker.call_tool(tool_name, Some(call.arguments.clone())).await;
+                                    let result = mcp_broker
+                                        .call_tool(tool_name, Some(call.arguments.clone()))
+                                        .await;
                                     let latency_ms = start_time.elapsed().as_millis() as i64;
-                                    
+
                                     if let Some(mem) = &self.memory_store {
                                         let status = match &result {
                                             Ok(res) if !res.is_error => "success",
                                             _ => "error",
                                         };
-                                        if let Err(e) = mem.log_telemetry(session_id, workspace_id.as_deref(), "orchestrator", tool_name, latency_ms, 0, status) {
+                                        if let Err(e) = mem.log_telemetry(
+                                            session_id,
+                                            workspace_id.as_deref(),
+                                            "orchestrator",
+                                            tool_name,
+                                            latency_ms,
+                                            0,
+                                            status,
+                                        ) {
                                             tracing::warn!("Failed to log telemetry: {}", e);
                                         }
                                     }
@@ -2048,13 +2154,19 @@ impl Orchestrator {
                                                 "Tool executed successfully but returned empty result.".to_string()
                                             } else {
                                                 if result.is_error {
-                                                    format!("⚠️ Tool '{}' lỗi:\n{}", tool_name, text_buf.trim())
+                                                    format!(
+                                                        "⚠️ Tool '{}' lỗi:\n{}",
+                                                        tool_name,
+                                                        text_buf.trim()
+                                                    )
                                                 } else {
                                                     text_buf.trim().to_string()
                                                 }
                                             }
                                         }
-                                        Err(e) => format!("⚠️ Lỗi khi gọi tool '{}': {}", tool_name, e),
+                                        Err(e) => {
+                                            format!("⚠️ Lỗi khi gọi tool '{}': {}", tool_name, e)
+                                        }
                                     }
                                 }
                             }
@@ -2107,7 +2219,6 @@ impl Orchestrator {
             metadata: None,
         })
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2119,35 +2230,26 @@ impl Orchestrator {
 /// The unified response returned to the IPC layer after processing a message.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 #[serde(rename_all = "camelCase")]
 
 pub struct OrchestratorResponse {
-
     /// Natural-language reply to display in the chat pane.
-
     pub content: String,
 
     /// Classified intent kind (e.g. `"excel_analysis"`, `"word_report"`).
-
     pub intent: Option<String>,
 
     /// Name/ID of the agent that handled the task.
-
     pub agent_used: Option<String>,
 
     /// Total tokens consumed (prompt + completion) during this request.
-
     pub tokens_used: Option<u32>,
 
     /// Wall-clock processing time in milliseconds.
-
     pub duration_ms: u64,
 
     /// Arbitrary agent-specific metadata (e.g. modified file paths, row counts).
-
     pub metadata: Option<serde_json::Value>,
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2159,51 +2261,39 @@ pub struct OrchestratorResponse {
 /// A fully resolved task passed from the Orchestrator to an Agent.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 #[serde(rename_all = "camelCase")]
 
 pub struct AgentTask {
-
     /// Unique identifier for this task instance.
-
     pub task_id: String,
 
     /// The action the agent should perform (e.g. `"analyze_workbook"`).
-
     pub action: String,
 
     /// The classified intent that produced this task.
-
     pub intent: Intent,
 
     /// Original user message (for LLM context).
-
     pub message: String,
 
     /// Optional path to a file the user has open / selected in the File Browser.
-
     pub context_file: Option<String>,
 
     /// Session ID for tracking and logging.
-
     pub session_id: String,
 
     /// Agent-specific parameters resolved by the Router.
-
     pub parameters: HashMap<String, serde_json::Value>,
 
     /// Reference to the LLM Gateway, allowing agents to query the LLM dynamically using their SKILL.md.
 
     #[serde(skip)]
-
     pub llm_gateway: Option<Arc<RwLock<LlmGateway>>>,
 
     /// Tier 1: Global Policy context injected from Orchestrator.
-
     pub global_policy: Option<String>,
 
     /// Tier 2: Knowledge context retrieved by Orchestrator.
-
     pub knowledge_context: Option<String>,
 
     /// Parent task ID if this is a sub-task in a DAG execution plan.
@@ -2212,7 +2302,6 @@ pub struct AgentTask {
     /// List of task IDs that must complete before this task can start.
     #[serde(default)]
     pub dependencies: Vec<String>,
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2224,27 +2313,20 @@ pub struct AgentTask {
 /// Standardised output structure returned by every agent after execution.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 #[serde(rename_all = "camelCase")]
 
 pub struct AgentOutput {
-
     /// Human-readable reply / result description.
-
     pub content: String,
 
     /// Whether the agent considers this output safe to commit (write to Office, etc.).
-
     pub committed: bool,
 
     /// Total tokens consumed by this agent during the task.
-
     pub tokens_used: Option<u32>,
 
     /// Arbitrary agent-specific payload (file paths, row counts, screenshots, etc.).
-
     pub metadata: Option<serde_json::Value>,
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2258,27 +2340,20 @@ pub struct AgentOutput {
 #[derive(Debug, Clone)]
 
 pub struct RouteDecision {
-
     /// ID of the agent that should handle this task.
-
     pub agent_id: AgentId,
 
     /// Specific action to invoke on the agent.
-
     pub action: String,
 
     /// Additional parameters derived from the intent and routing rules.
-
     pub parameters: HashMap<String, serde_json::Value>,
 
     /// Whether this action requires Human-in-the-Loop approval before execution.
-
     pub requires_hitl: bool,
 
     /// Routing confidence (0.0–1.0). Low confidence may trigger a clarification step.
-
     pub confidence: f32,
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2298,35 +2373,24 @@ pub struct RouteDecision {
 /// `resolve()` with the user's decision to resume or abort the task.
 
 pub struct HitlManager {
-
     /// Pending approvals keyed by `action_id`.
-
     pending: DashMap<String, HitlRequest>,
 
     /// Optional WebSocket Server to broadcast the request
-
     ws_server: std::sync::RwLock<Option<Arc<crate::websocket::WebSocketServer>>>,
-
 }
 
 impl HitlManager {
-
     pub fn new() -> Self {
-
         Self {
-
             pending: DashMap::new(),
 
             ws_server: std::sync::RwLock::new(None),
-
         }
-
     }
 
     pub fn set_ws_server(&self, ws: Arc<crate::websocket::WebSocketServer>) {
-
         *self.ws_server.write().unwrap() = Some(ws);
-
     }
 
     pub fn get_ws_server(&self) -> Option<Arc<crate::websocket::WebSocketServer>> {
@@ -2338,13 +2402,11 @@ impl HitlManager {
     /// that resolves to `true` (approved) or `false` (rejected).
 
     pub fn register(&self, request: HitlRequestBuilder) -> (String, oneshot::Receiver<bool>) {
-
         let action_id = Uuid::new_v4().to_string();
 
         let (tx, rx) = oneshot::channel::<bool>();
 
         let hitl = HitlRequest {
-
             action_id: action_id.clone(),
 
             description: request.description.clone(),
@@ -2356,7 +2418,6 @@ impl HitlManager {
             registered_at: Utc::now(),
 
             sender: std::sync::Mutex::new(Some(tx)),
-
         };
 
         self.pending.insert(action_id.clone(), hitl);
@@ -2364,7 +2425,6 @@ impl HitlManager {
         info!(action_id = %action_id, "HITL approval request registered");
 
         if let Some(ws) = self.ws_server.read().unwrap().as_ref() {
-
             let ws = ws.clone();
 
             let action_id_clone = action_id.clone();
@@ -2375,20 +2435,21 @@ impl HitlManager {
 
             let payload = request.payload;
 
-            
-
             tauri::async_runtime::spawn(async move {
-
                 let actions = vec![
-
-                    crate::websocket::ApprovalAction { id: "approve".into(), label: "Approve".into(), style: "primary".into() },
-
-                    crate::websocket::ApprovalAction { id: "reject".into(), label: "Reject".into(), style: "danger".into() }
-
+                    crate::websocket::ApprovalAction {
+                        id: "approve".into(),
+                        label: "Approve".into(),
+                        style: "primary".into(),
+                    },
+                    crate::websocket::ApprovalAction {
+                        id: "reject".into(),
+                        label: "Reject".into(),
+                        style: "danger".into(),
+                    },
                 ];
 
                 let msg = crate::websocket::ServerMessage::ApprovalRequest {
-
                     action_id: action_id_clone,
 
                     description,
@@ -2402,67 +2463,46 @@ impl HitlManager {
                     actions,
 
                     requested_at: Utc::now().to_rfc3339(),
-
                 };
 
                 let _ = ws.broadcast(msg).await;
-
             });
-
         }
 
         (action_id, rx)
-
     }
 
     /// Resolve (approve or reject) a pending HITL request.
 
     pub fn resolve(&self, action_id: &str, approved: bool) -> Result<()> {
-
         let request = self
-
             .pending
-
             .remove(action_id)
-
             .ok_or_else(|| anyhow!("No pending HITL request with id '{}'", action_id))?
-
             .1;
 
         let mut guard = request.sender.lock().unwrap();
 
         if let Some(tx) = guard.take() {
-
             let _ = tx.send(approved); // ignore if receiver already dropped
 
             info!(action_id, approved, "HITL request resolved");
 
             Ok(())
-
         } else {
-
             Err(anyhow!(
-
                 "HITL request '{}' has already been resolved",
-
                 action_id
-
             ))
-
         }
-
     }
 
     /// List all pending requests serialised as JSON (for the frontend).
 
     pub fn list_pending_json(&self) -> Vec<serde_json::Value> {
-
         self.pending
-
             .iter()
-
             .map(|entry| {
-
                 let r = entry.value();
 
                 serde_json::json!({
@@ -2478,29 +2518,20 @@ impl HitlManager {
                     "payload":       r.payload,
 
                 })
-
             })
-
             .collect()
-
     }
-
 }
 
 impl Default for HitlManager {
-
     fn default() -> Self {
-
         Self::new()
-
     }
-
 }
 
 /// A pending Human-in-the-Loop approval request.
 
 pub struct HitlRequest {
-
     pub action_id: String,
 
     pub description: String,
@@ -2514,47 +2545,36 @@ pub struct HitlRequest {
     /// One-shot channel sender to resume the waiting task.
 
     /// Wrapped in `Mutex<Option<…>>` so we can take it exactly once.
-
     pub sender: std::sync::Mutex<Option<oneshot::Sender<bool>>>,
-
 }
 
 /// Builder for `HitlRequest` – avoids leaking the internal sender.
 
 pub struct HitlRequestBuilder {
-
     pub description: String,
 
     pub risk_level: HitlRiskLevel,
 
     pub payload: Option<serde_json::Value>,
-
 }
 
 /// Risk classification for HITL actions (mirrors the YAML rule levels).
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-
 #[serde(rename_all = "lowercase")]
 
 pub enum HitlRiskLevel {
-
     /// Read-only operations – no approval needed.
-
     Low,
 
     /// Reversible write operations – soft confirmation.
-
     Medium,
 
     /// Irreversible or externally visible actions – explicit approval.
-
     High,
 
     /// Financial, authentication, or deletion operations – double confirmation.
-
     Critical,
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2570,7 +2590,6 @@ pub enum HitlRiskLevel {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 
 pub struct OrchestratorMetrics {
-
     pub total_requests: u64,
 
     pub successful_requests: u64,
@@ -2580,27 +2599,18 @@ pub struct OrchestratorMetrics {
     pub rule_violations: u64,
 
     pub total_duration_ms: u64,
-
 }
 
 impl OrchestratorMetrics {
-
     /// Average latency per request in milliseconds (returns 0 if no requests yet).
 
     pub fn avg_latency_ms(&self) -> u64 {
-
         if self.total_requests == 0 {
-
             0
-
         } else {
-
             self.total_duration_ms / self.total_requests
-
         }
-
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2620,45 +2630,37 @@ mod tests {
     use crate::AppConfig;
 
     fn make_gateway() -> Arc<RwLock<LlmGateway>> {
-
         let cfg = AppConfig::default();
 
         Arc::new(RwLock::new(LlmGateway::new(cfg.llm)))
-
     }
 
     #[test]
 
     fn orchestrator_constructs_without_panic() {
-
         let gw = make_gateway();
 
         let hitl = Arc::new(HitlManager::new());
 
         let _orch = Orchestrator::new(gw, hitl);
-
     }
 
     #[test]
 
     fn hitl_manager_register_and_resolve() {
-
         let mgr = HitlManager::new();
 
         let (action_id, rx) = mgr.register(HitlRequestBuilder {
-
             description: "Test action".to_string(),
 
             risk_level: HitlRiskLevel::High,
 
             payload: None,
-
         });
 
         assert_eq!(mgr.pending.len(), 1);
 
         mgr.resolve(&action_id, true)
-
             .expect("resolve should succeed");
 
         assert_eq!(mgr.pending.len(), 0);
@@ -2666,95 +2668,77 @@ mod tests {
         let approved = rx.blocking_recv().expect("channel should have a value");
 
         assert!(approved);
-
     }
 
     #[test]
 
     fn hitl_manager_resolve_unknown_id_errors() {
-
         let mgr = HitlManager::new();
 
         let result = mgr.resolve("nonexistent-id", true);
 
         assert!(result.is_err());
-
     }
 
     #[test]
 
     fn metrics_avg_latency_no_div_by_zero() {
-
         let m = OrchestratorMetrics::default();
 
         assert_eq!(m.avg_latency_ms(), 0);
-
     }
 
     #[test]
 
     fn hitl_risk_level_serialises_lowercase() {
-
         let json = serde_json::to_string(&HitlRiskLevel::Critical).unwrap();
 
         assert_eq!(json, r#""critical""#);
-
     }
 
     #[test]
 
     fn hitl_manager_list_pending_json() {
-
         let mgr = HitlManager::new();
 
         let (_id1, _) = mgr.register(HitlRequestBuilder {
-
             description: "Task A".to_string(),
 
             risk_level: HitlRiskLevel::Medium,
 
             payload: None,
-
         });
 
         let (_id2, _) = mgr.register(HitlRequestBuilder {
-
             description: "Task B".to_string(),
 
             risk_level: HitlRiskLevel::High,
 
             payload: None,
-
         });
 
         let pending = mgr.list_pending_json();
 
         assert_eq!(pending.len(), 2);
 
-        
-
         let desc1 = pending.iter().find(|v| v["description"] == "Task A");
 
         assert!(desc1.is_some());
 
         assert_eq!(desc1.unwrap()["riskLevel"], "Medium"); // Note: the custom serialization maps to lowercase in serde, but our format!("{:?}") prints "Medium".
-
     }
 
     #[tokio::test]
 
     async fn hitl_manager_async_timeout() {
-
         let mgr = Arc::new(HitlManager::new());
 
         let (action_id, rx) = mgr.register(HitlRequestBuilder {
-
             description: "Timeout task".to_string(),
 
             risk_level: HitlRiskLevel::Low,
 
             payload: None,
-
         });
 
         // Simulate a timeout where the request is removed from the pending list
@@ -2763,53 +2747,42 @@ mod tests {
 
         let action_id_clone = action_id.clone();
 
-        
-
         tokio::spawn(async move {
-
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
             // Timeout action: simulate what orchestrator would do if timeout is reached
 
             let _ = mgr_clone.resolve(&action_id_clone, false);
-
         });
 
         // Wait for result
 
         let result = tokio::time::timeout(tokio::time::Duration::from_millis(150), rx).await;
 
-        
-
         // Assert we got a response (not a timeout from the channel itself)
 
         assert!(result.is_ok());
-
-        
 
         // Assert the response is false (rejected due to timeout simulation)
 
         assert_eq!(result.unwrap().unwrap(), false);
 
         assert_eq!(mgr.pending.len(), 0);
-
     }
 
     #[tokio::test]
 
     async fn test_check_system_requirements() {
-
         let gw = make_gateway();
 
         let hitl = Arc::new(HitlManager::new());
 
         let orch = Orchestrator::new(gw, hitl);
 
-        
-
-        let reqs = orch.check_system_requirements().await.expect("check_system_requirements failed");
-
-        
+        let reqs = orch
+            .check_system_requirements()
+            .await
+            .expect("check_system_requirements failed");
 
         assert!(reqs.get("office_com").is_some());
 
@@ -2822,42 +2795,29 @@ mod tests {
         assert!(reqs.get("llm_ready").is_some());
 
         assert!(reqs.get("all_ok").is_some());
-
     }
 
     #[tokio::test]
 
     async fn test_summarise_session_fails_gracefully_without_llm() {
-
         let gw = make_gateway();
 
         let hitl = Arc::new(HitlManager::new());
 
         let mut orch = Orchestrator::new(gw, hitl);
 
-        
-
         // Create a dummy session
 
         {
-
             let mut session = orch.session_store.get_or_create("test-session").unwrap();
 
             session.add_turn(
-
                 "user msg".into(),
-
                 "bot msg".into(),
-
                 "chat".into(),
-
                 crate::agents::AgentId::custom("bot"),
-
             );
-
         }
-
-        
 
         // LLM Gateway has graceful fallback: summarise_session will either succeed
         // (with a placeholder) or fail, but must NEVER panic.
@@ -2866,9 +2826,9 @@ mod tests {
         let _ = result; // Ok or Err both acceptable
 
         // Session must still exist and not be corrupted
-        assert!(orch.session_store.exists("test-session"), "Session should still exist after summarise attempt");
-
+        assert!(
+            orch.session_store.exists("test-session"),
+            "Session should still exist after summarise attempt"
+        );
     }
-
 }
-

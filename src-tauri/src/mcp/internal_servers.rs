@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use std::path::PathBuf;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use serde_json::Value;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use super::broker::InternalMcpServer;
 use super::{McpTool, ToolCallResult, ToolContent};
@@ -31,11 +31,11 @@ impl InternalMcpServer for PolicyServer {
             McpTool {
                 name: "list_policies".to_string(),
                 description: "Liá»‡t kÃª danh sÃ¡ch táº¥t cáº£ cÃ¡c file policy (quy táº¯c, quy Ä‘á»‹nh) hiá»‡n cÃ³ trong há»‡ thá»‘ng.".to_string(),
-                input_schema: serde_json::json!({ 
-                    "type": "object", 
+                input_schema: serde_json::json!({
+                    "type": "object",
                     "properties": {
                         "workspace_id": { "type": "string", "description": "ID cá»§a workspace hiá»‡n táº¡i" }
-                    } 
+                    }
                 }),
                 tags: vec![],
             },
@@ -71,9 +71,18 @@ impl InternalMcpServer for PolicyServer {
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         let dir = match &self.policy_dir {
             Some(d) => {
-                if let Some(wid) = arguments.as_ref().and_then(|a| a.get("workspace_id")).and_then(|v| v.as_str()) {
+                if let Some(wid) = arguments
+                    .as_ref()
+                    .and_then(|a| a.get("workspace_id"))
+                    .and_then(|v| v.as_str())
+                {
                     if wid != "default" {
-                        let w_dir = d.parent().unwrap_or(d).join("workspaces").join(wid).join("policies");
+                        let w_dir = d
+                            .parent()
+                            .unwrap_or(d)
+                            .join("workspaces")
+                            .join(wid)
+                            .join("policies");
                         if !w_dir.exists() {
                             let _ = std::fs::create_dir_all(&w_dir);
                         }
@@ -84,16 +93,18 @@ impl InternalMcpServer for PolicyServer {
                 } else {
                     d.clone()
                 }
-            },
-            None => return Ok(ToolCallResult {
-                content: vec![ToolContent {
-                    content_type: "text".to_string(),
-                    text: Some("Policy directory not configured.".to_string()),
-                    data: None,
-                    mime_type: None,
-                }],
-                is_error: true,
-            })
+            }
+            None => {
+                return Ok(ToolCallResult {
+                    content: vec![ToolContent {
+                        content_type: "text".to_string(),
+                        text: Some("Policy directory not configured.".to_string()),
+                        data: None,
+                        mime_type: None,
+                    }],
+                    is_error: true,
+                })
+            }
         };
 
         if name == "list_policies" {
@@ -102,7 +113,10 @@ impl InternalMcpServer for PolicyServer {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-                        list.push_str(&format!("- {}\n", path.file_name().unwrap_or_default().to_string_lossy()));
+                        list.push_str(&format!(
+                            "- {}\n",
+                            path.file_name().unwrap_or_default().to_string_lossy()
+                        ));
                     }
                 }
             }
@@ -121,16 +135,21 @@ impl InternalMcpServer for PolicyServer {
         } else if name == "query_policy" {
             let args = arguments.unwrap_or_default();
             let filename = args.get("filename").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             let mut content = String::new();
             if filename.is_empty() {
                 // Äá»c toÃ n bá»™ file md
                 if let Ok(entries) = std::fs::read_dir(dir) {
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+                        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md")
+                        {
                             if let Ok(text) = std::fs::read_to_string(&path) {
-                                content.push_str(&format!("=== {} ===\n{}\n\n", path.file_name().unwrap_or_default().to_string_lossy(), text));
+                                content.push_str(&format!(
+                                    "=== {} ===\n{}\n\n",
+                                    path.file_name().unwrap_or_default().to_string_lossy(),
+                                    text
+                                ));
                             }
                         }
                     }
@@ -157,7 +176,7 @@ impl InternalMcpServer for PolicyServer {
             let args = arguments.unwrap_or_default();
             let filename = args.get("filename").and_then(|v| v.as_str()).unwrap_or("");
             let content_str = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             if filename.contains("..") || filename.contains("/") || filename.contains("\\") {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
@@ -169,13 +188,13 @@ impl InternalMcpServer for PolicyServer {
                     is_error: true,
                 });
             }
-            
+
             let final_filename = if !filename.ends_with(".md") {
                 format!("{}.md", filename)
             } else {
                 filename.to_string()
             };
-            
+
             let file_path = dir.join(&final_filename);
             match std::fs::write(&file_path, content_str) {
                 Ok(_) => Ok(ToolCallResult {
@@ -195,7 +214,7 @@ impl InternalMcpServer for PolicyServer {
                         mime_type: None,
                     }],
                     is_error: true,
-                })
+                }),
             }
         } else {
             Err(anyhow!("Tool not found"))
@@ -254,18 +273,21 @@ impl InternalMcpServer for KnowledgeServer {
         Ok(vec![
             McpTool {
                 name: "list_knowledge".to_string(),
-                description: "Liá»‡t kÃª danh sÃ¡ch cÃ¡c tÃ i liá»‡u tri thá»©c ná»™i bá»™ cÃ³ sáºµn.".to_string(),
-                input_schema: serde_json::json!({ 
-                    "type": "object", 
+                description:
+                    "Liá»‡t kÃª danh sÃ¡ch cÃ¡c tÃ i liá»‡u tri thá»©c ná»™i bá»™ cÃ³ sáºµn."
+                        .to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
                     "properties": {
                         "workspace_id": { "type": "string", "description": "ID cá»§a workspace hiá»‡n táº¡i" }
-                    } 
+                    }
                 }),
                 tags: vec![],
             },
             McpTool {
                 name: "read_knowledge".to_string(),
-                description: "Äá»c ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c cá»¥ thá»ƒ.".to_string(),
+                description: "Äá»c ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c cá»¥ thá»ƒ."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -278,7 +300,9 @@ impl InternalMcpServer for KnowledgeServer {
             },
             McpTool {
                 name: "write_knowledge".to_string(),
-                description: "Ghi má»›i hoáº·c cáº­p nháº­t ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c.".to_string(),
+                description:
+                    "Ghi má»›i hoáº·c cáº­p nháº­t ná»™i dung cá»§a má»™t tÃ i liá»‡u tri thá»©c."
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -302,16 +326,25 @@ impl InternalMcpServer for KnowledgeServer {
                     "required": ["filename"]
                 }),
                 tags: vec![],
-            }
+            },
         ])
     }
 
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         let dir = match &self.knowledge_dir {
             Some(d) => {
-                if let Some(wid) = arguments.as_ref().and_then(|a| a.get("workspace_id")).and_then(|v| v.as_str()) {
+                if let Some(wid) = arguments
+                    .as_ref()
+                    .and_then(|a| a.get("workspace_id"))
+                    .and_then(|v| v.as_str())
+                {
                     if wid != "default" {
-                        let w_dir = d.parent().unwrap_or(d).join("workspaces").join(wid).join("knowledge");
+                        let w_dir = d
+                            .parent()
+                            .unwrap_or(d)
+                            .join("workspaces")
+                            .join(wid)
+                            .join("knowledge");
                         if !w_dir.exists() {
                             let _ = std::fs::create_dir_all(&w_dir);
                         }
@@ -322,16 +355,18 @@ impl InternalMcpServer for KnowledgeServer {
                 } else {
                     d.clone()
                 }
-            },
-            None => return Ok(ToolCallResult {
-                content: vec![ToolContent {
-                    content_type: "text".to_string(),
-                    text: Some("Knowledge directory not configured.".to_string()),
-                    data: None,
-                    mime_type: None,
-                }],
-                is_error: true,
-            })
+            }
+            None => {
+                return Ok(ToolCallResult {
+                    content: vec![ToolContent {
+                        content_type: "text".to_string(),
+                        text: Some("Knowledge directory not configured.".to_string()),
+                        data: None,
+                        mime_type: None,
+                    }],
+                    is_error: true,
+                })
+            }
         };
 
         if name == "list_knowledge" {
@@ -358,7 +393,9 @@ impl InternalMcpServer for KnowledgeServer {
                 for (i, name) in files.iter().enumerate() {
                     out.push_str(&format!("{}. `{}`\n", i + 1, name));
                 }
-                out.push_str("\nDÃ¹ng `read_knowledge` vá»›i tÃªn file Ä‘á»ƒ Ä‘á»c ná»™i dung chi tiáº¿t.");
+                out.push_str(
+                    "\nDÃ¹ng `read_knowledge` vá»›i tÃªn file Ä‘á»ƒ Ä‘á»c ná»™i dung chi tiáº¿t.",
+                );
                 out
             };
 
@@ -375,7 +412,7 @@ impl InternalMcpServer for KnowledgeServer {
             let args = arguments.unwrap_or_default();
             let filename = args.get("filename").and_then(|v| v.as_str()).unwrap_or("");
             let file_path = dir.join(filename);
-            
+
             let content = std::fs::read_to_string(&file_path)
                 .unwrap_or_else(|_| format!("Lá»—i khi Ä‘á»c file {}", filename));
 
@@ -392,19 +429,22 @@ impl InternalMcpServer for KnowledgeServer {
             let args = arguments.unwrap_or_default();
             let filename = args.get("filename").and_then(|v| v.as_str()).unwrap_or("");
             let content_str = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             if filename.contains("..") || filename.contains("/") || filename.contains("\\") {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
-                        text: Some("TÃªn file khÃ´ng há»£p lá»‡ (KhÃ´ng Ä‘Æ°á»£c chá»©a thÆ° má»¥c con).".to_string()),
+                        text: Some(
+                            "TÃªn file khÃ´ng há»£p lá»‡ (KhÃ´ng Ä‘Æ°á»£c chá»©a thÆ° má»¥c con)."
+                                .to_string(),
+                        ),
                         data: None,
                         mime_type: None,
                     }],
                     is_error: true,
                 });
             }
-            
+
             let final_filename = if !filename.ends_with(".md") {
                 format!("{}.md", filename)
             } else {
@@ -423,7 +463,7 @@ impl InternalMcpServer for KnowledgeServer {
                     is_error: true,
                 });
             }
-            
+
             let file_path = dir.join(&final_filename);
             match std::fs::write(&file_path, content_str) {
                 Ok(_) => {
@@ -432,13 +472,16 @@ impl InternalMcpServer for KnowledgeServer {
                     Ok(ToolCallResult {
                         content: vec![ToolContent {
                             content_type: "text".to_string(),
-                            text: Some(format!("ÄÃ£ lÆ°u '{}' vÃ  cáº­p nháº­t index thÃ nh cÃ´ng.", final_filename)),
+                            text: Some(format!(
+                                "ÄÃ£ lÆ°u '{}' vÃ  cáº­p nháº­t index thÃ nh cÃ´ng.",
+                                final_filename
+                            )),
                             data: None,
                             mime_type: None,
                         }],
                         is_error: false,
                     })
-                },
+                }
                 Err(e) => Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
@@ -447,12 +490,12 @@ impl InternalMcpServer for KnowledgeServer {
                         mime_type: None,
                     }],
                     is_error: true,
-                })
+                }),
             }
         } else if name == "delete_knowledge" {
             let args = arguments.unwrap_or_default();
             let filename = args.get("filename").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             if filename.contains("..") || filename.contains("/") || filename.contains("\\") {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
@@ -464,7 +507,7 @@ impl InternalMcpServer for KnowledgeServer {
                     is_error: true,
                 });
             }
-            
+
             let file_path = dir.join(filename);
             if !file_path.exists() {
                 return Ok(ToolCallResult {
@@ -477,7 +520,7 @@ impl InternalMcpServer for KnowledgeServer {
                     is_error: true,
                 });
             }
-            
+
             match std::fs::remove_file(&file_path) {
                 Ok(_) => {
                     // Auto-rebuild index.md to remove the deleted entry
@@ -485,13 +528,16 @@ impl InternalMcpServer for KnowledgeServer {
                     Ok(ToolCallResult {
                         content: vec![ToolContent {
                             content_type: "text".to_string(),
-                            text: Some(format!("ÄÃ£ xÃ³a '{}' vÃ  cáº­p nháº­t index thÃ nh cÃ´ng.", filename)),
+                            text: Some(format!(
+                                "ÄÃ£ xÃ³a '{}' vÃ  cáº­p nháº­t index thÃ nh cÃ´ng.",
+                                filename
+                            )),
                             data: None,
                             mime_type: None,
                         }],
                         is_error: false,
                     })
-                },
+                }
                 Err(e) => Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
@@ -500,7 +546,7 @@ impl InternalMcpServer for KnowledgeServer {
                         mime_type: None,
                     }],
                     is_error: true,
-                })
+                }),
             }
         } else {
             Err(anyhow!("Tool not found"))
@@ -546,7 +592,7 @@ impl InternalMcpServer for MemoryServer {
             let args = arguments.unwrap_or_default();
             let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
             let workspace_id = args.get("workspace_id").and_then(|v| v.as_str());
-            
+
             let content = if let Some(mem) = &self.memory_store {
                 match mem.search(workspace_id, query, 3) {
                     Ok(results) => {
@@ -556,7 +602,7 @@ impl InternalMcpServer for MemoryServer {
                             results.join("\n")
                         }
                     }
-                    Err(e) => format!("Lá»—i khi truy váº¥n bá»™ nhá»›: {}", e)
+                    Err(e) => format!("Lá»—i khi truy váº¥n bá»™ nhá»›: {}", e),
                 }
             } else {
                 "Memory store not initialized.".to_string()
@@ -607,7 +653,8 @@ impl SkillServer {
                             }
                         }
                     }
-                } else if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+                } else if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md")
+                {
                     // Hoáº·c file .md trá»±c tiáº¿p trong skills_dir
                     if let Ok(content) = std::fs::read_to_string(&path) {
                         if let Some((tool, body)) = Self::parse_skill_file(&content) {
@@ -628,10 +675,10 @@ impl SkillServer {
         if parts.len() < 3 {
             return None;
         }
-        
+
         let yaml_str = parts[1];
         let body = parts[2].trim().to_string();
-        
+
         #[derive(serde::Deserialize)]
         struct SkillMeta {
             name: String,
@@ -641,7 +688,7 @@ impl SkillServer {
             #[serde(default)]
             parameters: serde_json::Value,
         }
-        
+
         if let Ok(meta) = serde_yaml::from_str::<SkillMeta>(yaml_str) {
             let input_schema = if meta.parameters.is_object() {
                 serde_json::json!({
@@ -672,7 +719,11 @@ impl InternalMcpServer for SkillServer {
     }
 
     async fn list_tools(&self) -> Result<Vec<McpTool>> {
-        let mut tools: Vec<McpTool> = self.read_skills().into_iter().map(|(tool, _)| tool).collect();
+        let mut tools: Vec<McpTool> = self
+            .read_skills()
+            .into_iter()
+            .map(|(tool, _)| tool)
+            .collect();
         tools.push(McpTool {
             name: "write_skill".to_string(),
             description: "Táº¡o má»›i hoáº·c cáº­p nháº­t má»™t ká»¹ nÄƒng (skill) cho Agent.".to_string(),
@@ -706,12 +757,25 @@ impl InternalMcpServer for SkillServer {
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         if name == "write_skill" {
             let args = arguments.unwrap_or_default();
-            let skill_name = args.get("skill_name").and_then(|v| v.as_str()).unwrap_or("");
-            let description = args.get("description").and_then(|v| v.as_str()).unwrap_or("");
+            let skill_name = args
+                .get("skill_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let description = args
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let parameters = args.get("parameters").unwrap_or(&Value::Null);
-            let instructions = args.get("instructions").and_then(|v| v.as_str()).unwrap_or("");
-            
-            if skill_name.is_empty() || skill_name.contains("..") || skill_name.contains("/") || skill_name.contains("\\") {
+            let instructions = args
+                .get("instructions")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if skill_name.is_empty()
+                || skill_name.contains("..")
+                || skill_name.contains("/")
+                || skill_name.contains("\\")
+            {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
@@ -725,15 +789,17 @@ impl InternalMcpServer for SkillServer {
 
             let dir = match &self.skills_dir {
                 Some(d) => d,
-                None => return Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some("Skill directory not configured.".to_string()),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
+                None => {
+                    return Ok(ToolCallResult {
+                        content: vec![ToolContent {
+                            content_type: "text".to_string(),
+                            text: Some("Skill directory not configured.".to_string()),
+                            data: None,
+                            mime_type: None,
+                        }],
+                        is_error: true,
+                    })
+                }
             };
 
             let skill_folder = dir.join(skill_name);
@@ -757,10 +823,19 @@ impl InternalMcpServer for SkillServer {
                 "".to_string()
             };
 
-            let yaml_frontmatter = format!("---\nname: {}\ndescription: {}\nparameters:\n{}\n---\n\n{}", 
-                skill_name, 
-                description, 
-                if params_yaml.is_empty() { "  {}".to_string() } else { params_yaml.lines().map(|l| format!("  {}", l)).collect::<Vec<_>>().join("\n") },
+            let yaml_frontmatter = format!(
+                "---\nname: {}\ndescription: {}\nparameters:\n{}\n---\n\n{}",
+                skill_name,
+                description,
+                if params_yaml.is_empty() {
+                    "  {}".to_string()
+                } else {
+                    params_yaml
+                        .lines()
+                        .map(|l| format!("  {}", l))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                },
                 instructions
             );
 
@@ -769,7 +844,10 @@ impl InternalMcpServer for SkillServer {
                 Ok(_) => Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
-                        text: Some(format!("ÄÃ£ táº¡o/cáº­p nháº­t skill thÃ nh cÃ´ng: {}", skill_name)),
+                        text: Some(format!(
+                            "ÄÃ£ táº¡o/cáº­p nháº­t skill thÃ nh cÃ´ng: {}",
+                            skill_name
+                        )),
                         data: None,
                         mime_type: None,
                     }],
@@ -783,13 +861,20 @@ impl InternalMcpServer for SkillServer {
                         mime_type: None,
                     }],
                     is_error: true,
-                })
+                }),
             }
         } else if name == "delete_skill" {
             let args = arguments.unwrap_or_default();
-            let skill_name = args.get("skill_name").and_then(|v| v.as_str()).unwrap_or("");
-            
-            if skill_name.is_empty() || skill_name.contains("..") || skill_name.contains("/") || skill_name.contains("\\") {
+            let skill_name = args
+                .get("skill_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if skill_name.is_empty()
+                || skill_name.contains("..")
+                || skill_name.contains("/")
+                || skill_name.contains("\\")
+            {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
@@ -803,15 +888,17 @@ impl InternalMcpServer for SkillServer {
 
             let dir = match &self.skills_dir {
                 Some(d) => d,
-                None => return Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some("Skill directory not configured.".to_string()),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
+                None => {
+                    return Ok(ToolCallResult {
+                        content: vec![ToolContent {
+                            content_type: "text".to_string(),
+                            text: Some("Skill directory not configured.".to_string()),
+                            data: None,
+                            mime_type: None,
+                        }],
+                        is_error: true,
+                    })
+                }
             };
 
             let skill_folder = dir.join(skill_name);
@@ -852,7 +939,7 @@ impl InternalMcpServer for SkillServer {
             let skills = self.read_skills();
             if let Some((_, body)) = skills.into_iter().find(|(tool, _)| tool.name == name) {
                 let mut resolved_body = body;
-                
+
                 // Interpolate arguments into the markdown body
                 if let Some(Value::Object(args)) = arguments {
                     for (k, v) in args {
@@ -983,12 +1070,12 @@ impl InternalMcpServer for FileSystemServer {
 
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         let args = arguments.unwrap_or_default();
-        
+
         if name == "read_file" {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let content = std::fs::read_to_string(path)
                 .unwrap_or_else(|e| format!("Lá»—i khi Ä‘á»c file {}: {}", path, e));
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -1014,7 +1101,11 @@ impl InternalMcpServer for FileSystemServer {
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
-                    text: Some(if list.is_empty() { "ThÆ° má»¥c trá»‘ng.".to_string() } else { list }),
+                    text: Some(if list.is_empty() {
+                        "ThÆ° má»¥c trá»‘ng.".to_string()
+                    } else {
+                        list
+                    }),
                     data: None,
                     mime_type: None,
                 }],
@@ -1023,20 +1114,24 @@ impl InternalMcpServer for FileSystemServer {
         } else if name == "read_folder_files" {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let max_files = args.get("max_files").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
-            
+
             let mut aggregated_content = String::new();
             let mut count = 0;
-            
+
             if let Ok(entries) = std::fs::read_dir(path) {
                 for entry in entries.flatten() {
                     if count >= max_files {
                         aggregated_content.push_str("\n\n[...ÄÃ£ Ä‘áº¡t giá»›i háº¡n sá»‘ lÆ°á»£ng file...] limit reached.");
                         break;
                     }
-                    
+
                     let p = entry.path();
                     if p.is_file() {
-                        let ext = p.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+                        let ext = p
+                            .extension()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
                         // Only read text-based files for safety and context limits
                         if ["txt", "md", "csv", "json", "xml", "log"].contains(&ext.as_str()) {
                             if let Ok(content) = std::fs::read_to_string(&p) {
@@ -1050,11 +1145,16 @@ impl InternalMcpServer for FileSystemServer {
             } else {
                 aggregated_content = format!("KhÃ´ng thá»ƒ Ä‘á»c thÆ° má»¥c: {}", path);
             }
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
-                    text: Some(if aggregated_content.is_empty() { "KhÃ´ng tÃ¬m tháº¥y file vÄƒn báº£n há»£p lá»‡ nÃ o trong thÆ° má»¥c.".to_string() } else { aggregated_content }),
+                    text: Some(if aggregated_content.is_empty() {
+                        "KhÃ´ng tÃ¬m tháº¥y file vÄƒn báº£n há»£p lá»‡ nÃ o trong thÆ° má»¥c."
+                            .to_string()
+                    } else {
+                        aggregated_content
+                    }),
                     data: None,
                     mime_type: None,
                 }],
@@ -1062,13 +1162,19 @@ impl InternalMcpServer for FileSystemServer {
             })
         } else if name == "fs_move_file" {
             let src = args.get("source").and_then(|v| v.as_str()).unwrap_or("");
-            let dst = args.get("destination").and_then(|v| v.as_str()).unwrap_or("");
-            
+            let dst = args
+                .get("destination")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
             let output = match std::fs::rename(src, dst) {
-                Ok(_) => format!("ThÃ nh cÃ´ng di chuyá»ƒn/Ä‘á»•i tÃªn tá»« {} sang {}", src, dst),
-                Err(e) => format!("Lá»—i khi di chuyá»ƒn file: {}", e)
+                Ok(_) => format!(
+                    "ThÃ nh cÃ´ng di chuyá»ƒn/Ä‘á»•i tÃªn tá»« {} sang {}",
+                    src, dst
+                ),
+                Err(e) => format!("Lá»—i khi di chuyá»ƒn file: {}", e),
             };
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -1082,14 +1188,14 @@ impl InternalMcpServer for FileSystemServer {
             use calamine::Reader;
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let sheet = args.get("sheet").and_then(|v| v.as_str());
-            
+
             let output = match calamine::open_workbook_auto(path) {
                 Ok(mut workbook) => {
                     let sheet_name = match sheet {
                         Some(s) if !s.is_empty() => s.to_string(),
-                        _ => workbook.sheet_names().first().cloned().unwrap_or_default()
+                        _ => workbook.sheet_names().first().cloned().unwrap_or_default(),
                     };
-                    
+
                     if sheet_name.is_empty() {
                         "Lá»—i: KhÃ´ng tÃ¬m tháº¥y sheet nÃ o trong file.".to_string()
                     } else {
@@ -1106,21 +1212,22 @@ impl InternalMcpServer for FileSystemServer {
                                         calamine::Data::Bool(b) => b.to_string(),
                                         calamine::Data::DateTime(d) => d.as_f64().to_string(),
                                         calamine::Data::Empty => "".to_string(),
-                                        _ => "".to_string()
+                                        _ => "".to_string(),
                                     };
                                     row_data.push(cell_val);
                                 }
                                 data.push(row_data);
                             }
-                            serde_json::to_string_pretty(&data).unwrap_or_else(|_| "Lá»—i parse json".to_string())
+                            serde_json::to_string_pretty(&data)
+                                .unwrap_or_else(|_| "Lá»—i parse json".to_string())
                         } else {
                             format!("Lá»—i: KhÃ´ng thá»ƒ Ä‘á»c sheet {}", sheet_name)
                         }
                     }
-                },
-                Err(e) => format!("Lá»—i khi má»Ÿ file Excel: {}", e)
+                }
+                Err(e) => format!("Lá»—i khi má»Ÿ file Excel: {}", e),
             };
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -1132,7 +1239,7 @@ impl InternalMcpServer for FileSystemServer {
             })
         } else if name == "fs_read_pdf" {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             let output = match pdf_extract::extract_text(path) {
                 Ok(mut text) => {
                     if text.len() > 20000 {
@@ -1144,10 +1251,10 @@ impl InternalMcpServer for FileSystemServer {
                     } else {
                         text
                     }
-                },
-                Err(e) => format!("Lá»—i khi Ä‘á»c file PDF: {}", e)
+                }
+                Err(e) => format!("Lá»—i khi Ä‘á»c file PDF: {}", e),
             };
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -1182,7 +1289,11 @@ impl ScriptingServer {
 
     fn get_skill_permissions(&self, skill_name: &str) -> Vec<String> {
         let mut perms = Vec::new();
-        if skill_name.is_empty() || skill_name.contains("..") || skill_name.contains("/") || skill_name.contains("\\") {
+        if skill_name.is_empty()
+            || skill_name.contains("..")
+            || skill_name.contains("/")
+            || skill_name.contains("\\")
+        {
             return perms;
         }
 
@@ -1245,7 +1356,10 @@ impl InternalMcpServer for ScriptingServer {
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
         if name == "run_rhai_script" {
             let args = arguments.unwrap_or_default();
-            let skill_name = args.get("skill_name").and_then(|v| v.as_str()).unwrap_or("");
+            let skill_name = args
+                .get("skill_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let script = args.get("script").and_then(|v| v.as_str()).unwrap_or("");
             let permissions = self.get_skill_permissions(skill_name);
             let is_sandbox = skill_name.is_empty();
@@ -1263,19 +1377,23 @@ impl InternalMcpServer for ScriptingServer {
             }
 
             let mut engine = rhai::Engine::new();
-            
+
             // ÄÄƒng kÃ½ API Bridge: log() (LuÃ´n kháº£ dá»¥ng)
             engine.register_fn("log", |msg: &str| {
                 tracing::info!("[Rhai Log]: {}", msg);
             });
 
             // TiÃªm quyá»n Shell
-            if permissions.contains(&"shell".to_string()) || is_sandbox { // Táº¡m thá»i cho phÃ©p sandbox Ä‘á»ƒ backward compatible, hoáº·c khÃ³a tÃ¹y cáº¥u hÃ¬nh
+            if permissions.contains(&"shell".to_string()) || is_sandbox {
+                // Táº¡m thá»i cho phÃ©p sandbox Ä‘á»ƒ backward compatible, hoáº·c khÃ³a tÃ¹y cáº¥u hÃ¬nh
                 engine.register_fn("cmd", |command: &str| -> String {
                     let os = std::env::consts::OS;
                     let mut cmd_obj = if os == "windows" {
                         let mut c = std::process::Command::new("powershell");
-                        c.arg("-NoProfile").arg("-NonInteractive").arg("-Command").arg(command);
+                        c.arg("-NoProfile")
+                            .arg("-NonInteractive")
+                            .arg("-Command")
+                            .arg(command);
                         c
                     } else {
                         let mut c = std::process::Command::new("sh");
@@ -1293,32 +1411,41 @@ impl InternalMcpServer for ScriptingServer {
                                 format!("Lá»–I:\n{}\n{}", stderr, stdout)
                             }
                         }
-                        Err(e) => format!("Lá»—i thá»±c thi lá»‡nh: {}", e)
+                        Err(e) => format!("Lá»—i thá»±c thi lá»‡nh: {}", e),
                     }
                 });
             } else {
-                engine.register_fn("cmd", |_: &str| -> String { "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'shell'".to_string() });
+                engine.register_fn("cmd", |_: &str| -> String {
+                    "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'shell'".to_string()
+                });
             }
 
             // TiÃªm quyá»n Network
             if permissions.contains(&"network".to_string()) || is_sandbox {
                 engine.register_fn("http_get", |url: &str| -> String {
                     match reqwest::blocking::get(url) {
-                        Ok(resp) => resp.text().unwrap_or_else(|e| format!("Lá»—i Ä‘á»c ná»™i dung: {}", e)),
-                        Err(e) => format!("Lá»—i táº£i URL: {}", e)
+                        Ok(resp) => resp
+                            .text()
+                            .unwrap_or_else(|e| format!("Lá»—i Ä‘á»c ná»™i dung: {}", e)),
+                        Err(e) => format!("Lá»—i táº£i URL: {}", e),
                     }
                 });
             } else {
-                engine.register_fn("http_get", |_: &str| -> String { "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'network'".to_string() });
+                engine.register_fn("http_get", |_: &str| -> String {
+                    "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'network'".to_string()
+                });
             }
 
             // TiÃªm quyá»n FS
             if permissions.contains(&"fs_read".to_string()) || is_sandbox {
                 engine.register_fn("read_file", |path: &str| -> String {
-                    std::fs::read_to_string(path).unwrap_or_else(|e| format!("Lá»—i Ä‘á»c file: {}", e))
+                    std::fs::read_to_string(path)
+                        .unwrap_or_else(|e| format!("Lá»—i Ä‘á»c file: {}", e))
                 });
             } else {
-                engine.register_fn("read_file", |_: &str| -> String { "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'fs_read'".to_string() });
+                engine.register_fn("read_file", |_: &str| -> String {
+                    "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'fs_read'".to_string()
+                });
             }
 
             if permissions.contains(&"fs_write".to_string()) || is_sandbox {
@@ -1333,21 +1460,22 @@ impl InternalMcpServer for ScriptingServer {
             if permissions.contains(&"db".to_string()) || is_sandbox {
                 engine.register_fn("db_execute", |sql: &str| -> String {
                     if sql.to_uppercase().contains("DROP") {
-                        return "Lá»—i báº£o máº­t: KhÃ´ng Ä‘Æ°á»£c phÃ©p dÃ¹ng lá»‡nh DROP".to_string();
+                        return "Lá»—i báº£o máº­t: KhÃ´ng Ä‘Æ°á»£c phÃ©p dÃ¹ng lá»‡nh DROP"
+                            .to_string();
                     }
                     let db_path = std::env::temp_dir().join("office_hub_agent_state.db"); // Dedicated DB
                     match rusqlite::Connection::open(&db_path) {
-                        Ok(conn) => {
-                            match conn.execute(sql, []) {
-                                Ok(rows) => format!("ThÃ nh cÃ´ng: {} dÃ²ng bá»‹ áº£nh hÆ°á»Ÿng", rows),
-                                Err(e) => format!("Lá»—i SQL: {}", e)
-                            }
-                        }
-                        Err(e) => format!("Lá»—i káº¿t ná»‘i DB: {}", e)
+                        Ok(conn) => match conn.execute(sql, []) {
+                            Ok(rows) => format!("ThÃ nh cÃ´ng: {} dÃ²ng bá»‹ áº£nh hÆ°á»Ÿng", rows),
+                            Err(e) => format!("Lá»—i SQL: {}", e),
+                        },
+                        Err(e) => format!("Lá»—i káº¿t ná»‘i DB: {}", e),
                     }
                 });
             } else {
-                engine.register_fn("db_execute", |_: &str| -> String { "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'db'".to_string() });
+                engine.register_fn("db_execute", |_: &str| -> String {
+                    "Lá»—i: Skill khÃ´ng cÃ³ quyá»n 'db'".to_string()
+                });
             }
 
             // TiÃªm quyá»n System (Tauri API)
@@ -1369,12 +1497,13 @@ impl InternalMcpServer for ScriptingServer {
                     }
                 });
             } else {
-                engine.register_fn("notify", |_: String, _: String| { });
-                engine.register_fn("reload_system", || { });
+                engine.register_fn("notify", |_: String, _: String| {});
+                engine.register_fn("reload_system", || {});
             }
 
-            let result: Result<rhai::Dynamic, Box<rhai::EvalAltResult>> = engine.eval::<rhai::Dynamic>(script);
-            
+            let result: Result<rhai::Dynamic, Box<rhai::EvalAltResult>> =
+                engine.eval::<rhai::Dynamic>(script);
+
             let output_str = match result {
                 Ok(res) => {
                     if res.is_unit() {
@@ -1383,7 +1512,7 @@ impl InternalMcpServer for ScriptingServer {
                         res.to_string()
                     }
                 }
-                Err(e) => format!("Lá»—i thá»±c thi Rhai script: {}", e)
+                Err(e) => format!("Lá»—i thá»±c thi Rhai script: {}", e),
             };
 
             Ok(ToolCallResult {
@@ -1425,7 +1554,8 @@ impl InternalMcpServer for Win32AdminServer {
         Ok(vec![
             McpTool {
                 name: "win32_file_create_dir".to_string(),
-                description: "Táº¡o má»™t thÆ° má»¥c má»›i táº¡i Ä‘Æ°á»ng dáº«n chá»‰ Ä‘á»‹nh.".to_string(),
+                description: "Táº¡o má»™t thÆ° má»¥c má»›i táº¡i Ä‘Æ°á»ng dáº«n chá»‰ Ä‘á»‹nh."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1462,7 +1592,9 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_registry_read".to_string(),
-                description: "Äá»c giÃ¡ trá»‹ tá»« Windows Registry (vÃ­ dá»¥: HKLM\\Software\\...).".to_string(),
+                description:
+                    "Äá»c giÃ¡ trá»‹ tá»« Windows Registry (vÃ­ dá»¥: HKLM\\Software\\...)."
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1572,7 +1704,9 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_click".to_string(),
-                description: "Click vÃ o má»™t pháº§n tá»­ trÃªn cá»­a sá»• báº±ng AutomationId hoáº·c Name.".to_string(),
+                description:
+                    "Click vÃ o má»™t pháº§n tá»­ trÃªn cá»­a sá»• báº±ng AutomationId hoáº·c Name."
+                        .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1599,7 +1733,8 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_get_value".to_string(),
-                description: "Láº¥y giÃ¡ trá»‹ (Text) cá»§a má»™t pháº§n tá»­ trÃªn cá»­a sá»•.".to_string(),
+                description: "Láº¥y giÃ¡ trá»‹ (Text) cá»§a má»™t pháº§n tá»­ trÃªn cá»­a sá»•."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1612,7 +1747,8 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_toggle".to_string(),
-                description: "TÃ­ch/Bá» tÃ­ch (Toggle) má»™t pháº§n tá»­ (Checkbox, Switch).".to_string(),
+                description: "TÃ­ch/Bá» tÃ­ch (Toggle) má»™t pháº§n tá»­ (Checkbox, Switch)."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1625,7 +1761,8 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_select".to_string(),
-                description: "Chá»n má»™t má»¥c trong danh sÃ¡ch (Combobox/Dropdown/List).".to_string(),
+                description: "Chá»n má»™t má»¥c trong danh sÃ¡ch (Combobox/Dropdown/List)."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1638,7 +1775,8 @@ impl InternalMcpServer for Win32AdminServer {
             },
             McpTool {
                 name: "win32_uia_set_focus".to_string(),
-                description: "ÄÆ°a con trá» chuá»™t/bÃ n phÃ­m (Focus) vÃ o má»™t pháº§n tá»­.".to_string(),
+                description: "ÄÆ°a con trá» chuá»™t/bÃ n phÃ­m (Focus) vÃ o má»™t pháº§n tá»­."
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -1648,7 +1786,7 @@ impl InternalMcpServer for Win32AdminServer {
                     "required": ["window_title", "element_id_or_name"]
                 }),
                 tags: vec![],
-            }
+            },
         ])
     }
 
@@ -1703,11 +1841,14 @@ impl InternalMcpServer for Win32AdminServer {
             "win32_registry_read" => {
                 let hive_str = args.get("hive").and_then(|v| v.as_str()).unwrap_or("");
                 let key = args.get("key").and_then(|v| v.as_str()).unwrap_or("");
-                let val_name = args.get("value_name").and_then(|v| v.as_str()).unwrap_or("");
-                
+                let val_name = args
+                    .get("value_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
                 use winreg::enums::*;
                 use winreg::RegKey;
-                
+
                 let hive = match hive_str {
                     "HKLM" => HKEY_LOCAL_MACHINE,
                     "HKCU" => HKEY_CURRENT_USER,
@@ -1716,18 +1857,16 @@ impl InternalMcpServer for Win32AdminServer {
                     "HKCC" => HKEY_CURRENT_CONFIG,
                     _ => HKEY_LOCAL_MACHINE, // Default
                 };
-                
+
                 let hk = RegKey::predef(hive);
                 match hk.open_subkey(key) {
-                    Ok(subkey) => {
-                        match subkey.get_value::<String, _>(val_name) {
-                            Ok(val) => output = format!("GiÃ¡ trá»‹ cá»§a {}: {}", val_name, val),
-                            Err(e) => {
-                                is_error = true;
-                                output = format!("Lá»—i Ä‘á»c giÃ¡ trá»‹: {}", e);
-                            }
+                    Ok(subkey) => match subkey.get_value::<String, _>(val_name) {
+                        Ok(val) => output = format!("GiÃ¡ trá»‹ cá»§a {}: {}", val_name, val),
+                        Err(e) => {
+                            is_error = true;
+                            output = format!("Lá»—i Ä‘á»c giÃ¡ trá»‹: {}", e);
                         }
-                    }
+                    },
                     Err(e) => {
                         is_error = true;
                         output = format!("Lá»—i má»Ÿ key {}: {}", key, e);
@@ -1737,12 +1876,18 @@ impl InternalMcpServer for Win32AdminServer {
             "win32_registry_write" => {
                 let hive_str = args.get("hive").and_then(|v| v.as_str()).unwrap_or("");
                 let key = args.get("key").and_then(|v| v.as_str()).unwrap_or("");
-                let val_name = args.get("value_name").and_then(|v| v.as_str()).unwrap_or("");
-                let val_data = args.get("value_data").and_then(|v| v.as_str()).unwrap_or("");
-                
+                let val_name = args
+                    .get("value_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let val_data = args
+                    .get("value_data")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
                 use winreg::enums::*;
                 use winreg::RegKey;
-                
+
                 let hive = match hive_str {
                     "HKLM" => HKEY_LOCAL_MACHINE,
                     "HKCU" => HKEY_CURRENT_USER,
@@ -1751,18 +1896,19 @@ impl InternalMcpServer for Win32AdminServer {
                     "HKCC" => HKEY_CURRENT_CONFIG,
                     _ => HKEY_LOCAL_MACHINE,
                 };
-                
+
                 let hk = RegKey::predef(hive);
                 match hk.create_subkey(key) {
-                    Ok((subkey, _)) => {
-                        match subkey.set_value(val_name, &val_data.to_string()) {
-                            Ok(_) => output = format!("ThÃ nh cÃ´ng ghi giÃ¡ trá»‹ {} vÃ o key {}", val_name, key),
-                            Err(e) => {
-                                is_error = true;
-                                output = format!("Lá»—i ghi giÃ¡ trá»‹: {}", e);
-                            }
+                    Ok((subkey, _)) => match subkey.set_value(val_name, &val_data.to_string()) {
+                        Ok(_) => {
+                            output =
+                                format!("ThÃ nh cÃ´ng ghi giÃ¡ trá»‹ {} vÃ o key {}", val_name, key)
                         }
-                    }
+                        Err(e) => {
+                            is_error = true;
+                            output = format!("Lá»—i ghi giÃ¡ trá»‹: {}", e);
+                        }
+                    },
                     Err(e) => {
                         is_error = true;
                         output = format!("Lá»—i má»Ÿ/táº¡o key {}: {}", key, e);
@@ -1795,7 +1941,7 @@ impl InternalMcpServer for Win32AdminServer {
                 } else {
                     return Err(anyhow::anyhow!("Cáº§n cung cáº¥p process_name hoáº·c pid"));
                 }
-                
+
                 match cmd.output() {
                     Ok(out) => {
                         let stdout = String::from_utf8_lossy(&out.stdout).to_string();
@@ -1833,7 +1979,10 @@ impl InternalMcpServer for Win32AdminServer {
                 }
             }
             "win32_winget_install" => {
-                let pkg = args.get("package_id").and_then(|v| v.as_str()).unwrap_or("");
+                let pkg = args
+                    .get("package_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let cmd = std::process::Command::new("winget")
                     .arg("install")
                     .arg("--id")
@@ -1860,7 +2009,10 @@ impl InternalMcpServer for Win32AdminServer {
                 }
             }
             "win32_winget_uninstall" => {
-                let pkg = args.get("package_id").and_then(|v| v.as_str()).unwrap_or("");
+                let pkg = args
+                    .get("package_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let cmd = std::process::Command::new("winget")
                     .arg("uninstall")
                     .arg("--id")
@@ -1911,8 +2063,12 @@ impl InternalMcpServer for Win32AdminServer {
                 }
             }
             "win32_uia_inspect" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{}")
@@ -1933,11 +2089,13 @@ if ($ae) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, window_title.replace('"', "`\""));
+"#,
+                    window_title.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         let res = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -1955,10 +2113,17 @@ if ($ae) {{
                 }
             }
             "win32_uia_click" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -1968,7 +2133,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $invokePattern = $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
@@ -1983,15 +2148,19 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y") {
+                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y")
+                        {
                             is_error = true;
                         }
                     }
@@ -2002,11 +2171,18 @@ if ($window) {{
                 }
             }
             "win32_uia_enter_text" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -2016,7 +2192,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $valuePattern = $target.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
@@ -2031,15 +2207,20 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""), t = text.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\""),
+                    t = text.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y") {
+                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y")
+                        {
                             is_error = true;
                         }
                     }
@@ -2050,10 +2231,17 @@ if ($window) {{
                 }
             }
             "win32_uia_get_value" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -2063,7 +2251,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $valuePattern = $target.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
@@ -2082,11 +2270,14 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -2101,10 +2292,17 @@ if ($window) {{
                 }
             }
             "win32_uia_toggle" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -2114,7 +2312,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $togglePattern = $target.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
@@ -2129,15 +2327,19 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y") {
+                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y")
+                        {
                             is_error = true;
                         }
                     }
@@ -2148,10 +2350,17 @@ if ($window) {{
                 }
             }
             "win32_uia_select" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -2161,7 +2370,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $selectPattern = $target.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
@@ -2176,15 +2385,19 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y") {
+                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y")
+                        {
                             is_error = true;
                         }
                     }
@@ -2195,10 +2408,17 @@ if ($window) {{
                 }
             }
             "win32_uia_set_focus" => {
-                let window_title = args.get("window_title").and_then(|v| v.as_str()).unwrap_or("");
-                let element_id_or_name = args.get("element_id_or_name").and_then(|v| v.as_str()).unwrap_or("");
-                
-                let script = format!(r#"
+                let window_title = args
+                    .get("window_title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let element_id_or_name = args
+                    .get("element_id_or_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                let script = format!(
+                    r#"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $rootCond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{w}")
@@ -2208,7 +2428,7 @@ if ($window) {{
     $condName = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "{e}")
     $condOr = New-Object System.Windows.Automation.OrCondition($condId, $condName)
     $target = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condOr)
-    
+
     if ($target) {{
         try {{
             $target.SetFocus()
@@ -2222,15 +2442,19 @@ if ($window) {{
 }} else {{
     Write-Output "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»•"
 }}
-"#, w = window_title.replace('"', "`\""), e = element_id_or_name.replace('"', "`\""));
+"#,
+                    w = window_title.replace('"', "`\""),
+                    e = element_id_or_name.replace('"', "`\"")
+                );
 
                 match std::process::Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-Command", &script])
-                    .output() 
+                    .output()
                 {
                     Ok(out) => {
                         output = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y") {
+                        if output.starts_with("Lá»—i") || output.starts_with("KhÃ´ng tÃ¬m tháº¥y")
+                        {
                             is_error = true;
                         }
                     }
@@ -2255,11 +2479,11 @@ if ($window) {{
     }
 }
 
-
-
 /// --- Analytic MCP Server (Polars SQL) ---
 pub struct AnalyticServer {
-    tables: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, polars::prelude::LazyFrame>>>,
+    tables: std::sync::Arc<
+        tokio::sync::Mutex<std::collections::HashMap<String, polars::prelude::LazyFrame>>,
+    >,
 }
 
 impl AnalyticServer {
@@ -2325,7 +2549,10 @@ impl InternalMcpServer for AnalyticServer {
         if name == "polars_load_table" {
             let args = arguments.unwrap_or_default();
             let file_path = args.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
-            let table_name = args.get("table_name").and_then(|v| v.as_str()).unwrap_or("");
+            let table_name = args
+                .get("table_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             if file_path.is_empty() || table_name.is_empty() {
                 return Ok(ToolCallResult {
@@ -2355,35 +2582,41 @@ impl InternalMcpServer for AnalyticServer {
             let lf = if file_path.ends_with(".csv") {
                 match LazyCsvReader::new(file_path).finish() {
                     Ok(l) => l,
-                    Err(e) => return Ok(ToolCallResult {
-                        content: vec![ToolContent {
-                            content_type: "text".to_string(),
-                            text: Some(format!("Failed to read CSV: {}", e)),
-                            data: None,
-                            mime_type: None,
-                        }],
-                        is_error: true,
-                    })
+                    Err(e) => {
+                        return Ok(ToolCallResult {
+                            content: vec![ToolContent {
+                                content_type: "text".to_string(),
+                                text: Some(format!("Failed to read CSV: {}", e)),
+                                data: None,
+                                mime_type: None,
+                            }],
+                            is_error: true,
+                        })
+                    }
                 }
             } else if file_path.ends_with(".json") {
                 let file = std::fs::File::open(file_path)?;
                 match JsonReader::new(file).finish() {
                     Ok(df) => df.lazy(),
-                    Err(e) => return Ok(ToolCallResult {
-                        content: vec![ToolContent {
-                            content_type: "text".to_string(),
-                            text: Some(format!("Failed to read JSON: {}", e)),
-                            data: None,
-                            mime_type: None,
-                        }],
-                        is_error: true,
-                    })
+                    Err(e) => {
+                        return Ok(ToolCallResult {
+                            content: vec![ToolContent {
+                                content_type: "text".to_string(),
+                                text: Some(format!("Failed to read JSON: {}", e)),
+                                data: None,
+                                mime_type: None,
+                            }],
+                            is_error: true,
+                        })
+                    }
                 }
             } else {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
-                        text: Some("Only .csv and .json are supported via this tool currently".to_string()),
+                        text: Some(
+                            "Only .csv and .json are supported via this tool currently".to_string(),
+                        ),
                         data: None,
                         mime_type: None,
                     }],
@@ -2397,7 +2630,10 @@ impl InternalMcpServer for AnalyticServer {
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
-                    text: Some(format!("ÄÃ£ táº£i thÃ nh cÃ´ng file {} vÃ o báº£ng {}", file_path, table_name)),
+                    text: Some(format!(
+                        "ÄÃ£ táº£i thÃ nh cÃ´ng file {} vÃ o báº£ng {}",
+                        file_path, table_name
+                    )),
                     data: None,
                     mime_type: None,
                 }],
@@ -2405,23 +2641,28 @@ impl InternalMcpServer for AnalyticServer {
             })
         } else if name == "polars_get_schema" {
             let args = arguments.unwrap_or_default();
-            let table_name = args.get("table_name").and_then(|v| v.as_str()).unwrap_or("");
+            let table_name = args
+                .get("table_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let mut tables = self.tables.lock().await;
             if let Some(lf) = tables.get_mut(table_name) {
                 let schema = match lf.collect_schema() {
                     Ok(s) => s,
-                    Err(e) => return Ok(ToolCallResult {
-                        content: vec![ToolContent {
-                            content_type: "text".to_string(),
-                            text: Some(format!("Failed to get schema: {}", e)),
-                            data: None,
-                            mime_type: None,
-                        }],
-                        is_error: true,
-                    })
+                    Err(e) => {
+                        return Ok(ToolCallResult {
+                            content: vec![ToolContent {
+                                content_type: "text".to_string(),
+                                text: Some(format!("Failed to get schema: {}", e)),
+                                data: None,
+                                mime_type: None,
+                            }],
+                            is_error: true,
+                        })
+                    }
                 };
-                
+
                 let mut cols = Vec::new();
                 for (name, dtype) in schema.iter() {
                     cols.push(serde_json::json!({
@@ -2462,34 +2703,41 @@ impl InternalMcpServer for AnalyticServer {
             // Execute SQL
             let result_lf = match ctx.execute(query) {
                 Ok(l) => l,
-                Err(e) => return Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some(format!("SQL Execution failed: {}", e)),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
+                Err(e) => {
+                    return Ok(ToolCallResult {
+                        content: vec![ToolContent {
+                            content_type: "text".to_string(),
+                            text: Some(format!("SQL Execution failed: {}", e)),
+                            data: None,
+                            mime_type: None,
+                        }],
+                        is_error: true,
+                    })
+                }
             };
-            
+
             // Collect to DataFrame
             let mut df = match result_lf.collect() {
                 Ok(d) => d,
-                Err(e) => return Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some(format!("Failed to collect DataFrame: {}", e)),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
+                Err(e) => {
+                    return Ok(ToolCallResult {
+                        content: vec![ToolContent {
+                            content_type: "text".to_string(),
+                            text: Some(format!("Failed to collect DataFrame: {}", e)),
+                            data: None,
+                            mime_type: None,
+                        }],
+                        is_error: true,
+                    })
+                }
             };
-            
+
             // Convert DataFrame to JSON
             let mut buf = Vec::new();
-            if let Err(e) = JsonWriter::new(&mut buf).with_json_format(JsonFormat::Json).finish(&mut df) {
+            if let Err(e) = JsonWriter::new(&mut buf)
+                .with_json_format(JsonFormat::Json)
+                .finish(&mut df)
+            {
                 return Ok(ToolCallResult {
                     content: vec![ToolContent {
                         content_type: "text".to_string(),
@@ -2500,20 +2748,22 @@ impl InternalMcpServer for AnalyticServer {
                     is_error: true,
                 });
             }
-            
+
             let json_str = match String::from_utf8(buf) {
                 Ok(s) => s,
-                Err(e) => return Ok(ToolCallResult {
-                    content: vec![ToolContent {
-                        content_type: "text".to_string(),
-                        text: Some(format!("Invalid UTF-8 in JSON output: {}", e)),
-                        data: None,
-                        mime_type: None,
-                    }],
-                    is_error: true,
-                })
+                Err(e) => {
+                    return Ok(ToolCallResult {
+                        content: vec![ToolContent {
+                            content_type: "text".to_string(),
+                            text: Some(format!("Invalid UTF-8 in JSON output: {}", e)),
+                            data: None,
+                            mime_type: None,
+                        }],
+                        is_error: true,
+                    })
+                }
             };
-            
+
             Ok(ToolCallResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -2583,12 +2833,12 @@ impl InternalMcpServer for ChartServer {
                 Some(a) => a,
                 None => return Err(anyhow::anyhow!("AppHandle not initialized for ChartServer")),
             };
-            
+
             let args = arguments.unwrap_or_default();
             let request_id = uuid::Uuid::new_v4().to_string();
-            
+
             let (tx, rx) = tokio::sync::oneshot::channel::<String>();
-            
+
             {
                 use crate::AppState;
                 use tauri::Manager;
@@ -2596,19 +2846,25 @@ impl InternalMcpServer for ChartServer {
                 let mut map = state.chart_render_state.lock().await;
                 map.insert(request_id.clone(), tx);
             }
-            
+
             // Emit event to Frontend
             use tauri::Emitter;
-            if let Err(e) = app.emit("mcp_chart_render_request", serde_json::json!({
-                "request_id": request_id,
-                "payload": args
-            })) {
-                return Err(anyhow::anyhow!("Failed to emit chart render request: {}", e));
+            if let Err(e) = app.emit(
+                "mcp_chart_render_request",
+                serde_json::json!({
+                    "request_id": request_id,
+                    "payload": args
+                }),
+            ) {
+                return Err(anyhow::anyhow!(
+                    "Failed to emit chart render request: {}",
+                    e
+                ));
             }
-            
+
             // Wait for response with 15s timeout
             let base64_result = tokio::time::timeout(std::time::Duration::from_secs(15), rx).await;
-            
+
             match base64_result {
                 Ok(Ok(base64_str)) => {
                     // Extract data from "data:image/png;base64,..."
@@ -2617,26 +2873,29 @@ impl InternalMcpServer for ChartServer {
                     } else {
                         &base64_str
                     };
-                    
+
                     use base64::Engine;
                     let decoded = match base64::engine::general_purpose::STANDARD.decode(b64_data) {
                         Ok(d) => d,
                         Err(e) => return Err(anyhow::anyhow!("Failed to decode base64: {}", e)),
                     };
-                    
+
                     let temp_dir = std::env::temp_dir().join("office_hub_exports");
                     let _ = std::fs::create_dir_all(&temp_dir);
                     let file_name = format!("chart_{}.png", request_id);
                     let file_path = temp_dir.join(&file_name);
-                    
+
                     if let Err(e) = std::fs::write(&file_path, decoded) {
                         return Err(anyhow::anyhow!("Failed to write chart image: {}", e));
                     }
-                    
+
                     Ok(ToolCallResult {
                         content: vec![ToolContent {
                             content_type: "text".to_string(),
-                            text: Some(format!("Táº¡o biá»ƒu Ä‘á»“ thÃ nh cÃ´ng. ÄÃ£ lÆ°u táº¡i: {}", file_path.to_string_lossy())),
+                            text: Some(format!(
+                                "Táº¡o biá»ƒu Ä‘á»“ thÃ nh cÃ´ng. ÄÃ£ lÆ°u táº¡i: {}",
+                                file_path.to_string_lossy()
+                            )),
                             data: None,
                             mime_type: None,
                         }],
@@ -2651,7 +2910,9 @@ impl InternalMcpServer for ChartServer {
                     let state = app.state::<AppState>();
                     let mut map = state.chart_render_state.lock().await;
                     map.remove(&request_id);
-                    Err(anyhow::anyhow!("Timeout waiting for frontend to render chart (15s)"))
+                    Err(anyhow::anyhow!(
+                        "Timeout waiting for frontend to render chart (15s)"
+                    ))
                 }
             }
         } else {
@@ -2714,31 +2975,43 @@ impl InternalMcpServer for WebSearchServer {
                 .timeout(std::time::Duration::from_secs(15))
                 .build()?;
 
-            let res = client.post("https://lite.duckduckgo.com/lite/")
+            let res = client
+                .post("https://lite.duckduckgo.com/lite/")
                 .form(&[("q", query)])
                 .send()
                 .await;
 
             let html = match res {
                 Ok(r) => r.text().await.unwrap_or_default(),
-                Err(e) => return Err(anyhow::anyhow!("Lá»—i máº¡ng khi tÃ¬m kiáº¿m: {}", e))
+                Err(e) => return Err(anyhow::anyhow!("Lá»—i máº¡ng khi tÃ¬m kiáº¿m: {}", e)),
             };
 
-            let re_link = regex::Regex::new(r#"<a rel="nofollow" href="([^"]+)"[^>]*>(.+?)</a>"#).unwrap();
+            let re_link =
+                regex::Regex::new(r#"<a rel="nofollow" href="([^"]+)"[^>]*>(.+?)</a>"#).unwrap();
             let mut results = String::new();
-            
+
             for (i, cap) in re_link.captures_iter(&html).enumerate() {
-                if i >= 5 { break; } // Top 5
+                if i >= 5 {
+                    break;
+                } // Top 5
                 let url = cap.get(1).map_or("", |m| m.as_str()).to_string();
                 let title = cap.get(2).map_or("", |m| m.as_str()).to_string();
                 if !url.contains("duckduckgo.com") && !url.is_empty() {
-                    let clean_title = title.replace("<b>", "").replace("</b>", "").replace("&#x27;", "'").replace("&quot;", "\"").replace("&amp;", "&");
+                    let clean_title = title
+                        .replace("<b>", "")
+                        .replace("</b>", "")
+                        .replace("&#x27;", "'")
+                        .replace("&quot;", "\"")
+                        .replace("&amp;", "&");
                     results.push_str(&format!("{}. [{}]({})\n", i + 1, clean_title, url));
                 }
             }
 
             if results.is_empty() {
-                results = format!("KhÃ´ng tÃ¬m tháº¥y káº¿t quáº£ nÃ o cho tá»« khÃ³a '{}'", query);
+                results = format!(
+                    "KhÃ´ng tÃ¬m tháº¥y káº¿t quáº£ nÃ o cho tá»« khÃ³a '{}'",
+                    query
+                );
             }
 
             Ok(ToolCallResult {
@@ -2763,13 +3036,18 @@ impl InternalMcpServer for WebSearchServer {
             let engine = BrowserEngine::new()
                 .map_err(|e| anyhow!("KhÃ´ng thá»ƒ khá»Ÿi Ä‘á»™ng Obscura engine: {}", e))?;
 
-            let result = engine.fetch_text(url).await
+            let result = engine
+                .fetch_text(url)
+                .await
                 .map_err(|e| anyhow!("read_url tháº¥t báº¡i cho {}: {}", url, e))?;
 
             let mut markdown_content = format!(
                 "**URL:** {}\n**TiÃªu Ä‘á»:** {}\n\n---\n{}",
                 result.url,
-                result.title.as_deref().unwrap_or("(khÃ´ng cÃ³ tiÃªu Ä‘á»)"),
+                result
+                    .title
+                    .as_deref()
+                    .unwrap_or("(khÃ´ng cÃ³ tiÃªu Ä‘á»)"),
                 result.content
             );
 
@@ -2892,17 +3170,14 @@ impl InternalMcpServer for WebFetchServer {
                     .get("url")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!("Thiáº¿u tham sá»‘ 'url'"))?;
-                let mode = args
-                    .get("mode")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("text");
+                let mode = args.get("mode").and_then(|v| v.as_str()).unwrap_or("text");
                 let eval_js = args.get("eval").and_then(|v| v.as_str());
 
                 let result = if let Some(js) = eval_js {
                     engine.eval_js(url, js).await?
                 } else {
                     match mode {
-                        "html"  => engine.fetch_html(url).await?,
+                        "html" => engine.fetch_html(url).await?,
                         "links" => {
                             let links = engine.fetch_links(url).await?;
                             let text = links
@@ -2918,28 +3193,45 @@ impl InternalMcpServer for WebFetchServer {
                         }
                         _ => {
                             let mut res = engine.fetch_text(url).await?;
-                            let trimmed = res.content.trim().replace('\u{00D7}', "").trim().to_string();
+                            let trimmed = res
+                                .content
+                                .trim()
+                                .replace('\u{00D7}', "")
+                                .trim()
+                                .to_string();
                             if trimmed.len() < 50 {
                                 tracing::warn!("Obscura fetch_text returned empty/tiny content. Falling back to HTML parsing for {}", url);
                                 if let Ok(html_res) = engine.fetch_html(url).await {
-                                    if let Ok(re_script) = regex::Regex::new(r"(?is)<script.*?>.*?</script>") {
+                                    if let Ok(re_script) =
+                                        regex::Regex::new(r"(?is)<script.*?>.*?</script>")
+                                    {
                                         let mut text = html_res.content;
                                         text = re_script.replace_all(&text, "").to_string();
-                                        if let Ok(re_style) = regex::Regex::new(r"(?is)<style.*?>.*?</style>") {
+                                        if let Ok(re_style) =
+                                            regex::Regex::new(r"(?is)<style.*?>.*?</style>")
+                                        {
                                             text = re_style.replace_all(&text, "").to_string();
                                         }
                                         if let Ok(re_tags) = regex::Regex::new(r"(?is)<[^>]+>") {
                                             text = re_tags.replace_all(&text, "\n").to_string();
                                         }
-                                        text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"");
+                                        text = text
+                                            .replace("&nbsp;", " ")
+                                            .replace("&amp;", "&")
+                                            .replace("&lt;", "<")
+                                            .replace("&gt;", ">")
+                                            .replace("&quot;", "\"");
                                         if let Ok(re_spaces) = regex::Regex::new(r"(?m)^[ \t]+") {
                                             text = re_spaces.replace_all(&text, "").to_string();
                                         }
                                         if let Ok(re_lines) = regex::Regex::new(r"\n{3,}") {
                                             text = re_lines.replace_all(&text, "\n\n").to_string();
                                         }
-                                        
-                                        res.content = format!("(Fallback HTML Extracted Text)\n{}", text.trim());
+
+                                        res.content = format!(
+                                            "(Fallback HTML Extracted Text)\n{}",
+                                            text.trim()
+                                        );
                                         if res.title.is_none() && html_res.title.is_some() {
                                             res.title = html_res.title;
                                         }
@@ -2954,7 +3246,10 @@ impl InternalMcpServer for WebFetchServer {
                 let output = format!(
                     "**URL:** {}\n**TiÃªu Ä‘á»:** {}\n\n---\n{}",
                     result.url,
-                    result.title.as_deref().unwrap_or("(khÃ´ng cÃ³ tiÃªu Ä‘á»)"),
+                    result
+                        .title
+                        .as_deref()
+                        .unwrap_or("(khÃ´ng cÃ³ tiÃªu Ä‘á»)"),
                     result.content
                 );
 
@@ -3106,13 +3401,16 @@ impl InternalMcpServer for OfficeComServer {
     }
 
     async fn call_tool(&self, name: &str, arguments: Option<Value>) -> Result<ToolCallResult> {
-        let app_type = arguments.as_ref()
+        let app_type = arguments
+            .as_ref()
             .and_then(|a| a.get("app_type").and_then(|v| v.as_str()).map(String::from))
             .unwrap_or_else(|| "Word".to_string());
 
         let result = match name {
             "com_insert_text_active_doc" => {
-                let text = arguments.and_then(|a| a.get("text").and_then(|v| v.as_str()).map(String::from)).unwrap_or_default();
+                let text = arguments
+                    .and_then(|a| a.get("text").and_then(|v| v.as_str()).map(String::from))
+                    .unwrap_or_default();
                 match app_type.as_str() {
                     "Word" => crate::agents::office_master::com_word::WordApplication::connect_or_launch()?.insert_text_at_cursor(&text, false),
                     "Excel" => crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?.insert_text_at_cursor(&text),
@@ -3121,7 +3419,9 @@ impl InternalMcpServer for OfficeComServer {
                 }
             }
             "com_replace_active_doc" => {
-                let text = arguments.and_then(|a| a.get("text").and_then(|v| v.as_str()).map(String::from)).unwrap_or_default();
+                let text = arguments
+                    .and_then(|a| a.get("text").and_then(|v| v.as_str()).map(String::from))
+                    .unwrap_or_default();
                 match app_type.as_str() {
                     "Word" => crate::agents::office_master::com_word::WordApplication::connect_or_launch()?.replace_active_document(&text),
                     "Excel" => crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?.replace_active_document(&text),
@@ -3129,22 +3429,38 @@ impl InternalMcpServer for OfficeComServer {
                     _ => Err(anyhow::anyhow!("Unsupported app_type")),
                 }
             }
-            "com_save_active_doc" => {
-                match app_type.as_str() {
-                    "Word" => crate::agents::office_master::com_word::WordApplication::connect_or_launch()?.save_active_document(),
-                    "Excel" => crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?.save_active_document(),
-                    "PowerPoint" => crate::agents::office_master::com_ppt::PowerPointApplication::connect_or_launch()?.save_active_document(),
-                    _ => Err(anyhow::anyhow!("Unsupported app_type")),
+            "com_save_active_doc" => match app_type.as_str() {
+                "Word" => {
+                    crate::agents::office_master::com_word::WordApplication::connect_or_launch()?
+                        .save_active_document()
                 }
-            }
-            "com_extract_active_doc" => {
-                match app_type.as_str() {
-                    "Word" => crate::agents::office_master::com_word::WordApplication::connect_or_launch()?.extract_active_document(),
-                    "Excel" => crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?.extract_active_document(),
-                    "PowerPoint" => crate::agents::office_master::com_ppt::PowerPointApplication::connect_or_launch()?.extract_active_document(),
-                    _ => Err(anyhow::anyhow!("Unsupported app_type")),
+                "Excel" => {
+                    crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?
+                        .save_active_document()
                 }
-            }
+                "PowerPoint" => {
+                    crate::agents::office_master::com_ppt::PowerPointApplication::connect_or_launch(
+                    )?
+                    .save_active_document()
+                }
+                _ => Err(anyhow::anyhow!("Unsupported app_type")),
+            },
+            "com_extract_active_doc" => match app_type.as_str() {
+                "Word" => {
+                    crate::agents::office_master::com_word::WordApplication::connect_or_launch()?
+                        .extract_active_document()
+                }
+                "Excel" => {
+                    crate::agents::office_master::com_excel::ExcelApplication::connect_or_launch()?
+                        .extract_active_document()
+                }
+                "PowerPoint" => {
+                    crate::agents::office_master::com_ppt::PowerPointApplication::connect_or_launch(
+                    )?
+                    .extract_active_document()
+                }
+                _ => Err(anyhow::anyhow!("Unsupported app_type")),
+            },
             _ => return Err(anyhow::anyhow!("Tool not found: {}", name)),
         };
 
@@ -3170,5 +3486,3 @@ impl InternalMcpServer for OfficeComServer {
         }
     }
 }
-
-

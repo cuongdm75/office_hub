@@ -87,10 +87,7 @@ impl BrowserEngine {
 
     /// Check that the binary is reachable (quick sanity test).
     pub async fn health_check(&self) -> bool {
-        let result = Command::new(&self.binary_path)
-            .arg("--help")
-            .output()
-            .await;
+        let result = Command::new(&self.binary_path).arg("--help").output().await;
         result.is_ok()
     }
 
@@ -191,17 +188,20 @@ impl BrowserEngine {
         }
         // Note: obscura scrape does NOT support --stealth flag
 
-        let total_timeout = Duration::from_secs(
-            self.timeout_secs.saturating_add(urls.len() as u64 * 5)
-        );
+        let total_timeout =
+            Duration::from_secs(self.timeout_secs.saturating_add(urls.len() as u64 * 5));
 
-        let op = Command::new(&self.binary_path)
-            .args(&args)
-            .output();
+        let op = Command::new(&self.binary_path).args(&args).output();
 
         let output = timeout(total_timeout, op)
             .await
-            .map_err(|_| anyhow::anyhow!("scrape_parallel timed out after {}s for {} URLs", total_timeout.as_secs(), urls.len()))?
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "scrape_parallel timed out after {}s for {} URLs",
+                    total_timeout.as_secs(),
+                    urls.len()
+                )
+            })?
             .map_err(|e| anyhow::anyhow!("obscura spawn error: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -224,19 +224,27 @@ impl BrowserEngine {
     // ─────────────────────────────────────────────────────────────────────────
 
     async fn run_fetch(&self, url: &str, args: &[&str]) -> anyhow::Result<FetchResult> {
-        let op = Command::new(&self.binary_path)
-            .args(args)
-            .output();
+        let op = Command::new(&self.binary_path).args(args).output();
 
         let output = timeout(Duration::from_secs(self.timeout_secs), op)
             .await
-            .map_err(|_| anyhow::anyhow!("obscura fetch timed out after {}s for {}", self.timeout_secs, url))?
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "obscura fetch timed out after {}s for {}",
+                    self.timeout_secs,
+                    url
+                )
+            })?
             .map_err(|e| anyhow::anyhow!("obscura spawn error: {}", e))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             error!("obscura exited with {} — stderr: {}", output.status, stderr);
-            anyhow::bail!("obscura fetch failed ({}): {}", output.status, stderr.trim());
+            anyhow::bail!(
+                "obscura fetch failed ({}): {}",
+                output.status,
+                stderr.trim()
+            );
         }
 
         let mut content = String::from_utf8_lossy(&output.stdout).to_string();
@@ -300,7 +308,11 @@ fn which_obscura() -> Option<PathBuf> {
     std::env::var_os("PATH").and_then(|paths| {
         std::env::split_paths(&paths).find_map(|dir| {
             let full = dir.join("obscura.exe");
-            if full.exists() { Some(full) } else { None }
+            if full.exists() {
+                Some(full)
+            } else {
+                None
+            }
         })
     })
 }

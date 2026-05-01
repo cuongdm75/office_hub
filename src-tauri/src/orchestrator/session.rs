@@ -528,12 +528,12 @@ impl SessionStore {
     /// Thiết lập thư mục lưu trữ và tải lịch sử cũ.
     pub async fn init_persistence(&self, dir: impl Into<std::path::PathBuf>) -> Result<(), String> {
         let path = dir.into();
-        
+
         // Tạo thư mục nếu chưa tồn tại
         if !path.exists() {
             std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
         }
-        
+
         *self.sessions_dir.write().unwrap() = Some(path);
         self.load_from_disk().await?;
         Ok(())
@@ -568,7 +568,7 @@ impl SessionStore {
                 }
             }
         }
-        
+
         tracing::info!("Loaded {} sessions from disk", count);
         Ok(())
     }
@@ -586,9 +586,11 @@ impl SessionStore {
         if let Some(session) = self.inner.get(session_id) {
             let path = dir.join(format!("{}.json", session_id));
             let json = serde_json::to_string_pretty(&*session).map_err(|e| e.to_string())?;
-            tokio::fs::write(path, json).await.map_err(|e| e.to_string())?;
+            tokio::fs::write(path, json)
+                .await
+                .map_err(|e| e.to_string())?;
         }
-        
+
         Ok(())
     }
 
@@ -604,7 +606,9 @@ impl SessionStore {
 
         let path = dir.join(format!("{}.json", session_id));
         if path.exists() {
-            tokio::fs::remove_file(path).await.map_err(|e| e.to_string())?;
+            tokio::fs::remove_file(path)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         Ok(())
     }
@@ -627,7 +631,11 @@ impl SessionStore {
     }
 
     /// Tạo session với ID tùy chỉnh (dùng khi khôi phục từ disk).
-    pub fn create_with_id(&self, id: impl Into<SessionId>, workspace_id: Option<String>) -> SessionId {
+    pub fn create_with_id(
+        &self,
+        id: impl Into<SessionId>,
+        workspace_id: Option<String>,
+    ) -> SessionId {
         let id = id.into();
         if !self.inner.contains_key(&id) {
             let mut session = Session::new(self.default_context_tokens);
@@ -668,7 +676,10 @@ impl SessionStore {
 
     /// Lấy mutable reference đến session để sửa.
     /// Trả về None nếu session không tồn tại.
-    pub fn get_mut(&self, id: &str) -> Option<dashmap::mapref::one::RefMut<'_, SessionId, Session>> {
+    pub fn get_mut(
+        &self,
+        id: &str,
+    ) -> Option<dashmap::mapref::one::RefMut<'_, SessionId, Session>> {
         self.inner.get_mut(id)
     }
 
@@ -681,7 +692,7 @@ impl SessionStore {
     pub fn delete(&self, id: &str) -> bool {
         let existed = self.inner.remove(id).is_some();
         tracing::debug!(session_id = %id, existed, "Deleting session");
-        
+
         // Luôn xoá file trên ổ cứng dù session có trong memory hay không (vì có thể đã bị evict)
         let store = self.clone();
         let session_id = id.to_string();
@@ -690,7 +701,7 @@ impl SessionStore {
                 tracing::warn!("Failed to delete session file for {}: {}", session_id, e);
             }
         });
-        
+
         existed
     }
 
@@ -1116,7 +1127,7 @@ mod tests {
     async fn test_session_store_concurrency() {
         let store = Arc::new(SessionStore::default());
         let id = store.create(None);
-        
+
         let mut handles = vec![];
         for i in 0..10 {
             let store_clone = Arc::clone(&store);

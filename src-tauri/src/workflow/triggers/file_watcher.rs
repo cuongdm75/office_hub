@@ -1,7 +1,7 @@
-use std::path::PathBuf;
 use async_trait::async_trait;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, trace};
@@ -28,16 +28,19 @@ impl Trigger for FileWatchTrigger {
             .and_then(|v| v.as_str())
             .unwrap_or(".")
             .to_string();
-            
+
         let pattern_str = config
             .get("pattern")
             .and_then(|v| v.as_str())
             .unwrap_or(".*");
-            
+
         let regex = Regex::new(pattern_str).map_err(|e| {
-            WorkflowError::TriggerError(format!("Invalid file watch regex '{}': {}", pattern_str, e))
+            WorkflowError::TriggerError(format!(
+                "Invalid file watch regex '{}': {}",
+                pattern_str, e
+            ))
         })?;
-        
+
         let dir_path = PathBuf::from(&dir_str);
         if !dir_path.exists() {
             return Err(WorkflowError::TriggerError(format!(
@@ -68,12 +71,14 @@ impl Trigger for FileWatchTrigger {
 
         watcher
             .watch(&dir_path, RecursiveMode::Recursive)
-            .map_err(|e| WorkflowError::TriggerError(format!("Failed to watch directory: {}", e)))?;
+            .map_err(|e| {
+                WorkflowError::TriggerError(format!("Failed to watch directory: {}", e))
+            })?;
 
         tokio::spawn(async move {
             // Keep the watcher alive by moving it into this task
             let _watcher = watcher;
-            
+
             loop {
                 tokio::select! {
                     _ = cancel_token.cancelled() => {
@@ -90,19 +95,19 @@ impl Trigger for FileWatchTrigger {
                                     if let Some(path_str) = path.to_str() {
                                         if regex.is_match(path_str) {
                                             trace!(workflow_id = %workflow_id, path = %path_str, "FileWatchTrigger matched");
-                                            
+
                                             let payload = serde_json::json!({
                                                 "file_path": path_str,
                                                 "event_type": format!("{:?}", event.kind)
                                             });
-                                            
+
                                             let trigger_event = TriggerEvent {
                                                 workflow_id: workflow_id.clone(),
                                                 trigger_type: TriggerType::FileChanged,
                                                 data: payload,
                                                 fired_at: chrono::Utc::now(),
                                             };
-                                            
+
                                             if let Err(e) = tx.send(trigger_event).await {
                                                 error!("FileWatchTrigger failed to send event: {}", e);
                                                 return;

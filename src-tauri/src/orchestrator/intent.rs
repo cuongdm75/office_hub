@@ -47,7 +47,6 @@ pub enum IntentPriority {
     Low,
 }
 
-
 /// Category of intent (used by router for routing decisions).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -424,7 +423,9 @@ impl Intent {
             | Intent::McpCallTool(_) => SensitivityLevel::High,
 
             // Điều khiển trình duyệt → rất cao
-            Intent::WebNavigate(_) | Intent::WebExtractData(_) | Intent::WebToExcel(_) => SensitivityLevel::Critical,
+            Intent::WebNavigate(_) | Intent::WebExtractData(_) | Intent::WebToExcel(_) => {
+                SensitivityLevel::Critical
+            }
 
             Intent::Ambiguous(_) => SensitivityLevel::Low,
         }
@@ -1025,9 +1026,7 @@ impl FastClassifierPatterns {
             mcp_list: re(r"(?i)(liệt kê|list|xem danh sách)\s.*(mcp|plugin|tool|server)"),
 
             // ── Folder & Outlook
-            folder_scan: re(
-                r"(?i)(quét|scan|tóm tắt|summarize)\s.*(thư mục|folder|directory)",
-            ),
+            folder_scan: re(r"(?i)(quét|scan|tóm tắt|summarize)\s.*(thư mục|folder|directory)"),
             outlook_action: re(
                 r"(?i)(\bemail\b|\bmail\b|hộp thư|thư điện tử|lịch|calendar|outlook)",
             ),
@@ -1090,7 +1089,11 @@ impl IntentClassifier {
                 Self::try_match(
                     p.folder_scan.is_match(msg),
                     Intent::FolderScan(FolderScanPayload {
-                        folder_path: entities.file_paths.first().cloned().unwrap_or_else(|| msg.clone()),
+                        folder_path: entities
+                            .file_paths
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| msg.clone()),
                         ..Default::default()
                     }),
                     0.85,
@@ -1338,7 +1341,6 @@ impl IntentClassifier {
                     0.80,
                 )
             })
-
             // MCP
             .or_else(|| Self::try_match(p.mcp_list.is_match(msg), Intent::McpListServers, 0.90))
             .or_else(|| {
@@ -1362,7 +1364,6 @@ impl IntentClassifier {
                     0.70,
                 )
             })
-
             // Workflow
             .or_else(|| {
                 Self::try_match(
@@ -1765,7 +1766,11 @@ general_chat, system_config, help_request, ambiguous
             }),
             "mcp_list_servers" => Intent::McpListServers,
             "folder_scan" => Intent::FolderScan(FolderScanPayload {
-                folder_path: entities.file_paths.first().cloned().unwrap_or_else(|| msg.clone()),
+                folder_path: entities
+                    .file_paths
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| msg.clone()),
                 ..Default::default()
             }),
             "outlook_action" => Intent::OutlookAction(OutlookPayload {
@@ -1810,11 +1815,12 @@ general_chat, system_config, help_request, ambiguous
     ) -> AppResult<IntentClassifyResult> {
         let session_context = if session.messages.len() > 1 {
             Some(
-                session.messages
+                session
+                    .messages
                     .iter()
                     .map(|m| format!("{}: {}", m.role, m.content))
                     .collect::<Vec<_>>()
-                    .join("\n")
+                    .join("\n"),
             )
         } else {
             None
@@ -1837,7 +1843,7 @@ general_chat, system_config, help_request, ambiguous
 
         // 2. If fast classification fails or is low confidence, use LLM
         let prompt_text = Self::build_llm_prompt(&req);
-        
+
         let schema = serde_json::json!({
             "type": "object",
             "properties": {
@@ -1864,21 +1870,21 @@ general_chat, system_config, help_request, ambiguous
         });
 
         let llm_req = crate::llm_gateway::LlmRequest::new(vec![
-            crate::llm_gateway::LlmMessage::system("You are an intent classifier that always replies in valid JSON."),
+            crate::llm_gateway::LlmMessage::system(
+                "You are an intent classifier that always replies in valid JSON.",
+            ),
             crate::llm_gateway::LlmMessage::user(prompt_text),
         ])
         .with_temperature(0.1)
         .with_json_schema(schema);
 
         match llm.complete(llm_req).await {
-            Ok(resp) => {
-                match Self::parse_llm_response(&req, &resp.content) {
-                    Ok(result) => return Ok(result),
-                    Err(e) => {
-                        tracing::warn!("Failed to parse LLM intent response: {}. Falling back.", e);
-                    }
+            Ok(resp) => match Self::parse_llm_response(&req, &resp.content) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    tracing::warn!("Failed to parse LLM intent response: {}. Falling back.", e);
                 }
-            }
+            },
             Err(e) => {
                 tracing::warn!("LLM classification failed: {}. Falling back.", e);
             }

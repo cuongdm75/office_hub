@@ -806,7 +806,7 @@ impl WorkflowLoader {
     fn extract_yaml_from_markdown(md: &str) -> Option<String> {
         let mut in_block = false;
         let mut code = String::new();
-        
+
         for line in md.lines() {
             if line.starts_with("```yaml") {
                 in_block = true;
@@ -814,13 +814,13 @@ impl WorkflowLoader {
             } else if line.starts_with("```") && in_block {
                 return Some(code);
             }
-            
+
             if in_block {
                 code.push_str(line);
                 code.push('\n');
             }
         }
-        
+
         if !code.is_empty() {
             Some(code)
         } else {
@@ -1027,7 +1027,7 @@ pub enum WorkflowProgressUpdate {
     Thought {
         session_id: String,
         thought: String,
-    }
+    },
 }
 
 impl WorkflowEngine {
@@ -1220,16 +1220,20 @@ impl WorkflowEngine {
             };
 
             let cancel_token = tokio_util::sync::CancellationToken::new();
-            self.trigger_cancel_tokens.insert(def.id.clone(), cancel_token.clone());
+            self.trigger_cancel_tokens
+                .insert(def.id.clone(), cancel_token.clone());
 
             let tx = self.trigger_tx.clone();
-            
+
             // start() spawns its own background tasks if needed
-            if let Err(e) = trigger_impl.start(def.id.clone(), def.trigger.config.clone(), tx, cancel_token).await {
+            if let Err(e) = trigger_impl
+                .start(def.id.clone(), def.trigger.config.clone(), tx, cancel_token)
+                .await
+            {
                 error!(workflow_id = %def.id, error = %e, "Failed to start trigger");
             }
         }
-        
+
         Ok(())
     }
 
@@ -1369,7 +1373,12 @@ impl WorkflowEngine {
 
                     // Execute steps
                     let timeout = std::time::Duration::from_secs(def.metadata.timeout_seconds);
-                    let execution = Self::execute_workflow(&mut run, &def, orchestrator.clone(), status_tx.clone());
+                    let execution = Self::execute_workflow(
+                        &mut run,
+                        &def,
+                        orchestrator.clone(),
+                        status_tx.clone(),
+                    );
 
                     let result = tokio::time::timeout(timeout, execution).await;
 
@@ -1556,7 +1565,8 @@ impl WorkflowEngine {
             });
 
             // Route to actual agents via Orchestrator.
-            let step_result = Self::real_execute_step(step, run, &step_outputs, &orchestrator_ref).await;
+            let step_result =
+                Self::real_execute_step(step, run, &step_outputs, &orchestrator_ref).await;
 
             let step_end = Utc::now();
             let duration_ms = (step_end - step_start).num_milliseconds() as u64;
@@ -1674,10 +1684,13 @@ impl WorkflowEngine {
 
         // Add config overrides
         for (key, val) in step.config.as_object().unwrap_or(&serde_json::Map::new()) {
-             resolved_input.insert(key.clone(), val.clone());
+            resolved_input.insert(key.clone(), val.clone());
         }
 
-        let orch_lock: tokio::sync::RwLockReadGuard<'_, Option<crate::orchestrator::OrchestratorHandle>> = orchestrator_ref.read().await;
+        let orch_lock: tokio::sync::RwLockReadGuard<
+            '_,
+            Option<crate::orchestrator::OrchestratorHandle>,
+        > = orchestrator_ref.read().await;
         let orch = orch_lock.as_ref().ok_or_else(|| {
             WorkflowError::ActionError("Orchestrator not attached to WorkflowEngine".into())
         })?;
@@ -1687,7 +1700,7 @@ impl WorkflowEngine {
             action: step.action.clone(),
             intent: crate::orchestrator::intent::Intent::Ambiguous(Default::default()),
             message: format!("Workflow Step: {}", step.name),
-            context_file: None, 
+            context_file: None,
             session_id: format!("wf-{}", run.run_id),
             parameters: resolved_input.clone(),
             llm_gateway: None, // Will be populated by OrchestratorHandle::execute_agent_action
@@ -1699,18 +1712,17 @@ impl WorkflowEngine {
 
         info!(step_id = %step.id, agent = %step.agent, action = %step.action, "Dispatching to agent");
 
-        match orch.execute_agent_action(&step.agent.to_string(), task).await {
-            Ok(output) => {
-                Ok(ActionOutput {
-                    summary: output.content,
-                    data: output.metadata,
-                    requires_approval: !output.committed,
-                    approval_id: None,
-                })
-            }
-            Err(e) => {
-                Err(WorkflowError::ActionError(e.to_string()))
-            }
+        match orch
+            .execute_agent_action(&step.agent.to_string(), task)
+            .await
+        {
+            Ok(output) => Ok(ActionOutput {
+                summary: output.content,
+                data: output.metadata,
+                requires_approval: !output.committed,
+                approval_id: None,
+            }),
+            Err(e) => Err(WorkflowError::ActionError(e.to_string())),
         }
     }
 
@@ -1756,9 +1768,7 @@ impl WorkflowEngine {
         history: &DashMap<String, Vec<WorkflowRun>>,
         max_history: usize,
     ) {
-        let mut entry = history
-            .entry(run.workflow_id.clone())
-            .or_default();
+        let mut entry = history.entry(run.workflow_id.clone()).or_default();
 
         entry.push(run.clone());
 

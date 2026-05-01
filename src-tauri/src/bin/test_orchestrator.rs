@@ -1,5 +1,5 @@
-use office_hub_lib::orchestrator::{Orchestrator, OrchestratorHandle, HitlManager};
 use office_hub_lib::llm_gateway::LlmGateway;
+use office_hub_lib::orchestrator::{HitlManager, Orchestrator, OrchestratorHandle};
 use office_hub_lib::AppConfig;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -19,14 +19,27 @@ async fn main() {
     let mut orchestrator = Orchestrator::new(Arc::clone(&llm_gateway), Arc::clone(&hitl));
 
     // Register agents
-    orchestrator.agent_registry.register(Box::new(office_hub_lib::agents::office_master::OfficeMasterAgent::new()));
-    orchestrator.agent_registry.register(Box::new(office_hub_lib::agents::analyst::AnalystAgent::new()));
+    orchestrator.agent_registry.register(Box::new(
+        office_hub_lib::agents::office_master::OfficeMasterAgent::new(),
+    ));
+    orchestrator.agent_registry.register(Box::new(
+        office_hub_lib::agents::analyst::AnalystAgent::new(),
+    ));
 
     let handle = OrchestratorHandle::new(orchestrator);
 
     println!("Testing Orchestrator with message: 'Xin chao, 1 + 1 bang may?'");
 
-    match handle.process_message_native("test_session_001", "Xin chao, 1 + 1 bang may?", None, None, None).await {
+    match handle
+        .process_message_native(
+            "test_session_001",
+            "Xin chao, 1 + 1 bang may?",
+            None,
+            None,
+            None,
+        )
+        .await
+    {
         Ok(resp) => {
             println!("Success! Response: {}", resp.content);
             println!("   Agent used: {:?}", resp.agent_used);

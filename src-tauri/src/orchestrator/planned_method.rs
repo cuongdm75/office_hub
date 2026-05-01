@@ -1,8 +1,8 @@
 use crate::orchestrator::{Orchestrator, OrchestratorResponse};
 use anyhow::Result;
 use chrono::Utc;
-use tracing::{instrument, warn};
 use std::sync::Arc;
+use tracing::{instrument, warn};
 
 impl Orchestrator {
     /// [Phase 1] Smart Planning Execution: Generates a DAG plan and executes it via Agent-to-Agent MCP.
@@ -23,10 +23,13 @@ impl Orchestrator {
         }
 
         // Prepare conversation
-        use crate::llm_gateway::genai_bridge::{ToolChatMessage, ToolAwareResponse};
+        use crate::llm_gateway::genai_bridge::{ToolAwareResponse, ToolChatMessage};
         let mut conv_messages = {
-            let session = self.session_store.get_or_create(session_id).ok_or_else(|| anyhow::anyhow!("Session not found"))?;
-            
+            let session = self
+                .session_store
+                .get_or_create(session_id)
+                .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
+
             let mut mcp_tools = self.mcp_broker.list_all_tools().await.unwrap_or_default();
             let agent_tools = self.agent_registry.all_tool_schemas_complete();
             mcp_tools.extend(agent_tools);
@@ -35,7 +38,7 @@ impl Orchestrator {
 
             let system_prompt = format!(
                 "Bạn là Office Hub Orchestrator. Nhiệm vụ của bạn là phân tích yêu cầu người dùng và tạo ra một bản Kế hoạch Thực thi (ExecutionPlan) dạng JSON.
-                
+
 Danh sách các công cụ (Agent & MCP Server) hiện có:
 {}
 
@@ -115,7 +118,15 @@ Lưu ý:
             Err(e) => {
                 warn!("Failed to parse plan JSON: {}. Falling back to native.", e);
                 // Fallback to native processing if parsing fails
-                return self.process_message_native(session_id, message, context_file, workspace_id, progress_tx).await;
+                return self
+                    .process_message_native(
+                        session_id,
+                        message,
+                        context_file,
+                        workspace_id,
+                        progress_tx,
+                    )
+                    .await;
             }
         };
 
@@ -134,7 +145,9 @@ Lưu ý:
                     intent: Some("chat".to_string()),
                     agent_used: Some("orchestrator".to_string()),
                     tokens_used: None,
-                    duration_ms: Utc::now().signed_duration_since(started_at).num_milliseconds() as u64,
+                    duration_ms: Utc::now()
+                        .signed_duration_since(started_at)
+                        .num_milliseconds() as u64,
                     metadata: None,
                 });
             }
@@ -148,7 +161,9 @@ Lưu ý:
                     intent: Some("error".to_string()),
                     agent_used: None,
                     tokens_used: None,
-                    duration_ms: Utc::now().signed_duration_since(started_at).num_milliseconds() as u64,
+                    duration_ms: Utc::now()
+                        .signed_duration_since(started_at)
+                        .num_milliseconds() as u64,
                     metadata: None,
                 });
             }
@@ -159,7 +174,7 @@ Lưu ý:
         }
 
         // 2. Execute Plan
-        
+
         let plan_exec = Arc::new(crate::orchestrator::plan::PlanExecution::new(plan));
         let runner = crate::orchestrator::plan_runner::PlanRunner::new(
             Arc::new(self.agent_registry.clone()),
@@ -191,7 +206,7 @@ Lưu ý:
         let synthesis_prompt = format!(
             "Dưới đây là kết quả thực thi các tác vụ theo kế hoạch:
 {}
-            
+
 Dựa trên kết quả này, hãy trả lời câu hỏi/yêu cầu ban đầu của người dùng một cách rõ ràng và ngắn gọn.
 Nếu có lỗi, hãy giải thích nguyên nhân.",
             results_summary
@@ -207,10 +222,14 @@ Nếu có lỗi, hãy giải thích nguyên nhân.",
             llm.create_genai_bridge_reasoning().await
         };
 
-        let synth_resp = bridge_synth.complete_with_tools(&synth_messages, &[], 0.1).await?;
+        let synth_resp = bridge_synth
+            .complete_with_tools(&synth_messages, &[], 0.1)
+            .await?;
         let final_text = match synth_resp {
             crate::llm_gateway::genai_bridge::ToolAwareResponse::Text(t) => t,
-            crate::llm_gateway::genai_bridge::ToolAwareResponse::ToolCalls(_) => "Hoàn tất.".to_string(),
+            crate::llm_gateway::genai_bridge::ToolAwareResponse::ToolCalls(_) => {
+                "Hoàn tất.".to_string()
+            }
         };
 
         if let Some(mut session) = self.session_store.get_mut(session_id) {
@@ -227,7 +246,9 @@ Nếu có lỗi, hãy giải thích nguyên nhân.",
             intent: Some("plan_execute".to_string()),
             agent_used: Some("orchestrator_planned".to_string()),
             tokens_used: None,
-            duration_ms: Utc::now().signed_duration_since(started_at).num_milliseconds() as u64,
+            duration_ms: Utc::now()
+                .signed_duration_since(started_at)
+                .num_milliseconds() as u64,
             metadata: None,
         })
     }

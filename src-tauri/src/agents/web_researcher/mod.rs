@@ -5,17 +5,17 @@
 // Replaces UIA/Edge dependency with embedded headless browser (obscura.exe)
 // ============================================================================
 
-pub mod uia;
 pub mod browser_engine;
+pub mod uia;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::{info, instrument, error};
+use tracing::{error, info, instrument};
 
+use self::browser_engine::BrowserEngine;
 use crate::agents::{Agent, AgentId, AgentStatus};
 use crate::orchestrator::{AgentOutput, AgentTask};
-use self::browser_engine::BrowserEngine;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -174,7 +174,12 @@ impl WebResearcherAgent {
         })
     }
 
-    pub fn log_audit_action(&mut self, action_type: &str, target_element: Option<&str>, target_url: Option<&str>) {
+    pub fn log_audit_action(
+        &mut self,
+        action_type: &str,
+        target_element: Option<&str>,
+        target_url: Option<&str>,
+    ) {
         self.audit_log.push(UiaAuditEntry {
             id: uuid::Uuid::new_v4().to_string(),
             action_type: action_type.to_string(),
@@ -206,15 +211,21 @@ impl WebResearcherAgent {
 
 #[async_trait]
 impl Agent for WebResearcherAgent {
-    fn id(&self) -> &AgentId { &self.id }
+    fn id(&self) -> &AgentId {
+        &self.id
+    }
 
-    fn name(&self) -> &str { "Web Researcher Agent" }
+    fn name(&self) -> &str {
+        "Web Researcher Agent"
+    }
 
     fn description(&self) -> &str {
         "Trích xuất nội dung trang web bằng Obscura headless browser engine (V8, stealth mode)."
     }
 
-    fn version(&self) -> &str { "0.5.0-obscura" }
+    fn version(&self) -> &str {
+        "0.5.0-obscura"
+    }
 
     fn supported_actions(&self) -> Vec<String> {
         crate::agent_actions![
@@ -297,7 +308,9 @@ impl Agent for WebResearcherAgent {
         ]
     }
 
-    fn status(&self) -> AgentStatus { self.status.clone() }
+    fn status(&self) -> AgentStatus {
+        self.status.clone()
+    }
 
     async fn init(&mut self) -> anyhow::Result<()> {
         info!("WebResearcherAgent initialising (Obscura engine)…");
@@ -334,19 +347,24 @@ impl Agent for WebResearcherAgent {
 
         let result = match task.action.as_str() {
             "navigate_to_url" | "fetch_page" => self.handle_fetch_page(&task).await,
-            "fetch_links"                    => self.handle_fetch_links(&task).await,
-            "eval_js"                        => self.handle_eval_js(&task).await,
-            "extract_text"                   => self.handle_fetch_page(&task).await, // alias
-            "extract_table"                  => self.handle_fetch_page(&task).await, // full page for now
-            "search_google"                  => self.handle_search_google(&task).await,
-            "web_download_file"              => self.handle_download_file(&task).await,
+            "fetch_links" => self.handle_fetch_links(&task).await,
+            "eval_js" => self.handle_eval_js(&task).await,
+            "extract_text" => self.handle_fetch_page(&task).await, // alias
+            "extract_table" => self.handle_fetch_page(&task).await, // full page for now
+            "search_google" => self.handle_search_google(&task).await,
+            "web_download_file" => self.handle_download_file(&task).await,
             unknown => {
                 self.error_count += 1;
-                Err(anyhow::anyhow!("WebResearcherAgent does not support action '{}'", unknown))
+                Err(anyhow::anyhow!(
+                    "WebResearcherAgent does not support action '{}'",
+                    unknown
+                ))
             }
         };
 
-        if result.is_err() { self.error_count += 1; }
+        if result.is_err() {
+            self.error_count += 1;
+        }
         self.status = AgentStatus::Idle;
         result
     }
@@ -359,7 +377,9 @@ impl Agent for WebResearcherAgent {
 impl WebResearcherAgent {
     /// Fetch a page via Obscura and optionally run it through the LLM.
     async fn handle_fetch_page(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let url = task.parameters.get("url")
+        let url = task
+            .parameters
+            .get("url")
             .and_then(|v| v.as_str())
             .unwrap_or("https://google.com")
             .to_string();
@@ -378,7 +398,9 @@ impl WebResearcherAgent {
         let raw_text = result.content.clone();
 
         // Optional LLM synthesis
-        let user_prompt = task.parameters.get("prompt")
+        let user_prompt = task
+            .parameters
+            .get("prompt")
             .and_then(|v| v.as_str())
             .unwrap_or("Hãy tóm tắt nội dung chính trên trang web này.");
 
@@ -399,7 +421,11 @@ impl WebResearcherAgent {
                 Ok(resp) => resp.content,
                 Err(e) => {
                     error!("LLM error in WebResearcherAgent: {}", e);
-                    format!("Đã fetch trang thành công nhưng LLM lỗi: {}\n\nNội dung thô:\n{}", e, &raw_text[..raw_text.len().min(2000)])
+                    format!(
+                        "Đã fetch trang thành công nhưng LLM lỗi: {}\n\nNội dung thô:\n{}",
+                        e,
+                        &raw_text[..raw_text.len().min(2000)]
+                    )
                 }
             }
         } else {
@@ -423,7 +449,9 @@ impl WebResearcherAgent {
 
     /// Fetch all links from a page.
     async fn handle_fetch_links(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let url = task.parameters.get("url")
+        let url = task
+            .parameters
+            .get("url")
             .and_then(|v| v.as_str())
             .unwrap_or("https://google.com")
             .to_string();
@@ -433,7 +461,8 @@ impl WebResearcherAgent {
         let engine = self.ensure_engine()?;
         let links = engine.fetch_links(&url).await?;
 
-        let links_text: String = links.iter()
+        let links_text: String = links
+            .iter()
             .map(|(href, text)| format!("- [{}]({})", text, href))
             .collect::<Vec<_>>()
             .join("\n");
@@ -453,11 +482,15 @@ impl WebResearcherAgent {
 
     /// Execute JavaScript on a page and return the result.
     async fn handle_eval_js(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let url = task.parameters.get("url")
+        let url = task
+            .parameters
+            .get("url")
             .and_then(|v| v.as_str())
             .unwrap_or("about:blank")
             .to_string();
-        let js = task.parameters.get("js")
+        let js = task
+            .parameters
+            .get("js")
             .and_then(|v| v.as_str())
             .unwrap_or("document.title")
             .to_string();
@@ -482,7 +515,9 @@ impl WebResearcherAgent {
 
     /// Search Google and fetch the top result (via Obscura, stealth mode).
     async fn handle_search_google(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let query = task.parameters.get("query")
+        let query = task
+            .parameters
+            .get("query")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -501,16 +536,18 @@ impl WebResearcherAgent {
 
         // Extract links to actual results
         let links = engine.fetch_links(&search_url).await.unwrap_or_default();
-        let result_links: Vec<_> = links.into_iter()
+        let result_links: Vec<_> = links
+            .into_iter()
             .filter(|(href, _)| {
-                href.starts_with("http") &&
-                !href.contains("google.com") &&
-                !href.contains("youtube.com")
+                href.starts_with("http")
+                    && !href.contains("google.com")
+                    && !href.contains("youtube.com")
             })
             .take(5)
             .collect();
 
-        let links_summary = result_links.iter()
+        let links_summary = result_links
+            .iter()
             .enumerate()
             .map(|(i, (href, text))| format!("{}. [{}]({})", i + 1, text, href))
             .collect::<Vec<_>>()
@@ -536,12 +573,16 @@ impl WebResearcherAgent {
 
     /// Tải một file từ web về thư mục tạm cục bộ (rất hữu ích để tải hình ảnh minh họa chèn vào Word/PPT).
     async fn handle_download_file(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let url = task.parameters.get("url")
+        let url = task
+            .parameters
+            .get("url")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required parameter: url"))?
             .to_string();
 
-        let filename = task.parameters.get("filename")
+        let filename = task
+            .parameters
+            .get("filename")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("downloaded_{}.jpg", uuid::Uuid::new_v4()));
@@ -562,7 +603,10 @@ impl WebResearcherAgent {
         std::fs::write(&save_path, &bytes)?;
 
         Ok(AgentOutput {
-            content: format!("Đã tải file thành công và lưu tại đường dẫn: {}", save_path.to_string_lossy()),
+            content: format!(
+                "Đã tải file thành công và lưu tại đường dẫn: {}",
+                save_path.to_string_lossy()
+            ),
             committed: true,
             tokens_used: None,
             metadata: Some(serde_json::json!({

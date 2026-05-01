@@ -22,9 +22,9 @@ pub mod llm_gateway;
 /// calls MCP Server plugins.
 pub mod mcp;
 
+pub mod crdt;
 /// Event-driven workflow engine: triggers, actions, YAML loader.
 pub mod workflow;
-pub mod crdt;
 
 /// WebSocket server for Office Web Add-in communication and
 /// Human-in-the-Loop approval flow.
@@ -136,7 +136,9 @@ pub struct AppState {
     /// CRDT Manager for real-time document collaboration
     pub crdt_manager: Arc<crate::crdt::CrdtManager>,
     /// Chart render state for ChartServer to wait for frontend Base64 responses
-    pub chart_render_state: Arc<tokio::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<String>>>>,
+    pub chart_render_state: Arc<
+        tokio::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<String>>>,
+    >,
 }
 
 // ─────────────────────────────────────────────
@@ -163,13 +165,13 @@ pub struct AppConfig {
 pub struct LlmConfig {
     pub fast_provider: String,
     pub fast_model: String,
-    
+
     pub default_provider: String,
     pub default_model: String,
-    
+
     pub reasoning_provider: String,
     pub reasoning_model: String,
-    
+
     pub credentials: ProviderCredentials,
     /// Max tokens to keep in session context before summarisation
     pub context_window_limit: usize,
@@ -185,13 +187,13 @@ impl Default for LlmConfig {
         Self {
             fast_provider: "ollama".to_string(),
             fast_model: "qwen2.5-coder:7b".to_string(),
-            
+
             default_provider: "gemini".to_string(),
             default_model: "gemini-2.0-flash".to_string(),
-            
+
             reasoning_provider: "anthropic".to_string(),
             reasoning_model: "claude-3-5-sonnet-20241022".to_string(),
-            
+
             credentials: ProviderCredentials::default(),
             context_window_limit: 32000,
             token_cache_enabled: true,
@@ -209,8 +211,6 @@ pub struct ProviderCredentials {
     pub ollama_endpoint: Option<String>,
     pub lmstudio_endpoint: Option<String>,
 }
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentsConfig {
@@ -414,20 +414,38 @@ pub fn run() {
     let llm_gateway = Arc::new(RwLock::new(LlmGateway::new(config.llm.clone())));
     let hitl_manager = Arc::new(crate::orchestrator::HitlManager::new());
     let mut orchestrator = Orchestrator::new(Arc::clone(&llm_gateway), Arc::clone(&hitl_manager));
-    
+
     // Register all core agents into the registry
-    orchestrator.agent_registry.register(Box::new(crate::agents::analyst::AnalystAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::office_master::OfficeMasterAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::web_researcher::WebResearcherAgent::new(Default::default())));
-    orchestrator.agent_registry.register(Box::new(crate::agents::converter::ConverterAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::folder_scanner::FolderScannerAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::outlook::OutlookAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::system::SystemAgent::new()));
-    orchestrator.agent_registry.register(Box::new(crate::agents::win32_admin::Win32AdminAgent::new()));
+    orchestrator
+        .agent_registry
+        .register(Box::new(crate::agents::analyst::AnalystAgent::new()));
+    orchestrator.agent_registry.register(Box::new(
+        crate::agents::office_master::OfficeMasterAgent::new(),
+    ));
+    orchestrator.agent_registry.register(Box::new(
+        crate::agents::web_researcher::WebResearcherAgent::new(Default::default()),
+    ));
+    orchestrator
+        .agent_registry
+        .register(Box::new(crate::agents::converter::ConverterAgent::new()));
+    orchestrator.agent_registry.register(Box::new(
+        crate::agents::folder_scanner::FolderScannerAgent::new(),
+    ));
+    orchestrator
+        .agent_registry
+        .register(Box::new(crate::agents::outlook::OutlookAgent::new()));
+    orchestrator
+        .agent_registry
+        .register(Box::new(crate::agents::system::SystemAgent::new()));
+    orchestrator
+        .agent_registry
+        .register(Box::new(crate::agents::win32_admin::Win32AdminAgent::new()));
 
     let orchestrator_handle = OrchestratorHandle::new(orchestrator);
 
-    if let Err(e) = tauri::async_runtime::block_on(orchestrator_handle.init_persistence(&config.paths.sessions_dir)) {
+    if let Err(e) = tauri::async_runtime::block_on(
+        orchestrator_handle.init_persistence(&config.paths.sessions_dir),
+    ) {
         tracing::warn!("Failed to init session persistence: {}", e);
     }
 
@@ -450,10 +468,14 @@ pub fn run() {
         .expect("Failed to init SystemManager");
 
     let (ws_command_tx, mut ws_command_rx) = tokio::sync::mpsc::channel(32);
-    let ws_server = Arc::new(websocket::WebSocketServer::new(config.websocket.clone(), ws_command_tx));
+    let ws_server = Arc::new(websocket::WebSocketServer::new(
+        config.websocket.clone(),
+        ws_command_tx,
+    ));
 
     // MCP-Hybrid: mobile command channel (REST uplink → orchestrator)
-    let (mobile_cmd_tx, mut mobile_cmd_rx) = tokio::sync::mpsc::channel::<crate::mcp_transport::IncomingMobileCmd>(64);
+    let (mobile_cmd_tx, mut mobile_cmd_rx) =
+        tokio::sync::mpsc::channel::<crate::mcp_transport::IncomingMobileCmd>(64);
     // SSE broadcast sender shared across AppState and sse_server
     let sse_port = config.websocket.port + 1; // e.g. 9001+1=9002
     let (hybrid_state, _sse_tx) = crate::sse_server::HybridServerState::new(
@@ -573,7 +595,7 @@ pub fn run() {
                 let cfg = tauri::async_runtime::block_on(async {
                     state.system_manager.config.read().await.clone()
                 });
-                
+
                 if cfg.minimise_to_tray {
                     window.hide().unwrap();
                     api.prevent_close();
@@ -611,12 +633,12 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             let state = app_handle.state::<AppState>();
-            
+
             let ws_server_clone = Arc::clone(&state.websocket_server);
             let hybrid = Arc::clone(&state.hybrid_state);
             let orchestrator_clone = state.orchestrator.clone();
             let hitl_clone = state.hitl_manager.clone();
-            
+
             if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
                 let knowledge_dir = app_data_dir.join("knowledge");
                 let policy_dir = app_data_dir.join("policies");
@@ -626,7 +648,7 @@ pub fn run() {
                 }
                 let skills_dir = base_dir.join(".agent").join("skills");
                 let memory_db_path = app_data_dir.join("memory.sqlite");
-                
+
                 // Ensure directories exist
                 let _ = std::fs::create_dir_all(&knowledge_dir);
                 let _ = std::fs::create_dir_all(&policy_dir);
@@ -785,7 +807,7 @@ pub fn run() {
                                     let temp_dir = std::env::temp_dir().join("office_hub_mobile_uploads");
                                     let _ = std::fs::create_dir_all(&temp_dir);
                                     let file_path = temp_dir.join(name);
-                                    
+
                                     if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(base64_data) {
                                         use std::io::Write;
                                         if let Ok(mut f) = std::fs::File::create(&file_path) {
@@ -798,7 +820,7 @@ pub fn run() {
 
                             let ws_server = state.websocket_server.clone();
                             let client_id = incoming.client_id.clone();
-                            
+
                             use tauri::Emitter;
                             let app_for_emit = app_handle.clone();
                             let user_msg_clone = text.clone();
@@ -830,7 +852,7 @@ pub fn run() {
                                 let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
                                 let sse_for_progress = hybrid_clone_for_spawn;
                                 let sid_for_progress = session_id_clone.clone();
-                                
+
                                 tauri::async_runtime::spawn(async move {
                                     while let Some(thought) = progress_rx.recv().await {
                                         sse_for_progress.broadcast_event(
@@ -858,7 +880,7 @@ pub fn run() {
                                             timestamp: chrono::Utc::now().to_rfc3339(),
                                             metadata: resp.metadata.clone(),
                                         }).await;
-                                        
+
                                         let _ = app_for_emit.emit("chat_message_received", serde_json::json!({
                                             "session_id": session_id.clone(),
                                             "message": {
@@ -895,12 +917,12 @@ pub fn run() {
                             let orchestrator = state.orchestrator.clone();
                             let ws_server = state.websocket_server.clone();
                             let client_id = incoming.client_id.clone();
-                            
+
                             tauri::async_runtime::spawn(async move {
                                 // STUB: Here we would call Whisper API or a local STT model to transcribe audio_base64
                                 let transcribed_text = "Tạo báo cáo tuần"; // Placeholder
                                 tracing::info!("Transcribed voice command: {}", transcribed_text);
-                                
+
                                 match orchestrator.process_message_native(&session_id, transcribed_text, None, None, None).await {
                                     Ok(resp) => {
                                         let _ = ws_server.send_to_client(&client_id, websocket::ServerMessage::ChatReply {
@@ -943,13 +965,13 @@ pub fn run() {
                                 }
                                 _ => content.clone(),
                             };
-                            
+
                             if let Some(doc) = document_content {
                                 if !doc.is_empty() {
                                     enriched_content = format!("[Nội dung tài liệu đang mở:\n{}]\n\nYêu cầu: {}", doc, enriched_content);
                                 }
                             }
-                            
+
                             tauri::async_runtime::spawn(async move {
                                 match orchestrator.process_message_native(&session_id, &enriched_content, file_context.as_deref(), None, None).await {
                                     Ok(resp) => {
@@ -974,12 +996,12 @@ pub fn run() {
                                 let client_id = incoming.client_id.clone();
                                 let app = app_type.unwrap_or_else(|| "Unknown".to_string());
                                 let path = file_path.unwrap_or_default();
-                                
+
                                 // Skip auto-analysis for Outlook events (no file to analyze)
                                 if app == "Outlook" {
                                     return;
                                 }
-                                
+
                                 tauri::async_runtime::spawn(async move {
                                     let prompt = format!("Tóm tắt ngắn gọn file '{}' (Loại: {}) và đưa ra 1-2 đề xuất nếu có thể. Trả về đúng nội dung tóm tắt.", path, app);
                                     let session_id = uuid::Uuid::new_v4().to_string();
@@ -995,7 +1017,7 @@ pub fn run() {
                             let orchestrator = state.orchestrator.clone();
                             let ws_server = state.websocket_server.clone();
                             let client_id = incoming.client_id.clone();
-                            
+
                             tauri::async_runtime::spawn(async move {
                                 if let Ok(sessions) = orchestrator.list_sessions().await {
                                     let _ = ws_server.send_to_client(&client_id, websocket::ServerMessage::SessionList {
@@ -1008,7 +1030,7 @@ pub fn run() {
                             let orchestrator = state.orchestrator.clone();
                             let ws_server = state.websocket_server.clone();
                             let client_id = incoming.client_id.clone();
-                            
+
                             tauri::async_runtime::spawn(async move {
                                 let store = orchestrator.get_session_store().await;
                                 if let Some(session) = store.get(&session_id) {
@@ -1022,7 +1044,7 @@ pub fn run() {
                                             "agent_used": msg.agent_name
                                         })
                                     }).collect();
-                                    
+
                                     let _ = ws_server.send_to_client(&client_id, websocket::ServerMessage::SessionHistory {
                                         session_id,
                                         messages,
@@ -1132,7 +1154,7 @@ pub fn run() {
                         let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
                         let sse_for_progress = sse.clone();
                         let sid_for_progress = session_id.clone();
-                        
+
                         tauri::async_runtime::spawn(async move {
                             while let Some(thought) = progress_rx.recv().await {
                                 sse_for_progress.broadcast_event(
@@ -1201,4 +1223,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Office Hub application");
 }
-

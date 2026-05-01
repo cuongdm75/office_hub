@@ -29,12 +29,12 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use chrono::{DateTime, Utc};
+use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc, RwLock};
-use tracing::{debug, info, warn, error};
-use uuid::Uuid;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
-use futures::{StreamExt, SinkExt};
+use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Message types (Client → Server)
@@ -75,10 +75,10 @@ pub enum ClientMessage {
     /// Event from Office Web Add-in (e.g. DocumentOpened)
     OfficeAddinEvent {
         event: String,
-        file_path: Option<String>,   // Optional: Outlook doesn't send file_path
-        app_type: Option<String>,    // Optional: fallback to "Unknown"
-        subject: Option<String>,     // Outlook: email subject
-        sender: Option<String>,      // Outlook: email sender
+        file_path: Option<String>, // Optional: Outlook doesn't send file_path
+        app_type: Option<String>,  // Optional: fallback to "Unknown"
+        subject: Option<String>,   // Outlook: email subject
+        sender: Option<String>,    // Outlook: email sender
     },
 
     /// Document file extracted by Add-in
@@ -120,19 +120,13 @@ pub enum ClientMessage {
     ListSessions,
 
     /// Request to get the chat history of a specific session
-    GetSessionHistory {
-        session_id: String,
-    },
-    
+    GetSessionHistory { session_id: String },
+
     /// Delete a chat session
-    DeleteSession {
-        session_id: String,
-    },
-    
+    DeleteSession { session_id: String },
+
     /// Delete an artifact
-    DeleteArtifact {
-        filename: String,
-    },
+    DeleteArtifact { filename: String },
 
     /// Real-time CRDT document sync message
     CrdtSync {
@@ -167,9 +161,7 @@ pub enum ServerMessage {
     },
 
     /// Context Analysis summary returned to the Office Web Add-in
-    ContextAnalysis {
-        summary: String,
-    },
+    ContextAnalysis { summary: String },
 
     /// Command to execute an action directly in the Office Add-in
     AddinCommand {
@@ -178,15 +170,10 @@ pub enum ServerMessage {
     },
 
     /// Simple Chat response for the Office Web Add-in
-    ChatResponse {
-        content: String,
-    },
+    ChatResponse { content: String },
 
     /// Real-time LLM thought progress
-    ChatProgress {
-        session_id: String,
-        thought: String,
-    },
+    ChatProgress { session_id: String, thought: String },
 
     /// Chat reply from the Orchestrator
     ChatReply {
@@ -254,9 +241,7 @@ pub enum ServerMessage {
     },
 
     /// List of chat sessions for the Mobile UI Sidebar
-    SessionList {
-        sessions: Vec<serde_json::Value>,
-    },
+    SessionList { sessions: Vec<serde_json::Value> },
 
     /// Full history of a specific chat session for the Mobile UI
     SessionHistory {
@@ -474,7 +459,7 @@ impl WebSocketServer {
                         warn!("Max clients reached, rejecting connection from {addr}");
                         continue;
                     }
-                    
+
                     let clients_clone = Arc::clone(&clients);
                     let cmd_tx_clone = command_tx.clone();
                     let bc_rx = broadcast_tx.subscribe();
@@ -488,7 +473,9 @@ impl WebSocketServer {
                             cmd_tx_clone,
                             bc_rx,
                             secret_clone,
-                        ).await {
+                        )
+                        .await
+                        {
                             error!(remote = %addr, error = %e, "WebSocket connection error");
                         }
                     });
@@ -512,19 +499,20 @@ impl WebSocketServer {
             max_frame_size: Some(128 * 1024 * 1024),
             ..Default::default()
         };
-        let ws_stream = tokio_tungstenite::accept_async_with_config(stream, Some(ws_config)).await?;
+        let ws_stream =
+            tokio_tungstenite::accept_async_with_config(stream, Some(ws_config)).await?;
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
         let (client_tx, mut client_rx) = mpsc::channel::<ServerMessage>(32);
 
         let client = ConnectedClient::new(Some(addr), client_tx);
         let client_id = client.client_id.clone();
-        
+
         clients.write().await.insert(client_id.clone(), client);
         info!(client_id, remote = %addr, "New WebSocket connection");
 
         // Wait for authentication if required
         let mut authenticated = auth_secret.is_none();
-        
+
         loop {
             tokio::select! {
                 msg_opt = ws_receiver.next() => {
@@ -604,7 +592,7 @@ impl WebSocketServer {
                         _ => {} // Ignore binary/ping/pong frames for now
                     }
                 }
-                
+
                 // Messages specifically targeted to this client
                 Some(server_msg) = client_rx.recv() => {
                     if let Ok(json) = serde_json::to_string(&server_msg) {
@@ -616,7 +604,7 @@ impl WebSocketServer {
                         }
                     }
                 }
-                
+
                 // Broadcast messages
                 Ok(server_msg) = broadcast_rx.recv() => {
                     if let Ok(json) = serde_json::to_string(&server_msg) {

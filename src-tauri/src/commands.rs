@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
-use crate::{
-
-    AppState,
-};
+use crate::AppState;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared result type for all IPC commands
@@ -162,8 +159,15 @@ pub async fn send_chat_message(
 
 /// Create a new chat session and return its ID.
 #[tauri::command]
-pub async fn create_session(workspace_id: Option<String>, state: State<'_, AppState>) -> CommandResult<String> {
-    let id = state.orchestrator.create_session(workspace_id).await.map_err(err)?;
+pub async fn create_session(
+    workspace_id: Option<String>,
+    state: State<'_, AppState>,
+) -> CommandResult<String> {
+    let id = state
+        .orchestrator
+        .create_session(workspace_id)
+        .await
+        .map_err(err)?;
 
     tracing::info!(session_id = %id, "new session created");
     Ok(id.to_string())
@@ -182,15 +186,12 @@ pub async fn delete_session(session_id: String, state: State<'_, AppState>) -> C
 
 /// Sends a raw prompt to the LLM Gateway without using the Orchestrator loop.
 #[tauri::command]
-pub async fn raw_llm_request(
-    prompt: String,
-    state: State<'_, AppState>,
-) -> CommandResult<String> {
+pub async fn raw_llm_request(prompt: String, state: State<'_, AppState>) -> CommandResult<String> {
     tracing::info!("raw_llm_request invoked");
-    
-    let llm_req = crate::llm_gateway::LlmRequest::new(vec![
-        crate::llm_gateway::LlmMessage::user(prompt),
-    ]).with_temperature(0.3);
+
+    let llm_req =
+        crate::llm_gateway::LlmRequest::new(vec![crate::llm_gateway::LlmMessage::user(prompt)])
+            .with_temperature(0.3);
 
     let gateway_arc = state.llm_gateway.clone();
     let gateway = gateway_arc.read().await;
@@ -213,8 +214,10 @@ pub async fn get_session_history(
     state: State<'_, AppState>,
 ) -> CommandResult<Vec<ChatMessage>> {
     let store = state.orchestrator.get_session_store().await;
-    let session = store.get(&session_id).ok_or_else(|| "Session not found".to_string())?;
-    
+    let session = store
+        .get(&session_id)
+        .ok_or_else(|| "Session not found".to_string())?;
+
     let messages = session
         .messages
         .iter()
@@ -227,7 +230,7 @@ pub async fn get_session_history(
             agent_used: msg.agent_name.clone(),
         })
         .collect();
-        
+
     Ok(messages)
 }
 
@@ -273,14 +276,19 @@ pub async fn get_llm_settings(state: State<'_, AppState>) -> CommandResult<crate
 
 /// Retrieve current LLM gateway metrics (for Dashboard).
 #[tauri::command]
-pub async fn get_llm_metrics(state: State<'_, AppState>) -> CommandResult<crate::llm_gateway::GatewayMetrics> {
+pub async fn get_llm_metrics(
+    state: State<'_, AppState>,
+) -> CommandResult<crate::llm_gateway::GatewayMetrics> {
     let metrics = state.llm_gateway.read().await.metrics().await;
     Ok(metrics)
 }
 
 /// Detect and return the context window limit of the currently configured provider.
 #[tauri::command]
-pub async fn detect_llm_limit(state: State<'_, AppState>, _model: Option<String>) -> CommandResult<usize> {
+pub async fn detect_llm_limit(
+    state: State<'_, AppState>,
+    _model: Option<String>,
+) -> CommandResult<usize> {
     let limit = state
         .llm_gateway
         .read()
@@ -312,7 +320,11 @@ struct OpenAiModel {
 }
 
 #[tauri::command]
-pub async fn get_available_models(provider: String, endpoint: Option<String>, _api_key: Option<String>) -> CommandResult<Vec<String>> {
+pub async fn get_available_models(
+    provider: String,
+    endpoint: Option<String>,
+    _api_key: Option<String>,
+) -> CommandResult<Vec<String>> {
     match provider.as_str() {
         "gemini" => Ok(vec![
             "gemini-1.5-pro".to_string(),
@@ -332,14 +344,12 @@ pub async fn get_available_models(provider: String, endpoint: Option<String>, _a
             "claude-sonnet-4-6".to_string(),
             "claude-haiku-4-6".to_string(),
         ]),
-        "z.ai" => Ok(vec![
-            "zai-model".to_string(),
-        ]),
+        "z.ai" => Ok(vec!["zai-model".to_string()]),
         "ollama" => {
             let ep = endpoint.unwrap_or_else(|| "http://localhost:11434/v1".to_string());
             let base_ep = ep.trim_end_matches("/v1").trim_end_matches('/');
             let url = format!("{}/api/tags", base_ep);
-            
+
             let client = reqwest::Client::new();
             if let Ok(resp) = client.get(&url).send().await {
                 if let Ok(data) = resp.json::<OllamaTagsResponse>().await {
@@ -363,7 +373,7 @@ pub async fn get_available_models(provider: String, endpoint: Option<String>, _a
                 "mistral".to_string(),
                 "gemma2".to_string(),
             ])
-        },
+        }
         "lmstudio" => {
             let ep = endpoint.unwrap_or_else(|| "http://localhost:1234/v1".to_string());
             let mut ep = ep.trim_end_matches('/').to_string();
@@ -371,7 +381,7 @@ pub async fn get_available_models(provider: String, endpoint: Option<String>, _a
                 ep.push_str("/v1");
             }
             let url = format!("{}/models", ep);
-            
+
             let client = reqwest::Client::new();
             if let Ok(resp) = client.get(&url).send().await {
                 if let Ok(data) = resp.json::<OpenAiModelsResponse>().await {
@@ -381,7 +391,7 @@ pub async fn get_available_models(provider: String, endpoint: Option<String>, _a
                 }
             }
             Ok(vec!["local-model".to_string()])
-        },
+        }
         _ => Ok(vec![]),
     }
 }
@@ -504,9 +514,7 @@ pub async fn list_artifacts() -> CommandResult<Vec<FileEntry>> {
     }
 
     // Sort by modified_at descending (newest first)
-    entries.sort_by(|a, b| {
-        b.modified_at.cmp(&a.modified_at)
-    });
+    entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
 
     Ok(entries)
 }
@@ -516,9 +524,13 @@ pub async fn list_artifacts() -> CommandResult<Vec<FileEntry>> {
 pub async fn delete_file(filename: String) -> CommandResult<()> {
     let dir = std::env::temp_dir().join("office_hub_exports");
     let file_path = dir.join(&filename);
-    
+
     // Security check
-    if !file_path.starts_with(&dir) || filename.contains("..") || filename.contains("/") || filename.contains("\\") {
+    if !file_path.starts_with(&dir)
+        || filename.contains("..")
+        || filename.contains("/")
+        || filename.contains("\\")
+    {
         return Err("Invalid filename".to_string());
     }
 
@@ -526,7 +538,7 @@ pub async fn delete_file(filename: String) -> CommandResult<()> {
         std::fs::remove_file(&file_path).map_err(err)?;
         tracing::info!(filename = %filename, "Artifact deleted via IPC");
     }
-    
+
     // Also try deleting from the HTTP server public folder just in case they are different
     let public_dir = std::env::temp_dir().join("office_hub_exports");
     let pub_file_path = public_dir.join(&filename);
@@ -628,7 +640,11 @@ pub async fn save_workflow_definition(
 ) -> CommandResult<()> {
     tracing::info!("save_workflow_definition invoked");
     let def: crate::workflow::WorkflowDefinition = serde_json::from_value(workflow).map_err(err)?;
-    state.workflow_engine.save_definition(def).await.map_err(err)?;
+    state
+        .workflow_engine
+        .save_definition(def)
+        .await
+        .map_err(err)?;
     Ok(())
 }
 
@@ -701,7 +717,10 @@ pub async fn submit_chart_render(
     if let Some(sender) = map.remove(&request_id) {
         let _ = sender.send(base64_image);
     } else {
-        tracing::warn!("Received chart render for unknown request_id: {}", request_id);
+        tracing::warn!(
+            "Received chart render for unknown request_id: {}",
+            request_id
+        );
     }
     Ok(())
 }
@@ -760,7 +779,7 @@ pub async fn start_skill_learning(
     state: State<'_, AppState>,
 ) -> CommandResult<serde_json::Value> {
     tracing::info!(source_url = %source_url, "Starting skill learning");
-    
+
     let task = crate::orchestrator::AgentTask {
         task_id: uuid::Uuid::new_v4().to_string(),
         action: "learn_skill_from_docs".to_string(),
@@ -780,7 +799,11 @@ pub async fn start_skill_learning(
         dependencies: vec![],
     };
 
-    let out = state.orchestrator.execute_agent_action("converter", task).await.map_err(err)?;
+    let out = state
+        .orchestrator
+        .execute_agent_action("converter", task)
+        .await
+        .map_err(err)?;
     Ok(out.metadata.unwrap_or_else(|| serde_json::json!({})))
 }
 
@@ -800,16 +823,17 @@ pub async fn test_skill_sandbox(
     } else {
         format!("python:{}", script_path)
     };
-    let server_id = state.orchestrator.install_mcp_server(&source).await.map_err(err)?;
+    let server_id = state
+        .orchestrator
+        .install_mcp_server(&source)
+        .await
+        .map_err(err)?;
     Ok(server_id)
 }
 
 /// Saves edits to a skill file before sandbox testing
 #[tauri::command]
-pub async fn save_skill_file(
-    script_path: String,
-    content: String,
-) -> CommandResult<()> {
+pub async fn save_skill_file(script_path: String, content: String) -> CommandResult<()> {
     tokio::fs::write(&script_path, content).await.map_err(err)?;
     Ok(())
 }
@@ -840,11 +864,11 @@ fn get_skills_dir() -> std::path::PathBuf {
 pub async fn list_installed_skills() -> CommandResult<Vec<serde_json::Value>> {
     let mut results = Vec::new();
     let agent_dir = get_skills_dir();
-        
+
     if !agent_dir.exists() {
         return Ok(results);
     }
-    
+
     if let Ok(entries) = std::fs::read_dir(agent_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -856,8 +880,21 @@ pub async fn list_installed_skills() -> CommandResult<Vec<serde_json::Value>> {
                             if let Ok(meta) = serde_yaml::from_str::<serde_json::Value>(&yaml) {
                                 let mut obj = meta.clone();
                                 if let Some(m) = obj.as_object_mut() {
-                                    m.insert("id".to_string(), serde_json::Value::String(path.file_name().unwrap_or_default().to_string_lossy().to_string()));
-                                    m.insert("path".to_string(), serde_json::Value::String(md_path.to_string_lossy().to_string()));
+                                    m.insert(
+                                        "id".to_string(),
+                                        serde_json::Value::String(
+                                            path.file_name()
+                                                .unwrap_or_default()
+                                                .to_string_lossy()
+                                                .to_string(),
+                                        ),
+                                    );
+                                    m.insert(
+                                        "path".to_string(),
+                                        serde_json::Value::String(
+                                            md_path.to_string_lossy().to_string(),
+                                        ),
+                                    );
                                 }
                                 results.push(obj);
                             }
@@ -873,10 +910,8 @@ pub async fn list_installed_skills() -> CommandResult<Vec<serde_json::Value>> {
 /// Read raw Markdown content of a skill.
 #[tauri::command]
 pub async fn read_skill_file(skill_id: String) -> CommandResult<String> {
-    let md_path = get_skills_dir()
-        .join(&skill_id)
-        .join("SKILL.md");
-        
+    let md_path = get_skills_dir().join(&skill_id).join("SKILL.md");
+
     if md_path.exists() {
         std::fs::read_to_string(md_path).map_err(err)
     } else {
@@ -891,7 +926,7 @@ pub async fn delete_skill_folder(skill_id: String) -> CommandResult<()> {
         return Err("Invalid skill ID".to_string());
     }
     let folder_path = get_skills_dir().join(&skill_id);
-        
+
     if folder_path.exists() {
         std::fs::remove_dir_all(folder_path).map_err(err)
     } else {
@@ -921,7 +956,8 @@ pub async fn evaluate_skill(
     let llm_req = crate::llm_gateway::LlmRequest::new(vec![
         crate::llm_gateway::LlmMessage::system("Trả về duy nhất dữ liệu JSON.".to_string()),
         crate::llm_gateway::LlmMessage::user(prompt),
-    ]).with_json_schema(serde_json::json!({
+    ])
+    .with_json_schema(serde_json::json!({
         "type": "object",
         "properties": {
             "strengths": { "type": "array", "items": { "type": "string" } },
@@ -936,12 +972,13 @@ pub async fn evaluate_skill(
     let gateway = gateway_arc.read().await;
     let resp = gateway.complete(llm_req).await.map_err(err)?;
 
-    let parsed: serde_json::Value = serde_json::from_str(&resp.content)
-        .unwrap_or_else(|_| serde_json::json!({
+    let parsed: serde_json::Value = serde_json::from_str(&resp.content).unwrap_or_else(|_| {
+        serde_json::json!({
             "strengths": ["Failed to parse AI strengths"],
             "weaknesses": ["Failed to parse AI weaknesses"],
             "security": ["Failed to parse AI security notes"]
-        }));
+        })
+    });
 
     Ok(parsed)
 }
@@ -965,8 +1002,12 @@ pub async fn call_mcp_tool(
     state: State<'_, AppState>,
 ) -> CommandResult<serde_json::Value> {
     tracing::info!(server_id = %server_id, tool_name = %tool_name, "Directly calling MCP tool");
-    
-    let result = state.orchestrator.call_mcp_tool(&tool_name, arguments).await.map_err(err)?;
+
+    let result = state
+        .orchestrator
+        .call_mcp_tool(&tool_name, arguments)
+        .await
+        .map_err(err)?;
     serde_json::to_value(result).map_err(err)
 }
 
@@ -1015,36 +1056,42 @@ pub async fn get_telemetry_logs(
     state: State<'_, AppState>,
 ) -> CommandResult<Vec<serde_json::Value>> {
     let orchestrator = state.orchestrator.clone();
-    
+
     // We need to add a get_telemetry function to MemoryStore
     let inner = orchestrator.0.read().await;
     let mut logs = Vec::new();
-    
+
     if let Some(mem) = &inner.memory_store {
         // Fallback to direct SQLite access since we haven't added get_telemetry to MemoryStore yet
-        let conn = mem.conn.lock().map_err(|e| anyhow::anyhow!("Mutex poisoned: {}", e)).map_err(err)?;
+        let conn = mem
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Mutex poisoned: {}", e))
+            .map_err(err)?;
         let mut stmt = conn.prepare(
             "SELECT id, session_id, agent_name, action, latency_ms, tokens_used, status, timestamp FROM telemetry_logs ORDER BY timestamp DESC LIMIT ?1"
         ).map_err(err)?;
-        
-        let results = stmt.query_map(rusqlite::params![limit], |row: &rusqlite::Row| {
-            Ok(serde_json::json!({
-                "id": row.get::<_, i64>(0)?,
-                "sessionId": row.get::<_, String>(1)?,
-                "agentName": row.get::<_, String>(2)?,
-                "action": row.get::<_, String>(3)?,
-                "latencyMs": row.get::<_, i64>(4)?,
-                "tokensUsed": row.get::<_, i64>(5)?,
-                "status": row.get::<_, String>(6)?,
-                "timestamp": row.get::<_, String>(7)?,
-            }))
-        }).map_err(err)?;
-        
+
+        let results = stmt
+            .query_map(rusqlite::params![limit], |row: &rusqlite::Row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, i64>(0)?,
+                    "sessionId": row.get::<_, String>(1)?,
+                    "agentName": row.get::<_, String>(2)?,
+                    "action": row.get::<_, String>(3)?,
+                    "latencyMs": row.get::<_, i64>(4)?,
+                    "tokensUsed": row.get::<_, i64>(5)?,
+                    "status": row.get::<_, String>(6)?,
+                    "timestamp": row.get::<_, String>(7)?,
+                }))
+            })
+            .map_err(err)?;
+
         for val in results.flatten() {
             logs.push(val);
         }
     }
-    
+
     Ok(logs)
 }
 
@@ -1064,14 +1111,19 @@ pub async fn get_telemetry_logs(
 pub async fn setup_local_ai() -> Result<String, String> {
     let current_dir = std::env::current_dir().unwrap_or_default();
     let script_path = current_dir.join("scripts").join("setup_ollama.ps1");
-    
+
     // Check if script exists
     if !script_path.exists() {
         return Err("Setup script not found".to_string());
     }
 
     let output = tokio::process::Command::new("powershell")
-        .args(["-ExecutionPolicy", "Bypass", "-File", script_path.to_str().unwrap()])
+        .args([
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            script_path.to_str().unwrap(),
+        ])
         .output()
         .await
         .map_err(|e| format!("Failed to execute script: {}", e))?;

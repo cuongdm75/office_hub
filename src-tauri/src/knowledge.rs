@@ -1,8 +1,8 @@
+use crate::AppError;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
-use crate::AppError;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KnowledgeFile {
@@ -34,11 +34,19 @@ fn validate_category(category: &str) -> Result<(), AppError> {
 }
 
 /// Get directory path for the given category
-fn get_category_dir(app: &AppHandle, category: &str, workspace_id: Option<&str>) -> Result<PathBuf, AppError> {
+fn get_category_dir(
+    app: &AppHandle,
+    category: &str,
+    workspace_id: Option<&str>,
+) -> Result<PathBuf, AppError> {
     validate_category(category)?;
 
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?;
+    let base_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            e.to_string(),
+        ))
+    })?;
 
     // Map category names to actual directory names (for backward compat)
     let rel_path = match category {
@@ -91,7 +99,11 @@ fn validate_filename(filename: &str) -> Result<(), AppError> {
 // ── List ─────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn list_knowledge(app: AppHandle, category: Option<String>, workspace_id: Option<String>) -> Result<Vec<KnowledgeFile>, AppError> {
+pub async fn list_knowledge(
+    app: AppHandle,
+    category: Option<String>,
+    workspace_id: Option<String>,
+) -> Result<Vec<KnowledgeFile>, AppError> {
     let cat = category.as_deref().unwrap_or("knowledge");
     validate_category(cat)?;
     let dir = get_category_dir(&app, cat, workspace_id.as_deref())?;
@@ -104,7 +116,8 @@ pub async fn list_knowledge(app: AppHandle, category: Option<String>, workspace_
 
             if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("md") {
                 let metadata = entry.metadata()?;
-                let modified_at = metadata.modified()
+                let modified_at = metadata
+                    .modified()
                     .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
                     .duration_since(std::time::SystemTime::UNIX_EPOCH)
                     .unwrap_or_default()
@@ -120,8 +133,10 @@ pub async fn list_knowledge(app: AppHandle, category: Option<String>, workspace_
                 // For skills: include folder-based skills (contain SKILL.md)
                 let skill_md = path.join("SKILL.md");
                 if skill_md.exists() {
-                    let metadata = fs::metadata(&skill_md).unwrap_or_else(|_| entry.metadata().unwrap());
-                    let modified_at = metadata.modified()
+                    let metadata =
+                        fs::metadata(&skill_md).unwrap_or_else(|_| entry.metadata().unwrap());
+                    let modified_at = metadata
+                        .modified()
                         .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
                         .duration_since(std::time::SystemTime::UNIX_EPOCH)
                         .unwrap_or_default()
@@ -159,12 +174,15 @@ pub async fn list_skills_metadata(app: AppHandle) -> Result<Vec<SkillMetadata>, 
     let dir = get_category_dir(&app, "skills", None)?;
     let mut skills = Vec::new();
 
-    if !dir.exists() { return Ok(skills); }
+    if !dir.exists() {
+        return Ok(skills);
+    }
 
     for entry in fs::read_dir(&dir)? {
         let entry = entry?;
         let path = entry.path();
-        let modified_at = entry.metadata()
+        let modified_at = entry
+            .metadata()
             .unwrap_or_else(|_| fs::metadata(&path).unwrap())
             .modified()
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
@@ -176,8 +194,13 @@ pub async fn list_skills_metadata(app: AppHandle) -> Result<Vec<SkillMetadata>, 
             let skill_md = path.join("SKILL.md");
             if skill_md.exists() {
                 if let Ok(content) = fs::read_to_string(&skill_md) {
-                    let (name, description) = parse_skill_frontmatter(&content)
-                        .unwrap_or_else(|| (entry.file_name().to_string_lossy().to_string(), String::new()));
+                    let (name, description) =
+                        parse_skill_frontmatter(&content).unwrap_or_else(|| {
+                            (
+                                entry.file_name().to_string_lossy().to_string(),
+                                String::new(),
+                            )
+                        });
                     skills.push(SkillMetadata {
                         filename: format!("{}/SKILL.md", entry.file_name().to_string_lossy()),
                         name,
@@ -208,9 +231,13 @@ pub async fn list_skills_metadata(app: AppHandle) -> Result<Vec<SkillMetadata>, 
 }
 
 fn parse_skill_frontmatter(content: &str) -> Option<(String, String)> {
-    if !content.starts_with("---") { return None; }
+    if !content.starts_with("---") {
+        return None;
+    }
     let parts: Vec<&str> = content.splitn(3, "---").collect();
-    if parts.len() < 3 { return None; }
+    if parts.len() < 3 {
+        return None;
+    }
 
     let yaml = parts[1];
     let mut name = String::new();
@@ -224,14 +251,21 @@ fn parse_skill_frontmatter(content: &str) -> Option<(String, String)> {
         }
     }
 
-    if name.is_empty() { return None; }
+    if name.is_empty() {
+        return None;
+    }
     Some((name, description))
 }
 
 // ── Read ─────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn read_knowledge_file(app: AppHandle, filename: String, category: Option<String>, workspace_id: Option<String>) -> Result<String, AppError> {
+pub async fn read_knowledge_file(
+    app: AppHandle,
+    filename: String,
+    category: Option<String>,
+    workspace_id: Option<String>,
+) -> Result<String, AppError> {
     validate_filename(&filename)?;
     let cat = category.as_deref().unwrap_or("knowledge");
     let dir = get_category_dir(&app, cat, workspace_id.as_deref())?;
@@ -244,7 +278,8 @@ pub async fn read_knowledge_file(app: AppHandle, filename: String, category: Opt
     let canonical_file = file_path.canonicalize().unwrap_or(file_path.clone());
     if !canonical_file.starts_with(&canonical_dir) {
         return Err(AppError::Io(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied, "Access denied",
+            std::io::ErrorKind::PermissionDenied,
+            "Access denied",
         )));
     }
 
@@ -261,7 +296,13 @@ pub async fn read_knowledge_file(app: AppHandle, filename: String, category: Opt
 // ── Save ─────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn save_knowledge_file(app: AppHandle, filename: String, content: String, category: Option<String>, workspace_id: Option<String>) -> Result<(), AppError> {
+pub async fn save_knowledge_file(
+    app: AppHandle,
+    filename: String,
+    content: String,
+    category: Option<String>,
+    workspace_id: Option<String>,
+) -> Result<(), AppError> {
     // Allow subfolder separator only as "/" for skills (e.g. "skill-name/SKILL.md")
     let cat = category.as_deref().unwrap_or("knowledge");
     let dir = get_category_dir(&app, cat, workspace_id.as_deref())?;
@@ -269,7 +310,8 @@ pub async fn save_knowledge_file(app: AppHandle, filename: String, content: Stri
     // Validate: no ".." traversal
     if filename.contains("..") || filename.contains('\\') {
         return Err(AppError::Io(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput, "Invalid filename",
+            std::io::ErrorKind::InvalidInput,
+            "Invalid filename",
         )));
     }
 
@@ -295,7 +337,12 @@ pub async fn save_knowledge_file(app: AppHandle, filename: String, content: Stri
 // ── Delete ───────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn delete_knowledge_file(app: AppHandle, filename: String, category: Option<String>, workspace_id: Option<String>) -> Result<(), AppError> {
+pub async fn delete_knowledge_file(
+    app: AppHandle,
+    filename: String,
+    category: Option<String>,
+    workspace_id: Option<String>,
+) -> Result<(), AppError> {
     validate_filename(&filename)?;
     let cat = category.as_deref().unwrap_or("knowledge");
     let dir = get_category_dir(&app, cat, workspace_id.as_deref())?;
@@ -318,12 +365,19 @@ pub struct Workspace {
 
 #[tauri::command]
 pub async fn list_workspaces(app: AppHandle) -> Result<Vec<Workspace>, AppError> {
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?
+    let base_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| {
+            AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                e.to_string(),
+            ))
+        })?
         .join("workspaces");
 
     let mut workspaces = Vec::new();
-    
+
     // Always return default workspace
     workspaces.push(Workspace {
         id: "default".to_string(),
@@ -353,7 +407,8 @@ pub async fn list_workspaces(app: AppHandle) -> Result<Vec<Workspace>, AppError>
                         }
                     }
                 } else {
-                    created_at = entry.metadata()
+                    created_at = entry
+                        .metadata()
                         .ok()
                         .and_then(|m| m.created().ok())
                         .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
@@ -362,7 +417,11 @@ pub async fn list_workspaces(app: AppHandle) -> Result<Vec<Workspace>, AppError>
                         .as_secs();
                 }
 
-                workspaces.push(Workspace { id, name, created_at });
+                workspaces.push(Workspace {
+                    id,
+                    name,
+                    created_at,
+                });
             }
         }
     }
@@ -373,9 +432,17 @@ pub async fn list_workspaces(app: AppHandle) -> Result<Vec<Workspace>, AppError>
 #[tauri::command]
 pub async fn create_workspace(app: AppHandle, name: String) -> Result<Workspace, AppError> {
     let id = uuid::Uuid::new_v4().to_string();
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?
-        .join("workspaces").join(&id);
+    let base_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| {
+            AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                e.to_string(),
+            ))
+        })?
+        .join("workspaces")
+        .join(&id);
 
     fs::create_dir_all(&base_dir)?;
     fs::create_dir_all(base_dir.join("knowledge"))?;
@@ -384,7 +451,7 @@ pub async fn create_workspace(app: AppHandle, name: String) -> Result<Workspace,
     fs::create_dir_all(base_dir.join("output"))?;
     fs::create_dir_all(base_dir.join("links"))?;
     fs::create_dir_all(base_dir.join("memory"))?;
-    
+
     // Initialize links.json
     fs::write(base_dir.join("links.json"), "[]")?;
 
@@ -399,7 +466,10 @@ pub async fn create_workspace(app: AppHandle, name: String) -> Result<Workspace,
         "created_at": created_at
     });
 
-    fs::write(base_dir.join("meta.json"), serde_json::to_string_pretty(&meta)?)?;
+    fs::write(
+        base_dir.join("meta.json"),
+        serde_json::to_string_pretty(&meta)?,
+    )?;
 
     Ok(Workspace {
         id,
@@ -416,12 +486,20 @@ pub async fn delete_workspace(app: AppHandle, id: String) -> Result<(), AppError
             "Cannot delete default workspace",
         )));
     }
-    
+
     validate_filename(&id)?;
 
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?
-        .join("workspaces").join(&id);
+    let base_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| {
+            AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                e.to_string(),
+            ))
+        })?
+        .join("workspaces")
+        .join(&id);
 
     if base_dir.exists() {
         fs::remove_dir_all(base_dir)?;
@@ -431,10 +509,17 @@ pub async fn delete_workspace(app: AppHandle, id: String) -> Result<(), AppError
 }
 
 #[tauri::command]
-pub async fn get_workspace_path(app: AppHandle, workspace_id: Option<String>) -> Result<String, AppError> {
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?;
-        
+pub async fn get_workspace_path(
+    app: AppHandle,
+    workspace_id: Option<String>,
+) -> Result<String, AppError> {
+    let base_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            e.to_string(),
+        ))
+    })?;
+
     let dir = if let Some(wid) = workspace_id {
         if wid == "default" || wid == "Global" {
             base_dir.join("workspaces").join("default")
@@ -444,7 +529,7 @@ pub async fn get_workspace_path(app: AppHandle, workspace_id: Option<String>) ->
     } else {
         base_dir.join("workspaces").join("default")
     };
-    
+
     // Ensure default workspace exists
     if !dir.exists() {
         let _ = fs::create_dir_all(&dir);
@@ -456,7 +541,7 @@ pub async fn get_workspace_path(app: AppHandle, workspace_id: Option<String>) ->
         let _ = fs::create_dir_all(dir.join("memory"));
         let _ = fs::write(dir.join("links.json"), "[]");
     }
-    
+
     Ok(dir.to_string_lossy().to_string())
 }
 
@@ -471,9 +556,13 @@ pub struct WorkspaceLink {
 }
 
 fn get_links_file_path(app: &AppHandle, workspace_id: Option<&str>) -> Result<PathBuf, AppError> {
-    let base_dir = app.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, e.to_string())))?;
-        
+    let base_dir = app.path().app_data_dir().map_err(|e| {
+        AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            e.to_string(),
+        ))
+    })?;
+
     let path = if let Some(wid) = workspace_id {
         if wid == "default" {
             base_dir.join("links.json")
@@ -483,26 +572,34 @@ fn get_links_file_path(app: &AppHandle, workspace_id: Option<&str>) -> Result<Pa
     } else {
         base_dir.join("links.json")
     };
-    
+
     Ok(path)
 }
 
 #[tauri::command]
-pub async fn list_workspace_links(app: AppHandle, workspace_id: Option<String>) -> Result<Vec<WorkspaceLink>, AppError> {
+pub async fn list_workspace_links(
+    app: AppHandle,
+    workspace_id: Option<String>,
+) -> Result<Vec<WorkspaceLink>, AppError> {
     let path = get_links_file_path(&app, workspace_id.as_deref())?;
     if !path.exists() {
         return Ok(Vec::new());
     }
-    
+
     let content = fs::read_to_string(&path)?;
     let links: Vec<WorkspaceLink> = serde_json::from_str(&content).unwrap_or_default();
     Ok(links)
 }
 
 #[tauri::command]
-pub async fn add_workspace_link(app: AppHandle, workspace_id: Option<String>, url: String, title: String) -> Result<WorkspaceLink, AppError> {
+pub async fn add_workspace_link(
+    app: AppHandle,
+    workspace_id: Option<String>,
+    url: String,
+    title: String,
+) -> Result<WorkspaceLink, AppError> {
     let path = get_links_file_path(&app, workspace_id.as_deref())?;
-    
+
     let mut links: Vec<WorkspaceLink> = if path.exists() {
         let content = fs::read_to_string(&path)?;
         serde_json::from_str(&content).unwrap_or_default()
@@ -512,32 +609,39 @@ pub async fn add_workspace_link(app: AppHandle, workspace_id: Option<String>, ur
         }
         Vec::new()
     };
-    
+
     let link = WorkspaceLink {
         id: uuid::Uuid::new_v4().to_string(),
         title,
         url,
-        added_at: std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs(),
+        added_at: std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
     };
-    
+
     links.push(link.clone());
     fs::write(&path, serde_json::to_string_pretty(&links)?)?;
-    
+
     Ok(link)
 }
 
 #[tauri::command]
-pub async fn remove_workspace_link(app: AppHandle, workspace_id: Option<String>, id: String) -> Result<(), AppError> {
+pub async fn remove_workspace_link(
+    app: AppHandle,
+    workspace_id: Option<String>,
+    id: String,
+) -> Result<(), AppError> {
     let path = get_links_file_path(&app, workspace_id.as_deref())?;
     if !path.exists() {
         return Ok(());
     }
-    
+
     let content = fs::read_to_string(&path)?;
     let mut links: Vec<WorkspaceLink> = serde_json::from_str(&content).unwrap_or_default();
-    
+
     links.retain(|l| l.id != id);
     fs::write(&path, serde_json::to_string_pretty(&links)?)?;
-    
+
     Ok(())
 }

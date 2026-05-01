@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
-use crate::orchestrator::plan::{PlanExecution, PlanExecutionMode, FailurePolicy, PlanStatus};
+use crate::orchestrator::plan::{FailurePolicy, PlanExecution, PlanExecutionMode, PlanStatus};
 
 /// Events that can happen during plan execution.
 #[derive(Debug, Clone)]
@@ -44,7 +44,11 @@ impl PlanMonitor {
     }
 
     /// Check the event against the current plan state and decide the next action.
-    pub async fn check(&mut self, plan_exec: &PlanExecution, event: MonitorEvent) -> MonitorDecision {
+    pub async fn check(
+        &mut self,
+        plan_exec: &PlanExecution,
+        event: MonitorEvent,
+    ) -> MonitorDecision {
         match event {
             MonitorEvent::TaskCompleted(task_id, _output) => {
                 // Reset consecutive failures on success
@@ -55,11 +59,16 @@ impl PlanMonitor {
             MonitorEvent::TaskFailed(task_id, error) => {
                 self.consecutive_failures += 1;
                 warn!("PlanMonitor: Task {} failed: {}", task_id, error);
-                
-                if let Some(task) = plan_exec.plan.subtasks.iter().find(|t| t.task_id == task_id) {
+
+                if let Some(task) = plan_exec
+                    .plan
+                    .subtasks
+                    .iter()
+                    .find(|t| t.task_id == task_id)
+                {
                     if self.consecutive_failures >= self.max_consecutive_failures {
                         return MonitorDecision::PausePlan(format!(
-                            "Too many consecutive failures ({}). Halting for review.", 
+                            "Too many consecutive failures ({}). Halting for review.",
                             self.consecutive_failures
                         ));
                     }
@@ -70,7 +79,8 @@ impl PlanMonitor {
                                 MonitorDecision::SkipTask(task_id.clone())
                             } else {
                                 MonitorDecision::CancelPlan(format!(
-                                    "Task {} failed and mode is not BestEffort.", task_id
+                                    "Task {} failed and mode is not BestEffort.",
+                                    task_id
                                 ))
                             }
                         }
@@ -79,9 +89,10 @@ impl PlanMonitor {
                             // For MVP, we'll just attempt a retry. The runner must manage the retry count state.
                             MonitorDecision::RetryTask(task_id.clone())
                         }
-                        FailurePolicy::StopPlan => {
-                            MonitorDecision::CancelPlan(format!("Task {} failed and its policy is StopPlan.", task_id))
-                        }
+                        FailurePolicy::StopPlan => MonitorDecision::CancelPlan(format!(
+                            "Task {} failed and its policy is StopPlan.",
+                            task_id
+                        )),
                     }
                 } else {
                     MonitorDecision::CancelPlan(format!("Unknown task failed: {}", task_id))
@@ -89,10 +100,19 @@ impl PlanMonitor {
             }
             MonitorEvent::TaskTimeout(task_id) => {
                 warn!("PlanMonitor: Task {} timed out.", task_id);
-                if let Some(task) = plan_exec.plan.subtasks.iter().find(|t| t.task_id == task_id) {
+                if let Some(task) = plan_exec
+                    .plan
+                    .subtasks
+                    .iter()
+                    .find(|t| t.task_id == task_id)
+                {
                     match task.on_failure {
                         FailurePolicy::Retry(_) => MonitorDecision::RetryTask(task_id.clone()),
-                        FailurePolicy::Continue if plan_exec.plan.mode == PlanExecutionMode::BestEffort => MonitorDecision::SkipTask(task_id.clone()),
+                        FailurePolicy::Continue
+                            if plan_exec.plan.mode == PlanExecutionMode::BestEffort =>
+                        {
+                            MonitorDecision::SkipTask(task_id.clone())
+                        }
                         _ => MonitorDecision::CancelPlan(format!("Task {} timed out.", task_id)),
                     }
                 } else {

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use tracing::info;
 
 use crate::agent_actions;
@@ -43,20 +43,20 @@ impl Agent for SystemAgent {
     }
 
     fn tool_schemas(&self) -> Vec<crate::mcp::McpTool> {
-        vec![
-            crate::mcp::McpTool {
-                name: "send_file".to_string(),
-                description: "Gửi một file từ máy tính local đến user (tải xuống). Tham số: `file_path`.".to_string(),
-                input_schema: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "file_path": { "type": "string" }
-                    },
-                    "required": ["file_path"]
-                }),
-                tags: vec![],
-            }
-        ]
+        vec![crate::mcp::McpTool {
+            name: "send_file".to_string(),
+            description:
+                "Gửi một file từ máy tính local đến user (tải xuống). Tham số: `file_path`."
+                    .to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "file_path": { "type": "string" }
+                },
+                "required": ["file_path"]
+            }),
+            tags: vec![],
+        }]
     }
 
     fn status(&self) -> AgentStatus {
@@ -78,7 +78,9 @@ impl Agent for SystemAgent {
 
 impl SystemAgent {
     async fn handle_send_file(&self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let file_path = task.parameters.get("file_path")
+        let file_path = task
+            .parameters
+            .get("file_path")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
@@ -88,7 +90,11 @@ impl SystemAgent {
         }
 
         // Keep base64 empty or remove it
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let file_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         let public_dir = std::env::temp_dir().join("office_hub_exports");
         let _ = std::fs::create_dir_all(&public_dir);
@@ -98,10 +104,15 @@ impl SystemAgent {
         let target_path = public_dir.join(&target_filename);
 
         if let Err(e) = std::fs::copy(path, &target_path) {
-            return Err(anyhow::anyhow!("Failed to copy file to public directory: {}", e));
+            return Err(anyhow::anyhow!(
+                "Failed to copy file to public directory: {}",
+                e
+            ));
         }
 
-        let ip = local_ip_address::local_ip().map(|ip| ip.to_string()).unwrap_or_else(|_| "127.0.0.1".to_string());
+        let ip = local_ip_address::local_ip()
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|_| "127.0.0.1".to_string());
         // Lấy port của ws server (thường là 9001) cộng 1 thành 9002 cho HTTP server
         // Ở đây ta hardcode 9002 (giả định), tốt nhất là load từ config nhưng để đơn giản ta gán 9002
         let url = format!("http://{}:9002/files/{}", ip, target_filename);

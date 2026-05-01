@@ -1,16 +1,16 @@
-use std::sync::Arc;
-use std::collections::{HashMap, HashSet};
-use tokio::sync::RwLock;
-use tracing::{info, warn, error};
 use chrono::Utc;
 use serde_json::Value;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{error, info, warn};
 
-use super::plan::{PlanExecution, SubTaskStatus, SubTaskResult, PlanStatus};
-use super::plan_monitor::{PlanMonitor, MonitorEvent, MonitorDecision};
-use crate::agents::{AgentRegistry, AgentId};
-use crate::mcp::broker::McpBroker;
-use crate::orchestrator::{AgentTask, intent::Intent, HitlManager, HitlRequestBuilder};
+use super::plan::{PlanExecution, PlanStatus, SubTaskResult, SubTaskStatus};
+use super::plan_monitor::{MonitorDecision, MonitorEvent, PlanMonitor};
+use crate::agents::{AgentId, AgentRegistry};
 use crate::llm_gateway::LlmGateway;
+use crate::mcp::broker::McpBroker;
+use crate::orchestrator::{intent::Intent, AgentTask, HitlManager, HitlRequestBuilder};
 
 pub struct PlanRunner {
     agent_registry: Arc<AgentRegistry>,
@@ -40,24 +40,27 @@ impl PlanRunner {
     /// Execute the plan following the DAG.
     pub async fn run(&self, plan_exec: Arc<PlanExecution>, session_id: &str) {
         let mut monitor = PlanMonitor::new();
-        
+
         *plan_exec.status.write().await = PlanStatus::Running;
-        
+
         // Initialize all results as Pending
         for task in &plan_exec.plan.subtasks {
-            plan_exec.results.insert(task.task_id.clone(), SubTaskResult {
-                task_id: task.task_id.clone(),
-                status: SubTaskStatus::Pending,
-                output: None,
-                error: None,
-                started_at: None,
-                finished_at: None,
-                tokens_used: 0,
-            });
+            plan_exec.results.insert(
+                task.task_id.clone(),
+                SubTaskResult {
+                    task_id: task.task_id.clone(),
+                    status: SubTaskStatus::Pending,
+                    output: None,
+                    error: None,
+                    started_at: None,
+                    finished_at: None,
+                    tokens_used: 0,
+                },
+            );
         }
 
         let mut rx = plan_exec.cancel_tx.subscribe();
-        
+
         loop {
             // Check cancellation
             if *rx.borrow() {
@@ -101,7 +104,9 @@ impl PlanRunner {
                 let mut deps_met = true;
                 for dep in &task.depends_on {
                     if let Some(dep_result) = plan_exec.results.get(dep) {
-                        if dep_result.status != SubTaskStatus::Success && dep_result.status != SubTaskStatus::Skipped {
+                        if dep_result.status != SubTaskStatus::Success
+                            && dep_result.status != SubTaskStatus::Skipped
+                        {
                             deps_met = false;
                             break;
                         }
@@ -130,7 +135,10 @@ impl PlanRunner {
                     result.started_at = Some(Utc::now());
                 }
 
-                self.send_progress(&format!("▶ Starting task '{}': {}", task.task_id, task.description));
+                self.send_progress(&format!(
+                    "▶ Starting task '{}': {}",
+                    task.task_id, task.description
+                ));
 
                 // Prepare clones for the spawned task
                 let agent_registry = Arc::clone(&self.agent_registry);
@@ -143,39 +151,37 @@ impl PlanRunner {
 
                 tokio::spawn(async move {
                     let mut monitor = PlanMonitor::new();
-                    
+
                     let send_prog = |msg: &str| {
                         if let Some(tx) = &progress_tx {
                             let _ = tx.send(msg.to_string());
                         }
                     };
 
-                    let handle_decision = |decision: MonitorDecision| {
-                        match decision {
-                            MonitorDecision::Continue => {}
-                            MonitorDecision::CancelPlan(reason) => {
-                                send_prog(&format!("🛑 Plan cancelled: {}", reason));
-                                let _ = plan_exec.cancel_tx.send(true);
+                    let handle_decision = |decision: MonitorDecision| match decision {
+                        MonitorDecision::Continue => {}
+                        MonitorDecision::CancelPlan(reason) => {
+                            send_prog(&format!("🛑 Plan cancelled: {}", reason));
+                            let _ = plan_exec.cancel_tx.send(true);
+                        }
+                        MonitorDecision::PausePlan(reason) => {
+                            send_prog(&format!("⏸️ Plan paused: {}", reason));
+                            let _ = plan_exec.cancel_tx.send(true);
+                        }
+                        MonitorDecision::SkipTask(tid) => {
+                            if let Some(mut result) = plan_exec.results.get_mut(&tid) {
+                                result.status = SubTaskStatus::Skipped;
+                                result.finished_at = Some(Utc::now());
                             }
-                            MonitorDecision::PausePlan(reason) => {
-                                send_prog(&format!("⏸️ Plan paused: {}", reason));
-                                let _ = plan_exec.cancel_tx.send(true);
+                        }
+                        MonitorDecision::RetryTask(tid) => {
+                            if let Some(mut result) = plan_exec.results.get_mut(&tid) {
+                                result.status = SubTaskStatus::Pending;
+                                result.error = None;
                             }
-                            MonitorDecision::SkipTask(tid) => {
-                                if let Some(mut result) = plan_exec.results.get_mut(&tid) {
-                                    result.status = SubTaskStatus::Skipped;
-                                    result.finished_at = Some(Utc::now());
-                                }
-                            }
-                            MonitorDecision::RetryTask(tid) => {
-                                if let Some(mut result) = plan_exec.results.get_mut(&tid) {
-                                    result.status = SubTaskStatus::Pending;
-                                    result.error = None;
-                                }
-                            }
-                            MonitorDecision::RequestReplan(_) => {
-                                let _ = plan_exec.cancel_tx.send(true);
-                            }
+                        }
+                        MonitorDecision::RequestReplan(_) => {
+                            let _ = plan_exec.cancel_tx.send(true);
                         }
                     };
 
@@ -189,7 +195,7 @@ impl PlanRunner {
                         });
 
                         *plan_exec.status.write().await = PlanStatus::PausedForHitl;
-                        
+
                         // Wait for HITL
                         if let Ok(approved) = rx.await {
                             if !approved {
@@ -232,12 +238,16 @@ impl PlanRunner {
                         for dep in &task.depends_on {
                             if let Some(dep_res) = plan_exec.results.get(dep) {
                                 if let Some(out) = &dep_res.output {
-                                    injected_outputs.insert(dep.clone(), Value::String(out.clone()));
+                                    injected_outputs
+                                        .insert(dep.clone(), Value::String(out.clone()));
                                 }
                             }
                         }
                         if !injected_outputs.is_empty() {
-                            obj.insert("__dependencies".to_string(), Value::Object(injected_outputs));
+                            obj.insert(
+                                "__dependencies".to_string(),
+                                Value::Object(injected_outputs),
+                            );
                         }
                     }
 
@@ -256,7 +266,12 @@ impl PlanRunner {
                             message: "".to_string(),
                             context_file: None,
                             session_id: session_id_clone.clone(),
-                            parameters: params.as_object().cloned().unwrap_or_default().into_iter().collect(),
+                            parameters: params
+                                .as_object()
+                                .cloned()
+                                .unwrap_or_default()
+                                .into_iter()
+                                .collect(),
                             llm_gateway: Some(llm_gateway.clone()),
                             global_policy: None,
                             knowledge_context: None,
@@ -309,8 +324,10 @@ impl PlanRunner {
                             result.tokens_used = tokens_used;
                         }
                         send_prog(&format!("❌ Task '{}' failed: {}", task_id, err));
-                        
-                        let decision = monitor.check(&plan_exec, MonitorEvent::TaskFailed(task_id.clone(), err)).await;
+
+                        let decision = monitor
+                            .check(&plan_exec, MonitorEvent::TaskFailed(task_id.clone(), err))
+                            .await;
                         handle_decision(decision);
                     } else if let Some(out) = output_msg {
                         if let Some(mut result) = plan_exec.results.get_mut(&task_id) {
@@ -320,8 +337,13 @@ impl PlanRunner {
                             result.tokens_used = tokens_used;
                         }
                         send_prog(&format!("✅ Task '{}' completed.", task_id));
-                        
-                        let decision = monitor.check(&plan_exec, MonitorEvent::TaskCompleted(task_id.clone(), out)).await;
+
+                        let decision = monitor
+                            .check(
+                                &plan_exec,
+                                MonitorEvent::TaskCompleted(task_id.clone(), out),
+                            )
+                            .await;
                         handle_decision(decision);
                     }
                 });

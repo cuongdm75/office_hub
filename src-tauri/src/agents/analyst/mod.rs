@@ -308,7 +308,11 @@ impl AnalystAgent {
             || raw_file.starts_with("https://")
             || raw_file.starts_with("onedrive:")
             || raw_file.contains("sharepoint.com");
-        let file = if is_remote || raw_file.is_empty() { "" } else { raw_file };
+        let file = if is_remote || raw_file.is_empty() {
+            ""
+        } else {
+            raw_file
+        };
 
         self.stats.total_tasks += 1;
 
@@ -320,25 +324,23 @@ impl AnalystAgent {
             Ok(excel) => {
                 let structure = if file.is_empty() {
                     // No local path – read the currently-active workbook via COM
-                    excel.get_active_workbook_structure()
-                        .unwrap_or_else(|e| {
-                            warn!("get_active_workbook_structure failed: {}", e);
-                            excel_com::WorkbookStructure {
-                                file_path: "<active workbook>".into(),
-                                sheet_count: 0,
-                                sheets: vec![],
-                            }
-                        })
+                    excel.get_active_workbook_structure().unwrap_or_else(|e| {
+                        warn!("get_active_workbook_structure failed: {}", e);
+                        excel_com::WorkbookStructure {
+                            file_path: "<active workbook>".into(),
+                            sheet_count: 0,
+                            sheets: vec![],
+                        }
+                    })
                 } else {
-                    excel.get_workbook_structure(file)
-                        .unwrap_or_else(|e| {
-                            warn!("get_workbook_structure failed: {}", e);
-                            excel_com::WorkbookStructure {
-                                file_path: file.to_string(),
-                                sheet_count: 0,
-                                sheets: vec![],
-                            }
-                        })
+                    excel.get_workbook_structure(file).unwrap_or_else(|e| {
+                        warn!("get_workbook_structure failed: {}", e);
+                        excel_com::WorkbookStructure {
+                            file_path: file.to_string(),
+                            sheet_count: 0,
+                            sheets: vec![],
+                        }
+                    })
                 };
 
                 // Audit formulas across all sheets
@@ -347,7 +349,12 @@ impl AnalystAgent {
                 let sheet_summary = structure
                     .sheets
                     .iter()
-                    .map(|s| format!("  • {} ({} hàng × {} cột)", s.name, s.used_rows, s.used_cols))
+                    .map(|s| {
+                        format!(
+                            "  • {} ({} hàng × {} cột)",
+                            s.name, s.used_rows, s.used_cols
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join("\n");
 
@@ -357,9 +364,18 @@ impl AnalystAgent {
                     let lines: Vec<String> = formula_errors
                         .iter()
                         .take(10)
-                        .map(|e| format!("  ❌ [{}]!{} → {} ({})", e.sheet_name, e.cell_ref, e.error_text, e.formula))
+                        .map(|e| {
+                            format!(
+                                "  ❌ [{}]!{} → {} ({})",
+                                e.sheet_name, e.cell_ref, e.error_text, e.formula
+                            )
+                        })
                         .collect();
-                    format!("⚠️ {} lỗi công thức:\n{}", formula_errors.len(), lines.join("\n"))
+                    format!(
+                        "⚠️ {} lỗi công thức:\n{}",
+                        formula_errors.len(),
+                        lines.join("\n")
+                    )
                 };
 
                 let content = format!(
@@ -368,7 +384,11 @@ impl AnalystAgent {
                      **Kiểm tra công thức**:\n{}",
                     structure.file_path,
                     structure.sheet_count,
-                    if sheet_summary.is_empty() { "  (không có sheet)".into() } else { sheet_summary },
+                    if sheet_summary.is_empty() {
+                        "  (không có sheet)".into()
+                    } else {
+                        sheet_summary
+                    },
                     error_summary
                 );
 
@@ -390,9 +410,22 @@ impl AnalystAgent {
     }
 
     async fn read_range(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str()).or(task.context_file.as_deref()).unwrap_or("");
-        let range = task.parameters.get("range").and_then(|v| v.as_str()).unwrap_or("A1");
-        let sheet = task.parameters.get("sheet").and_then(|v| v.as_str()).unwrap_or("Sheet1");
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .or(task.context_file.as_deref())
+            .unwrap_or("");
+        let range = task
+            .parameters
+            .get("range")
+            .and_then(|v| v.as_str())
+            .unwrap_or("A1");
+        let sheet = task
+            .parameters
+            .get("sheet")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Sheet1");
 
         self.stats.total_tasks += 1;
 
@@ -400,11 +433,13 @@ impl AnalystAgent {
             .map_err(|e| anyhow::anyhow!("Excel COM unavailable: {}", e))?;
 
         if !file.is_empty() {
-            excel.open_workbook(file)
+            excel
+                .open_workbook(file)
                 .map_err(|e| anyhow::anyhow!("Cannot open '{}': {}", file, e))?;
         }
 
-        let (headers, rows) = excel.read_range_2d(sheet, range)
+        let (headers, rows) = excel
+            .read_range_2d(sheet, range)
             .map_err(|e| anyhow::anyhow!("read_range_2d failed: {}", e))?;
 
         self.stats.cells_read += rows.iter().map(|r| r.len() as u64).sum::<u64>();
@@ -414,20 +449,40 @@ impl AnalystAgent {
         let mut lines = Vec::new();
         if !headers.is_empty() {
             lines.push(format!("| {} |", headers.join(" | ")));
-            lines.push(format!("| {} |", headers.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")));
+            lines.push(format!(
+                "| {} |",
+                headers
+                    .iter()
+                    .map(|_| "---")
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            ));
         }
         for row in rows.iter().skip(if headers.is_empty() { 0 } else { 1 }) {
-            let cells: Vec<String> = row.iter().map(|v| match v {
-                serde_json::Value::Null => String::new(),
-                serde_json::Value::Number(n) => n.to_string(),
-                serde_json::Value::String(s) => s.clone(),
-                other => other.to_string(),
-            }).collect();
+            let cells: Vec<String> = row
+                .iter()
+                .map(|v| match v {
+                    serde_json::Value::Null => String::new(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                })
+                .collect();
             lines.push(format!("| {} |", cells.join(" | ")));
         }
 
-        let table = if lines.is_empty() { "(Không có dữ liệu)".to_string() } else { lines.join("\n") };
-        let content = format!("📋 **Dữ liệu từ** `{}!{}` ({} hàng):\n\n{}", sheet, range, rows.len(), table);
+        let table = if lines.is_empty() {
+            "(Không có dữ liệu)".to_string()
+        } else {
+            lines.join("\n")
+        };
+        let content = format!(
+            "📋 **Dữ liệu từ** `{}!{}` ({} hàng):\n\n{}",
+            sheet,
+            range,
+            rows.len(),
+            table
+        );
 
         Ok(AgentOutput {
             content,
@@ -444,10 +499,27 @@ impl AnalystAgent {
     }
 
     async fn write_range(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str()).or(task.context_file.as_deref()).unwrap_or("");
-        let range = task.parameters.get("range").and_then(|v| v.as_str()).unwrap_or("A1");
-        let content = task.parameters.get("content").and_then(|v| v.as_str()).unwrap_or(task.message.as_str());
-        let backup_dir = if self.config.backup_before_write { Some(self.config.backup_dir.as_str()) } else { None };
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .or(task.context_file.as_deref())
+            .unwrap_or("");
+        let range = task
+            .parameters
+            .get("range")
+            .and_then(|v| v.as_str())
+            .unwrap_or("A1");
+        let content = task
+            .parameters
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task.message.as_str());
+        let backup_dir = if self.config.backup_before_write {
+            Some(self.config.backup_dir.as_str())
+        } else {
+            None
+        };
 
         self.stats.total_tasks += 1;
 
@@ -455,11 +527,13 @@ impl AnalystAgent {
             .map_err(|e| anyhow::anyhow!("Excel COM unavailable: {}", e))?;
 
         if !file.is_empty() {
-            excel.open_workbook(file)
+            excel
+                .open_workbook(file)
                 .map_err(|e| anyhow::anyhow!("Cannot open '{}': {}", file, e))?;
         }
 
-        excel.write_range(range, content, backup_dir)
+        excel
+            .write_range(range, content, backup_dir)
             .map_err(|e| anyhow::anyhow!("write_range failed: {}", e))?;
 
         // Auto-save after write
@@ -469,7 +543,10 @@ impl AnalystAgent {
         self.stats.successful_tasks += 1;
 
         Ok(AgentOutput {
-            content: format!("✅ Đã ghi vào `{}` – Hard-Truth Verification passed.", range),
+            content: format!(
+                "✅ Đã ghi vào `{}` – Hard-Truth Verification passed.",
+                range
+            ),
             committed: true,
             tokens_used: None,
             metadata: Some(serde_json::json!({
@@ -553,7 +630,12 @@ impl AnalystAgent {
     }
 
     async fn audit_formulas(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str()).or(task.context_file.as_deref()).unwrap_or("");
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .or(task.context_file.as_deref())
+            .unwrap_or("");
         let sheet = task.parameters.get("sheet").and_then(|v| v.as_str());
 
         self.stats.total_tasks += 1;
@@ -562,22 +644,42 @@ impl AnalystAgent {
             .map_err(|e| anyhow::anyhow!("Excel COM unavailable: {}", e))?;
 
         if !file.is_empty() {
-            excel.open_workbook(file)
+            excel
+                .open_workbook(file)
                 .map_err(|e| anyhow::anyhow!("Cannot open '{}': {}", file, e))?;
         }
 
-        let errors = excel.audit_formulas(sheet)
+        let errors = excel
+            .audit_formulas(sheet)
             .map_err(|e| anyhow::anyhow!("audit_formulas failed: {}", e))?;
 
         self.stats.successful_tasks += 1;
 
         let content = if errors.is_empty() {
-            format!("✅ **Audit công thức** `{}`: Không phát hiện lỗi.", if file.is_empty() { "active workbook" } else { file })
+            format!(
+                "✅ **Audit công thức** `{}`: Không phát hiện lỗi.",
+                if file.is_empty() {
+                    "active workbook"
+                } else {
+                    file
+                }
+            )
         } else {
-            let lines: Vec<String> = errors.iter().take(20)
-                .map(|e| format!("  ❌ `[{}]!{}` → `{}` | Formula: `{}`", e.sheet_name, e.cell_ref, e.error_text, e.formula))
+            let lines: Vec<String> = errors
+                .iter()
+                .take(20)
+                .map(|e| {
+                    format!(
+                        "  ❌ `[{}]!{}` → `{}` | Formula: `{}`",
+                        e.sheet_name, e.cell_ref, e.error_text, e.formula
+                    )
+                })
                 .collect();
-            format!("🔍 **Audit công thức** – {} lỗi phát hiện:\n\n{}", errors.len(), lines.join("\n"))
+            format!(
+                "🔍 **Audit công thức** – {} lỗi phát hiện:\n\n{}",
+                errors.len(),
+                lines.join("\n")
+            )
         };
 
         Ok(AgentOutput {
@@ -690,7 +792,7 @@ impl AnalystAgent {
     async fn general_chat(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         self.stats.total_tasks += 1;
         self.stats.successful_tasks += 1;
-        
+
         Ok(AgentOutput {
             content: "Xin chào! Đây là trợ lý Office Hub.\n\nTôi đang trong giai đoạn phát triển (Phase 1 & 2), vui lòng yêu cầu tôi thực hiện các tác vụ liên quan đến Excel, Word, PowerPoint hoặc Web Automation!".to_string(),
             committed: false,
@@ -895,7 +997,6 @@ impl Agent for AnalystAgent {
             },
         ]
     }
-
 
     async fn init(&mut self) -> anyhow::Result<()> {
         info!("AnalystAgent: probing Excel COM availability…");

@@ -157,23 +157,36 @@ impl OfficeMasterAgent {
             "OfficeMasterAgent: word_create_document (Native COM)"
         );
 
-        let template_path = task.parameters.get("template_path").and_then(|v| v.as_str())
+        let template_path = task
+            .parameters
+            .get("template_path")
+            .and_then(|v| v.as_str())
             .or(self.config.default_word_template.as_deref());
-        let content = task.parameters.get("content").and_then(|v| v.as_str()).unwrap_or(task.message.as_str());
-        
+        let content = task
+            .parameters
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task.message.as_str());
+
         let _backup_dir = if self.config.backup_before_write {
             Some(self.config.backup_dir.as_str())
         } else {
             None
         };
-        
+
         let output_path_param = task.parameters.get("output_path").and_then(|v| v.as_str());
         let output_path_str = if let Some(p) = output_path_param {
             p.to_string()
         } else {
             let temp_dir = std::env::temp_dir().join("office_hub_exports");
             let _ = std::fs::create_dir_all(&temp_dir);
-            temp_dir.join(format!("Document_{}.docx", chrono::Utc::now().format("%Y%m%d_%H%M%S"))).to_string_lossy().to_string()
+            temp_dir
+                .join(format!(
+                    "Document_{}.docx",
+                    chrono::Utc::now().format("%Y%m%d_%H%M%S")
+                ))
+                .to_string_lossy()
+                .to_string()
         };
 
         let msg;
@@ -187,10 +200,17 @@ impl OfficeMasterAgent {
         match com_word::WordApplication::connect_or_launch() {
             Ok(word_app) => {
                 info!("Successfully connected to Word.Application via COM.");
-                match word_app.create_report_from_template(template_path, content, Some(&output_path_str)) {
+                match word_app.create_report_from_template(
+                    template_path,
+                    content,
+                    Some(&output_path_str),
+                ) {
                     Ok(_) => {
-                        msg = format!("Đã mở Microsoft Word và tạo tài liệu thành công tại: {}", output_path_str);
-                    },
+                        msg = format!(
+                            "Đã mở Microsoft Word và tạo tài liệu thành công tại: {}",
+                            output_path_str
+                        );
+                    }
                     Err(e) => {
                         warn!("Failed to create document: {}", e);
                         msg = format!("COM Error: {}", e);
@@ -231,25 +251,35 @@ impl OfficeMasterAgent {
     /// Insert AI-generated text into the currently-open Word document at cursor.
     /// Reads `text` from task parameters or falls back to `task.input`.
     /// This is the primary action used when the add-in asks to "insert" or "write" content.
-    async fn word_insert_text_at_cursor(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
+    async fn word_insert_text_at_cursor(
+        &mut self,
+        task: &AgentTask,
+    ) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_insert_text_at_cursor");
 
-        let text = task.parameters.get("text")
+        let text = task
+            .parameters
+            .get("text")
             .and_then(|v| v.as_str())
             .unwrap_or(&task.message);
 
         if text.is_empty() {
-            return Err(anyhow::anyhow!("Missing 'text' parameter for word_insert_text"));
+            return Err(anyhow::anyhow!(
+                "Missing 'text' parameter for word_insert_text"
+            ));
         }
 
-        let new_para = task.parameters.get("new_paragraph")
+        let new_para = task
+            .parameters
+            .get("new_paragraph")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
         let word = com_word::WordApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
 
-        let msg = word.insert_text_at_cursor(text, new_para)
+        let msg = word
+            .insert_text_at_cursor(text, new_para)
             .map_err(|e| anyhow::anyhow!("insert_text_at_cursor failed: {}", e))?;
 
         self.metrics.word_documents_edited += 1;
@@ -279,7 +309,10 @@ impl OfficeMasterAgent {
     async fn word_edit_document(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_edit_document");
 
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str())
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .or(task.context_file.as_deref())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
@@ -327,14 +360,18 @@ impl OfficeMasterAgent {
     async fn word_format_document(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_format_document");
 
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str())
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .or(task.context_file.as_deref())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
         let word = com_word::WordApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
 
-        let msg = word.format_document(file)
+        let msg = word
+            .format_document(file)
             .map_err(|e| anyhow::anyhow!("format_document failed: {}", e))?;
 
         self.metrics.total_tasks += 1;
@@ -358,19 +395,25 @@ impl OfficeMasterAgent {
     async fn word_extract_content(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_extract_content");
 
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str())
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .or(task.context_file.as_deref())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
         let word = com_word::WordApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
 
-        let doc_content = word.extract_content(file)
+        let doc_content = word
+            .extract_content(file)
             .map_err(|e| anyhow::anyhow!("extract_content failed: {}", e))?;
 
         self.metrics.total_tasks += 1;
 
-        let preview: Vec<&str> = doc_content.paragraphs.iter()
+        let preview: Vec<&str> = doc_content
+            .paragraphs
+            .iter()
             .take(10)
             .map(|s| s.as_str())
             .collect();
@@ -402,13 +445,21 @@ impl OfficeMasterAgent {
         })
     }
 
-    async fn word_create_template_from_document(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
+    async fn word_create_template_from_document(
+        &mut self,
+        task: &AgentTask,
+    ) -> anyhow::Result<AgentOutput> {
         info!(
             task_id = %task.task_id,
             "OfficeMasterAgent: word_create_template_from_document"
         );
 
-        let file_path = match task.parameters.get("file_path").and_then(|v| v.as_str()).or(task.context_file.as_deref()) {
+        let file_path = match task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .or(task.context_file.as_deref())
+        {
             Some(path) => path,
             None => {
                 return Ok(AgentOutput {
@@ -420,7 +471,11 @@ impl OfficeMasterAgent {
             }
         };
 
-        let output_path = task.parameters.get("output_path").and_then(|v| v.as_str()).unwrap_or("output_template.dotx");
+        let output_path = task
+            .parameters
+            .get("output_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("output_template.dotx");
 
         // Parse replacements from parameters, or provide a default mock for testing
         let mut replacements = std::collections::HashMap::new();
@@ -428,9 +483,11 @@ impl OfficeMasterAgent {
         // ── LLM SKILL INTEGRATION ───────────────────────────────────────────
         if let Some(llm_arc) = &task.llm_gateway {
             // Read SKILL.md from disk
-            if let Ok(skill_content) = std::fs::read_to_string(".agent/skills/office-master/SKILL.md") {
+            if let Ok(skill_content) =
+                std::fs::read_to_string(".agent/skills/office-master/SKILL.md")
+            {
                 let llm = llm_arc.read().await;
-                
+
                 let mut system_prompt = String::new();
                 if let Some(policy) = &task.global_policy {
                     system_prompt.push_str(policy);
@@ -442,27 +499,36 @@ impl OfficeMasterAgent {
                     system_prompt.push_str("\n\n");
                 }
                 system_prompt.push_str(&skill_content);
-                
+
                 let prompt = format!(
                     "User Request: {}\n\nBased on the SKILL instructions, extract the replacements needed to convert this document into a template. Output ONLY a valid JSON object where keys are the specific target text in the document and values are the `<<Placeholder>>` string. For example: {{\"Nguyễn Văn A\": \"<<HoTen>>\"}}.",
                     task.message
                 );
-                
+
                 let req = crate::llm_gateway::LlmRequest::new(vec![
                     crate::llm_gateway::LlmMessage::system(system_prompt),
                     crate::llm_gateway::LlmMessage::user(prompt),
-                ]).with_temperature(0.1);
+                ])
+                .with_temperature(0.1);
 
                 match llm.complete(req).await {
                     Ok(resp) => {
-                        let mut json_text = resp.content.trim_matches(|c| c == '`' || c == '\n' || c == ' ');
+                        let mut json_text = resp
+                            .content
+                            .trim_matches(|c| c == '`' || c == '\n' || c == ' ');
                         if json_text.starts_with("json\n") {
                             json_text = &json_text[5..];
                         }
 
-                        if let Ok(parsed) = serde_json::from_str::<std::collections::HashMap<String, String>>(json_text) {
+                        if let Ok(parsed) = serde_json::from_str::<
+                            std::collections::HashMap<String, String>,
+                        >(json_text)
+                        {
                             replacements = parsed;
-                            info!("Successfully extracted replacements using LLM: {:?}", replacements);
+                            info!(
+                                "Successfully extracted replacements using LLM: {:?}",
+                                replacements
+                            );
                         } else {
                             warn!("Failed to parse LLM output as JSON: {}", json_text);
                         }
@@ -479,7 +545,10 @@ impl OfficeMasterAgent {
         // Fallback to parameters or mocks if LLM failed
         if replacements.is_empty() {
             if let Some(reps_val) = task.parameters.get("replacements") {
-                if let Ok(parsed) = serde_json::from_value::<std::collections::HashMap<String, String>>(reps_val.clone()) {
+                if let Ok(parsed) = serde_json::from_value::<
+                    std::collections::HashMap<String, String>,
+                >(reps_val.clone())
+                {
                     replacements = parsed;
                 }
             } else {
@@ -492,7 +561,8 @@ impl OfficeMasterAgent {
         let msg;
         match com_word::WordApplication::connect_or_launch() {
             Ok(word_app) => {
-                match word_app.create_template_from_document(file_path, &replacements, output_path) {
+                match word_app.create_template_from_document(file_path, &replacements, output_path)
+                {
                     Ok(success_msg) => msg = success_msg,
                     Err(e) => {
                         warn!("Failed to create template: {}", e);
@@ -521,57 +591,123 @@ impl OfficeMasterAgent {
 
     async fn word_convert_pdf(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_convert_pdf");
-        let pdf_path = task.parameters.get("pdf_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("Missing 'pdf_path'"))?;
-        let output_path = task.parameters.get("output_path").and_then(|v| v.as_str()).unwrap_or("output.docx");
-        
-        let word = com_word::WordApplication::connect_or_launch().map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
-        let msg = word.convert_pdf_to_docx(pdf_path, output_path).map_err(|e| anyhow::anyhow!("convert_pdf_to_docx failed: {}", e))?;
-        
+        let pdf_path = task
+            .parameters
+            .get("pdf_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'pdf_path'"))?;
+        let output_path = task
+            .parameters
+            .get("output_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("output.docx");
+
+        let word = com_word::WordApplication::connect_or_launch()
+            .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
+        let msg = word
+            .convert_pdf_to_docx(pdf_path, output_path)
+            .map_err(|e| anyhow::anyhow!("convert_pdf_to_docx failed: {}", e))?;
+
         self.metrics.total_tasks += 1;
-        Ok(AgentOutput { content: msg, committed: true, tokens_used: None, metadata: None })
+        Ok(AgentOutput {
+            content: msg,
+            committed: true,
+            tokens_used: None,
+            metadata: None,
+        })
     }
 
     async fn word_export_pdf(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_export_pdf");
-        let file_path = task.parameters.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("Missing 'file_path'"))?;
-        let output_path = task.parameters.get("output_path").and_then(|v| v.as_str()).unwrap_or("output.pdf");
-        
-        let word = com_word::WordApplication::connect_or_launch().map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
-        let msg = word.export_to_pdf(file_path, output_path).map_err(|e| anyhow::anyhow!("export_to_pdf failed: {}", e))?;
-        
+        let file_path = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'file_path'"))?;
+        let output_path = task
+            .parameters
+            .get("output_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("output.pdf");
+
+        let word = com_word::WordApplication::connect_or_launch()
+            .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
+        let msg = word
+            .export_to_pdf(file_path, output_path)
+            .map_err(|e| anyhow::anyhow!("export_to_pdf failed: {}", e))?;
+
         self.metrics.total_tasks += 1;
-        Ok(AgentOutput { content: msg, committed: true, tokens_used: None, metadata: None })
+        Ok(AgentOutput {
+            content: msg,
+            committed: true,
+            tokens_used: None,
+            metadata: None,
+        })
     }
 
     async fn word_replace_text(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_replace_text");
-        let file_path = task.parameters.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("Missing 'file_path'"))?;
-        
-        let replacements: std::collections::HashMap<String, String> = task.parameters.get("replacements")
+        let file_path = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing 'file_path'"))?;
+
+        let replacements: std::collections::HashMap<String, String> = task
+            .parameters
+            .get("replacements")
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
-            
-        let backup_dir = if self.config.backup_before_write { Some(self.config.backup_dir.as_str()) } else { None };
-        
-        let word = com_word::WordApplication::connect_or_launch().map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
-        let msg = word.replace_text_preserve_format(file_path, &replacements, backup_dir).map_err(|e| anyhow::anyhow!("replace_text_preserve_format failed: {}", e))?;
-        
+
+        let backup_dir = if self.config.backup_before_write {
+            Some(self.config.backup_dir.as_str())
+        } else {
+            None
+        };
+
+        let word = com_word::WordApplication::connect_or_launch()
+            .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
+        let msg = word
+            .replace_text_preserve_format(file_path, &replacements, backup_dir)
+            .map_err(|e| anyhow::anyhow!("replace_text_preserve_format failed: {}", e))?;
+
         self.metrics.word_documents_edited += 1;
         self.metrics.total_tasks += 1;
-        Ok(AgentOutput { content: msg, committed: true, tokens_used: None, metadata: None })
+        Ok(AgentOutput {
+            content: msg,
+            committed: true,
+            tokens_used: None,
+            metadata: None,
+        })
     }
 
     async fn word_convert_markdown(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_convert_markdown");
-        let md_content = task.parameters.get("md_content").and_then(|v| v.as_str()).unwrap_or(&task.message);
-        let output_path = task.parameters.get("output_path").and_then(|v| v.as_str()).unwrap_or("output.docx");
-        
-        let word = com_word::WordApplication::connect_or_launch().map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
-        let msg = word.convert_md_to_docx(md_content, output_path).map_err(|e| anyhow::anyhow!("convert_md_to_docx failed: {}", e))?;
-        
+        let md_content = task
+            .parameters
+            .get("md_content")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&task.message);
+        let output_path = task
+            .parameters
+            .get("output_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("output.docx");
+
+        let word = com_word::WordApplication::connect_or_launch()
+            .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
+        let msg = word
+            .convert_md_to_docx(md_content, output_path)
+            .map_err(|e| anyhow::anyhow!("convert_md_to_docx failed: {}", e))?;
+
         self.metrics.word_documents_created += 1;
         self.metrics.total_tasks += 1;
-        Ok(AgentOutput { content: msg, committed: true, tokens_used: None, metadata: None })
+        Ok(AgentOutput {
+            content: msg,
+            committed: true,
+            tokens_used: None,
+            metadata: None,
+        })
     }
 
     // ── PowerPoint operations ─────────────────────────────────────────────────
@@ -592,22 +728,34 @@ impl OfficeMasterAgent {
             "OfficeMasterAgent: ppt_create_presentation (Native COM)"
         );
 
-        let template_path = task.parameters.get("template_path").and_then(|v| v.as_str())
+        let template_path = task
+            .parameters
+            .get("template_path")
+            .and_then(|v| v.as_str())
             .or(self.config.default_ppt_template.as_deref());
-        let content = task.parameters.get("content").and_then(|v| v.as_str()).unwrap_or(task.message.as_str());
-        
+        let content = task
+            .parameters
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task.message.as_str());
+
         let backup_dir = if self.config.backup_before_write {
             Some(self.config.backup_dir.as_str())
         } else {
             None
         };
-        
+
         let msg;
         match com_ppt::PowerPointApplication::connect_or_launch() {
             Ok(ppt_app) => {
                 info!("Successfully connected to PowerPoint.Application via COM.");
-                match ppt_app.create_presentation_from_template(template_path, content, backup_dir) {
-                    Ok(_) => msg = "PowerPoint presentation creation initiated via Native COM Automation.".to_string(),
+                match ppt_app.create_presentation_from_template(template_path, content, backup_dir)
+                {
+                    Ok(_) => {
+                        msg =
+                            "PowerPoint presentation creation initiated via Native COM Automation."
+                                .to_string()
+                    }
                     Err(e) => {
                         warn!("Failed to create presentation: {}", e);
                         msg = format!("COM Error: {}", e);
@@ -647,7 +795,10 @@ impl OfficeMasterAgent {
     async fn ppt_edit_presentation(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: ppt_edit_presentation action={}", task.action);
 
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str())
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .or(task.context_file.as_deref())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
@@ -662,47 +813,103 @@ impl OfficeMasterAgent {
 
         let msg = match task.action.as_str() {
             "ppt_add_slide" => {
-                let index = task.parameters.get("slide_index")
-                    .and_then(|v| v.as_i64()).unwrap_or(1) as i32;
-                let title = task.parameters.get("title").and_then(|v| v.as_str()).unwrap_or(&task.message);
-                let body_lines: Vec<String> = task.parameters.get("body_lines")
+                let index = task
+                    .parameters
+                    .get("slide_index")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1) as i32;
+                let title = task
+                    .parameters
+                    .get("title")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&task.message);
+                let body_lines: Vec<String> = task
+                    .parameters
+                    .get("body_lines")
                     .and_then(|v| serde_json::from_value(v.clone()).ok())
                     .unwrap_or_default();
-                let spec = com_ppt::SlideSpec { title: title.to_string(), body_lines, layout: 2 };
+                let spec = com_ppt::SlideSpec {
+                    title: title.to_string(),
+                    body_lines,
+                    layout: 2,
+                };
                 ppt.add_slide(file, index, &spec, backup_dir)?
             }
             "ppt_delete_slide" => {
-                let index = task.parameters.get("slide_index")
-                    .and_then(|v| v.as_i64()).unwrap_or(1) as i32;
+                let index = task
+                    .parameters
+                    .get("slide_index")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1) as i32;
                 ppt.delete_slide(file, index, backup_dir)?
             }
             "ppt_add_picture" => {
-                let index = task.parameters.get("slide_index")
-                    .and_then(|v| v.as_i64()).unwrap_or(1) as i32;
-                let image_path = task.parameters.get("image_path").and_then(|v| v.as_str())
+                let index = task
+                    .parameters
+                    .get("slide_index")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1) as i32;
+                let image_path = task
+                    .parameters
+                    .get("image_path")
+                    .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing 'image_path' parameter"))?;
-                let left = task.parameters.get("left").and_then(|v| v.as_f64()).unwrap_or(100.0) as f32;
-                let top = task.parameters.get("top").and_then(|v| v.as_f64()).unwrap_or(100.0) as f32;
-                let width = task.parameters.get("width").and_then(|v| v.as_f64()).unwrap_or(400.0) as f32;
-                let height = task.parameters.get("height").and_then(|v| v.as_f64()).unwrap_or(300.0) as f32;
+                let left = task
+                    .parameters
+                    .get("left")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(100.0) as f32;
+                let top = task
+                    .parameters
+                    .get("top")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(100.0) as f32;
+                let width = task
+                    .parameters
+                    .get("width")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(400.0) as f32;
+                let height = task
+                    .parameters
+                    .get("height")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(300.0) as f32;
                 ppt.add_picture(image_path, index, left, top, width, height)?
             }
             "ppt_update_text_box" => {
-                let slide_index = task.parameters.get("slide_index")
-                    .and_then(|v| v.as_i64()).unwrap_or(1) as i32;
-                let shape = task.parameters.get("shape").and_then(|v| v.as_str()).unwrap_or("1");
-                let new_text = task.parameters.get("new_text").and_then(|v| v.as_str()).unwrap_or(&task.message);
+                let slide_index = task
+                    .parameters
+                    .get("slide_index")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(1) as i32;
+                let shape = task
+                    .parameters
+                    .get("shape")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("1");
+                let new_text = task
+                    .parameters
+                    .get("new_text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&task.message);
                 ppt.update_shape_text(file, slide_index, shape, new_text, backup_dir)?
             }
             _ => {
                 // ppt_edit_presentation: inspect and return slide structure
-                let info = ppt.inspect_presentation(file)
+                let info = ppt
+                    .inspect_presentation(file)
                     .map_err(|e| anyhow::anyhow!("inspect_presentation failed: {}", e))?;
-                let titles = info.slide_titles.iter().enumerate()
+                let titles = info
+                    .slide_titles
+                    .iter()
+                    .enumerate()
                     .map(|(i, t)| format!("  {}. {}", i + 1, t))
                     .collect::<Vec<_>>()
                     .join("\n");
-                format!("📊 Presentation '{}' ({} slides):\n{}", file, info.slide_count, titles)
+                format!(
+                    "📊 Presentation '{}' ({} slides):\n{}",
+                    file, info.slide_count, titles
+                )
             }
         };
 
@@ -728,11 +935,17 @@ impl OfficeMasterAgent {
     async fn ppt_format_presentation(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: ppt_format_presentation/apply_brand_theme");
 
-        let file = task.parameters.get("file_path").and_then(|v| v.as_str())
+        let file = task
+            .parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .or(task.context_file.as_deref())
             .ok_or_else(|| anyhow::anyhow!("Missing 'file_path' parameter"))?;
 
-        let template = task.parameters.get("theme_template").and_then(|v| v.as_str())
+        let template = task
+            .parameters
+            .get("theme_template")
+            .and_then(|v| v.as_str())
             .or(self.config.default_ppt_template.as_deref());
 
         // For now: open → apply template if given → save.
@@ -740,7 +953,8 @@ impl OfficeMasterAgent {
         let ppt = com_ppt::PowerPointApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("PowerPoint COM unavailable: {}", e))?;
 
-        let pres = ppt.inspect_presentation(file)
+        let pres = ppt
+            .inspect_presentation(file)
             .map_err(|e| anyhow::anyhow!("Cannot open presentation: {}", e))?;
 
         let msg = format!(
@@ -773,11 +987,20 @@ impl OfficeMasterAgent {
     async fn ppt_convert_from(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: ppt_convert_from");
 
-        let source_text = task.parameters.get("source_text").and_then(|v| v.as_str())
+        let source_text = task
+            .parameters
+            .get("source_text")
+            .and_then(|v| v.as_str())
             .unwrap_or(&task.message);
-        let output_path = task.parameters.get("output_path").and_then(|v| v.as_str())
+        let output_path = task
+            .parameters
+            .get("output_path")
+            .and_then(|v| v.as_str())
             .unwrap_or("output.pptx");
-        let template = task.parameters.get("template_path").and_then(|v| v.as_str())
+        let template = task
+            .parameters
+            .get("template_path")
+            .and_then(|v| v.as_str())
             .or(self.config.default_ppt_template.as_deref());
 
         let backup_dir = if self.config.backup_before_write {
@@ -827,7 +1050,8 @@ impl OfficeMasterAgent {
         let ppt = com_ppt::PowerPointApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("PowerPoint COM unavailable: {}", e))?;
 
-        let msg = ppt.create_from_outline(template, &slides, output_path, backup_dir)
+        let msg = ppt
+            .create_from_outline(template, &slides, output_path, backup_dir)
             .map_err(|e| anyhow::anyhow!("create_from_outline failed: {}", e))?;
 
         self.metrics.ppt_presentations_created += 1;
@@ -901,7 +1125,11 @@ impl OfficeMasterAgent {
                 Some(serde_json::json!({ "name": name, "base64": b64 }))
             }
             Err(e) => {
-                tracing::warn!("encode_file_attachment: failed to read '{}': {}", file_path, e);
+                tracing::warn!(
+                    "encode_file_attachment: failed to read '{}': {}",
+                    file_path,
+                    e
+                );
                 None
             }
         }
@@ -910,17 +1138,29 @@ impl OfficeMasterAgent {
 
     async fn word_insert_image(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: word_insert_image");
-        let image_path = task.parameters.get("image_path").and_then(|v| v.as_str())
+        let image_path = task
+            .parameters
+            .get("image_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing 'image_path' parameter"))?;
-        let width = task.parameters.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        let height = task.parameters.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+        let width = task
+            .parameters
+            .get("width")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
+        let height = task
+            .parameters
+            .get("height")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32;
 
         let word = com_word::WordApplication::connect_or_launch()
             .map_err(|e| anyhow::anyhow!("Word COM unavailable: {}", e))?;
-            
-        let msg = word.add_picture(image_path, width, height)
+
+        let msg = word
+            .add_picture(image_path, width, height)
             .map_err(|e| anyhow::anyhow!("Failed to add picture to Word: {}", e))?;
-            
+
         self.metrics.total_tasks += 1;
         Ok(AgentOutput {
             content: format!("🖼️ {}", msg),
@@ -934,24 +1174,44 @@ impl OfficeMasterAgent {
 
     async fn excel_edit_document(&mut self, task: &AgentTask) -> anyhow::Result<AgentOutput> {
         info!(task_id = %task.task_id, "OfficeMasterAgent: excel_edit_document");
-        
+
         let msg = match task.action.as_str() {
             "excel_add_picture" => {
-                let image_path = task.parameters.get("image_path").and_then(|v| v.as_str())
+                let image_path = task
+                    .parameters
+                    .get("image_path")
+                    .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing 'image_path' parameter"))?;
-                let left = task.parameters.get("left").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                let top = task.parameters.get("top").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                let width = task.parameters.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                let height = task.parameters.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                
+                let left = task
+                    .parameters
+                    .get("left")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as f32;
+                let top = task
+                    .parameters
+                    .get("top")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as f32;
+                let width = task
+                    .parameters
+                    .get("width")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as f32;
+                let height = task
+                    .parameters
+                    .get("height")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0) as f32;
+
                 let excel = com_excel::ExcelApplication::connect_or_launch()
                     .map_err(|e| anyhow::anyhow!("Excel COM unavailable: {}", e))?;
-                excel.add_picture(image_path, left, top, width, height)
+                excel
+                    .add_picture(image_path, left, top, width, height)
                     .map_err(|e| anyhow::anyhow!("Failed to add picture to Excel: {}", e))?
             }
             unknown => return Err(anyhow::anyhow!("Unsupported Excel action: {}", unknown)),
         };
-        
+
         self.metrics.total_tasks += 1;
         Ok(AgentOutput {
             content: format!("📊 {}", msg),
@@ -1210,9 +1470,7 @@ impl Agent for OfficeMasterAgent {
                 self.word_create_document(&task).await
             }
 
-            "word_edit_document" | "word_update_table" => {
-                self.word_edit_document(&task).await
-            }
+            "word_edit_document" | "word_update_table" => self.word_edit_document(&task).await,
 
             "word_insert_image" => self.word_insert_image(&task).await,
 
@@ -1273,8 +1531,6 @@ impl Agent for OfficeMasterAgent {
         self.status = AgentStatus::Idle;
         result
     }
-
-
 
     fn status(&self) -> AgentStatus {
         self.status.clone()
