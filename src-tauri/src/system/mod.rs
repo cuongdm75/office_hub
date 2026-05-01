@@ -1132,9 +1132,11 @@ mod tests {
 
     #[test]
     fn test_tailscale_preferred_address() {
-        let mut ts = tailscale::TailscaleState::default();
-        ts.dns_hostname = Some("my-pc.ts.net".to_string());
-        ts.ip_v4 = Some("100.64.1.5".to_string());
+        let mut ts = tailscale::TailscaleState {
+            dns_hostname: Some("my-pc.ts.net".to_string()),
+            ip_v4: Some("100.64.1.5".to_string()),
+            ..Default::default()
+        };
         // DNS hostname preferred over raw IP
         assert_eq!(ts.preferred_address().as_deref(), Some("my-pc.ts.net"));
 

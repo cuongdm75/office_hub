@@ -828,8 +828,10 @@ mod tests {
 
     fn make_server() -> (WebSocketServer, mpsc::Receiver<IncomingCommand>) {
         let (tx, rx) = mpsc::channel(32);
-        let mut cfg = WebSocketConfig::default();
-        cfg.port = 0; // Use random port for tests
+        let cfg = WebSocketConfig {
+            port: 0, // Use random port for tests
+            ..Default::default()
+        };
         let server = WebSocketServer::new(cfg, tx);
         (server, rx)
     }

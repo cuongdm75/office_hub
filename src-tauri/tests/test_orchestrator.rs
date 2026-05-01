@@ -1,6 +1,6 @@
 use office_hub_lib::agents::office_master::OfficeMasterAgent;
 use office_hub_lib::agents::Agent;
-use office_hub_lib::mcp::internal_servers::InternalMcpServer;
+use office_hub_lib::mcp::broker::InternalMcpServer;
 use office_hub_lib::mcp::native_chart::NativeChartServer;
 use office_hub_lib::orchestrator::AgentTask;
 use std::collections::HashMap;
