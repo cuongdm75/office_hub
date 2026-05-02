@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css'
 
-/* global Office, Word */
+/* global Office, Word, Excel */
 
 type HostType = 'Word' | 'Excel' | 'PowerPoint' | 'Outlook' | 'Unknown'
 type Message = { role: 'user' | 'assistant' | 'status'; content: string }
+
+const WS_URL = 'ws://127.0.0.1:9001'
+const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN || '87ecb66c080a4de29eb20555c397181f'
+const MAX_RECONNECT_DELAY_MS = 30_000
 
 interface WorkflowStatus {
   run_id: string;
@@ -16,14 +20,19 @@ interface WorkflowStatus {
   updated_at: string;
 }
 
-/** Detect which Office host we're running in */
+/** Detect which Office host we're running in – safe (Office may not be ready yet) */
 function detectHost(): HostType {
-  const host = Office.context.host
-  if (host === Office.HostType.Word) return 'Word'
-  if (host === Office.HostType.Excel) return 'Excel'
-  if (host === Office.HostType.PowerPoint) return 'PowerPoint'
-  if (host === Office.HostType.Outlook) return 'Outlook'
-  return 'Unknown'
+  try {
+    const host = Office?.context?.host
+    if (!host) return 'Unknown'
+    if (host === Office.HostType.Word) return 'Word'
+    if (host === Office.HostType.Excel) return 'Excel'
+    if (host === Office.HostType.PowerPoint) return 'PowerPoint'
+    if (host === Office.HostType.Outlook) return 'Outlook'
+    return 'Unknown'
+  } catch {
+    return 'Unknown'
+  }
 }
 
 /** Get file/item context info */
@@ -45,34 +54,154 @@ function getContextInfo(host: HostType): string {
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'reconnecting' | 'error'>('connecting')
   const [host, setHost] = useState<HostType>('Unknown')
   const [contextInfo, setContextInfo] = useState('')
   const [emailContext, setEmailContext] = useState<string>('')
   const [activeTasks, setActiveTasks] = useState<Record<string, WorkflowStatus>>({})
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const reconnectDelayRef = useRef<number>(1000) // start with 1s
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unmountedRef = useRef(false)
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // ── Auto-reconnect logic ──────────────────────────────────────────────────
+  const connectWs = useCallback((currentHost: HostType) => {
+    if (unmountedRef.current) return
+
+    setStatus('connecting')
+    const ws = new WebSocket(WS_URL)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      if (unmountedRef.current) { ws.close(); return }
+      setStatus('connected')
+      reconnectDelayRef.current = 1000 // reset backoff on successful connect
+
+      // 1. Auth
+      ws.send(JSON.stringify({ type: 'auth', token: AUTH_TOKEN }))
+
+      // 2. Notify backend of context
+      const payload: Record<string, unknown> = {
+        type: 'office_addin_event',
+        event: 'DocumentOpened',
+        app_type: currentHost,
+        file_path: '',
+      }
+      if (currentHost === 'Outlook') {
+        try {
+          const item = Office.context.mailbox?.item as Office.MessageRead
+          payload.subject = item?.subject ?? ''
+          payload.sender = item?.from?.emailAddress ?? ''
+        } catch { /* ignore */ }
+      } else {
+        try { payload.file_path = Office.context.document?.url ?? '' } catch { /* ignore */ }
+      }
+      ws.send(JSON.stringify(payload))
+
+      // 3. Selection listeners
+      if (currentHost === 'Word') {
+        try {
+          Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, () => {
+            Word.run(async (ctx) => {
+              const range = ctx.document.getSelection()
+              range.load('text')
+              await ctx.sync()
+              if (range.text) {
+                setContextInfo(`Word | Selection: "${range.text.slice(0, 30)}..."`)
+                if (wsRef.current?.readyState === WebSocket.OPEN)
+                  wsRef.current.send(JSON.stringify({ type: 'office_addin_event', event: 'SelectionChanged', content: range.text, app_type: 'Word' }))
+              }
+            }).catch(console.error)
+          })
+        } catch (e) { console.warn('Could not add Word selection handler:', e) }
+      } else if (currentHost === 'Excel') {
+        Excel.run(async (ctx) => {
+          ctx.workbook.onSelectionChanged.add(() => {
+            Excel.run(async (c) => {
+              const range = c.workbook.getSelectedRange()
+              range.load('address')
+              await c.sync()
+              setContextInfo(`Excel | Selected Cell: ${range.address}`)
+              if (wsRef.current?.readyState === WebSocket.OPEN)
+                wsRef.current.send(JSON.stringify({ type: 'office_addin_event', event: 'SelectionChanged', content: range.address, app_type: 'Excel' }))
+            }).catch(console.error)
+            return null as any
+          })
+          await ctx.sync()
+        }).catch(console.error)
+      }
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'auth_success') {
+          // auth acknowledged – nothing to do
+        } else if (data.type === 'chat_response' || data.type === 'response') {
+          setMessages(prev => [...prev, { role: 'assistant', content: data.content ?? data.text ?? '' }])
+        } else if (data.type === 'chat_reply') {
+          setMessages(prev => [...prev, { role: 'assistant', content: data.content ?? '' }])
+        } else if (data.type === 'context_analysis') {
+          setMessages(prev => [...prev, { role: 'assistant', content: `📄 ${data.summary}` }])
+        } else if (data.type === 'workflow_status') {
+          setActiveTasks(prev => {
+            const newTasks = { ...prev }
+            const taskId = data.step_name || data.workflow_name || data.run_id
+            if (['success', 'failed', 'aborted', 'completed'].includes(data.status.toLowerCase())) {
+              delete newTasks[taskId]
+            } else {
+              newTasks[taskId] = data
+            }
+            return newTasks
+          })
+        } else if (data.type === 'addin_command') {
+          if (data.command === 'insert_text') insertIntoDocument(data.payload || '')
+          else if (data.command === 'replace_document') replaceDocumentContent(data.payload || '')
+          else if (data.command === 'save_document')
+            (Office.context.document as any).saveAsync?.().catch(console.error)
+          else if (data.command === 'extract_file' && wsRef.current)
+            extractFileAndSend(wsRef.current, data.payload || 'extracted_file.docx')
+        }
+      } catch (e) {
+        console.error('WS parse error:', e)
+      }
+    }
+
+    const scheduleReconnect = () => {
+      if (unmountedRef.current) return
+      setStatus('reconnecting')
+      const delay = reconnectDelayRef.current
+      reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY_MS)
+      console.warn(`WebSocket disconnected – reconnecting in ${delay}ms`)
+      reconnectTimerRef.current = setTimeout(() => connectWs(currentHost), delay)
+    }
+
+    ws.onerror = () => { /* onclose will fire next */ }
+    ws.onclose = scheduleReconnect
+  }, [])
+
+  // ── Initialise once on mount ──────────────────────────────────────────────
   useEffect(() => {
+    unmountedRef.current = false
+
     const detectedHost = detectHost()
     setHost(detectedHost)
     setContextInfo(getContextInfo(detectedHost))
 
-    // For Outlook, extract email body to provide context
+    // For Outlook, extract email body
     if (detectedHost === 'Outlook') {
       try {
         const item = Office.context.mailbox?.item as Office.MessageRead
         if (item?.body) {
           item.body.getAsync(Office.CoercionType.Text, (result) => {
-            if (result.status === Office.AsyncResultStatus.Succeeded) {
-              const preview = result.value.slice(0, 500)
-              setEmailContext(preview)
-            }
+            if (result.status === Office.AsyncResultStatus.Succeeded)
+              setEmailContext(result.value.slice(0, 500))
           })
         }
       } catch (e) {
@@ -80,112 +209,14 @@ function App() {
       }
     }
 
-    // Connect to Office Hub WebSocket backend
-    const ws = new WebSocket('ws://127.0.0.1:9001')
-    wsRef.current = ws
+    connectWs(detectedHost)
 
-    ws.onopen = () => {
-      setStatus('connected')
-
-      // Send auth token
-      const token = import.meta.env.VITE_AUTH_TOKEN || '87ecb66c080a4de29eb20555c397181f'
-      ws.send(JSON.stringify({ type: 'auth', token }))
-
-      // Notify backend of context
-      const payload: Record<string, unknown> = {
-        type: 'office_addin_event',
-        event: 'DocumentOpened',
-        app_type: detectedHost,
-        file_path: '',  // Required field - always send (empty string fallback)
-      }
-
-      if (detectedHost === 'Outlook') {
-        try {
-          const item = Office.context.mailbox?.item as Office.MessageRead
-          payload.subject = item?.subject ?? ''
-          payload.sender = item?.from?.emailAddress ?? ''
-          // file_path stays empty for Outlook
-        } catch { /* ignore */ }
-      } else {
-        payload.file_path = Office.context.document?.url ?? ''
-      }
-
-      ws.send(JSON.stringify(payload))
-
-      // Register real-time event listeners for Selection changes
-      if (detectedHost === 'Word') {
-        Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, () => {
-          Word.run(async (context) => {
-            const range = context.document.getSelection();
-            range.load('text');
-            await context.sync();
-            if (range.text) {
-              setContextInfo(`Word | Selection: "${range.text.slice(0, 30)}..."`);
-              ws.send(JSON.stringify({ type: 'office_addin_event', event: 'SelectionChanged', content: range.text, app_type: 'Word' }));
-            }
-          }).catch(console.error);
-        });
-      } else if (detectedHost === 'Excel') {
-        Excel.run(async (context) => {
-          context.workbook.onSelectionChanged.add(() => {
-            Excel.run(async (ctx) => {
-              const range = ctx.workbook.getSelectedRange();
-              range.load('address');
-              await ctx.sync();
-              setContextInfo(`Excel | Selected Cell: ${range.address}`);
-              ws.send(JSON.stringify({ type: 'office_addin_event', event: 'SelectionChanged', content: range.address, app_type: 'Excel' }));
-            }).catch(console.error);
-            return null as any;
-          });
-          await context.sync();
-        }).catch(console.error);
-      }
+    return () => {
+      unmountedRef.current = true
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      wsRef.current?.close()
     }
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'chat_response' || data.type === 'response') {
-          setMessages(prev => [...prev, { role: 'assistant', content: data.content ?? data.text ?? '' }])
-        } else if (data.type === 'chat_reply') {
-          // Primary response type from orchestrator
-          setMessages(prev => [...prev, { role: 'assistant', content: data.content ?? '' }])
-        } else if (data.type === 'context_analysis') {
-          setMessages(prev => [...prev, { role: 'assistant', content: `📄 ${data.summary}` }])
-        } else if (data.type === 'workflow_status') {
-          setActiveTasks(prev => {
-            const newTasks = { ...prev };
-            const taskId = data.step_name || data.workflow_name || data.run_id;
-            if (['success', 'failed', 'aborted', 'completed'].includes(data.status.toLowerCase())) {
-              delete newTasks[taskId];
-            } else {
-              newTasks[taskId] = data;
-            }
-            return newTasks;
-          });
-        } else if (data.type === 'addin_command') {
-          if (data.command === 'insert_text') {
-            insertIntoDocument(data.payload || '');
-          } else if (data.command === 'replace_document') {
-            replaceDocumentContent(data.payload || '');
-          } else if (data.command === 'save_document') {
-            (Office.context.document as any).saveAsync?.().catch(console.error);
-          } else if (data.command === 'extract_file') {
-            if (wsRef.current) {
-              extractFileAndSend(wsRef.current, data.payload || 'extracted_file.docx');
-            }
-          }
-        }
-      } catch (e) {
-        console.error('WS parse error:', e)
-      }
-    }
-
-    ws.onerror = () => setStatus('error')
-    ws.onclose = () => setStatus('error')
-
-    return () => ws.close()
-  }, [])
+  }, [connectWs])
 
   /** Insert AI response into the active document */
   const insertIntoDocument = async (text: string) => {
@@ -341,7 +372,11 @@ function App() {
 
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
+    if (!text) return
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setMessages(prev => [...prev, { role: 'status', content: '⚠️ Chưa kết nối backend. Đang thử kết nối lại...' }])
+      return
+    }
 
     setMessages(prev => [...prev, { role: 'user', content: text }])
     setActiveTasks({})
@@ -374,7 +409,10 @@ function App() {
   }
 
   const handleAutoFormat = async () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setMessages(prev => [...prev, { role: 'status', content: '⚠️ Chưa kết nối backend.' }])
+      return
+    }
     setMessages(prev => [...prev, { role: 'user', content: 'Tư vấn trình bày / Format lại tài liệu này.' }]);
     
     const content = await extractDocumentContent(host);
@@ -389,7 +427,10 @@ function App() {
   };
 
   const handleCreateForm = async () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setMessages(prev => [...prev, { role: 'status', content: '⚠️ Chưa kết nối backend.' }])
+      return
+    }
     setMessages(prev => [...prev, { role: 'user', content: 'Tạo Form từ tài liệu này.' }]);
     
     const content = await extractDocumentContent(host);
@@ -403,7 +444,11 @@ function App() {
     }));
   };
 
-  const statusText = status === 'connected' ? '● Connected' : status === 'connecting' ? '◌ Connecting...' : '✕ Disconnected'
+  const statusText =
+    status === 'connected' ? '● Connected' :
+    status === 'connecting' ? '◌ Connecting...' :
+    status === 'reconnecting' ? '↺ Reconnecting...' :
+    '✕ Disconnected'
 
   const hostIcon: Record<HostType, string> = {
     Word: '📝', Excel: '📊', PowerPoint: '📊', Outlook: '✉️', Unknown: '🤖'
@@ -532,13 +577,13 @@ function App() {
           onClick={handleSend}
           disabled={status !== 'connected'}
           style={{
-            background: status === 'connected' ? '#0078d4' : '#ccc',
+            background: status === 'connected' ? '#0078d4' : status === 'reconnecting' ? '#f59e0b' : '#ccc',
             color: 'white', border: 'none', borderRadius: '6px',
             padding: '0 16px', cursor: status === 'connected' ? 'pointer' : 'not-allowed',
             fontWeight: 600, fontSize: '13px', transition: 'background 0.15s'
           }}
         >
-          Gửi
+          {status === 'reconnecting' ? '↺' : 'Gửi'}
         </button>
       </div>
       

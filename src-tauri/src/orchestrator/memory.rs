@@ -53,6 +53,10 @@ impl MemoryStore {
         )
         .map_err(|e| anyhow::anyhow!("Failed to create telemetry_logs table: {}", e))?;
 
+        // Migration: Add workspace_id column for older databases
+        // This will fail silently if the column already exists, which is expected.
+        let _ = conn.execute("ALTER TABLE telemetry_logs ADD COLUMN workspace_id TEXT", []);
+
         info!("Long-term Memory & Telemetry initialized at {:?}", db_path);
 
         Ok(Self {

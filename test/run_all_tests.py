@@ -6,6 +6,8 @@ import traceback
 
 sys.stdout.reconfigure(encoding='utf-8')
 
+AUTH_TOKEN = "5d1de71cd0e14880bf60b68d48dcaeaa"  # from office-addin/.env
+
 # test cases
 commands = [
     {
@@ -80,6 +82,22 @@ async def main():
     try:
         async with websockets.connect(uri) as websocket:
             print("Connected to WebSocket Server!")
+
+            # Authenticate first (required if auth_secret is set in config.yaml)
+            await websocket.send(json.dumps({"type": "auth", "token": AUTH_TOKEN}))
+            auth_msg = None
+            try:
+                auth_msg = json.loads(await asyncio.wait_for(websocket.recv(), timeout=5))
+            except asyncio.TimeoutError:
+                pass
+            if auth_msg and auth_msg.get("type") == "auth_success":
+                print("[auth] Authenticated OK")
+            elif auth_msg and auth_msg.get("type") == "auth_error":
+                print(f"[auth] FAIL: {auth_msg.get('payload', {}).get('message')}")
+                sys.exit(1)
+            else:
+                print("[auth] No auth response (auth_secret not configured) - OK")
+
             results = []
             for i, cmd in enumerate(commands):
                 success = await run_test_case(websocket, i, cmd)

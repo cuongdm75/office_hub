@@ -123,6 +123,26 @@ We welcome contributions! Please review the tech stack above before starting.
 - `mobile/`: React Native mobile companion app.
 - `mcp-servers/`: Independent Python/Rust servers communicating via MCP Protocol.
 
+#### Extensibility & Plugins (MCP Servers)
+Office Hub AI is designed to be highly extensible via the **Model Context Protocol (MCP)**. This allows developers to add new capabilities, connect to internal APIs, or write custom automation scripts without modifying the core Rust backend.
+
+**1. Building an MCP Server:**
+You can write an MCP server in any language (Python, TypeScript, Rust, Go). The server exposes `tools` (functions) and `resources` (data) over standard input/output (stdio) or HTTP/SSE.
+- Example: Create a Python script that provides a tool to fetch data from your company's internal CRM.
+- Use the official [MCP SDKs](https://modelcontextprotocol.io) to speed up development.
+
+**2. Registering your Plugin:**
+Once your MCP server is ready, register it in the Office Hub configuration (e.g., `config.yaml`):
+```yaml
+mcp_servers:
+  my-crm-plugin:
+    command: "python"
+    args: ["/path/to/my_crm_server.py"]
+```
+
+**3. Custom Workflows & Agents:**
+For deeper integration, you can define new Agents inside `src-tauri/src/agents/`. The Orchestrator will automatically route user intents to your custom Agent based on the Rules Engine defined in `rule_engine.rs`.
+
 ---
 ---
 
@@ -238,6 +258,27 @@ Chúng tôi hoan nghênh mọi sự đóng góp mã nguồn!
 - `office-addin/`: Web Add-in chạy ngầm trong Word/Excel/PPT để đọc xuất dữ liệu.
 - `mobile/`: Ứng dụng điện thoại React Native điều khiển từ xa.
 - `mcp-servers/`: Các server độc lập (Python/Rust) giao tiếp qua chuẩn MCP (Model Context Protocol).
+
+#### Khả năng mở rộng & Phát triển Plugin (MCP Servers)
+Office Hub AI được thiết kế với kiến trúc mở thông qua giao thức **MCP (Model Context Protocol)**. Lập trình viên có thể dễ dàng thêm các tính năng mới, kết nối với API nội bộ của công ty, hoặc viết các kịch bản tự động hóa riêng mà không cần can thiệp vào lõi Backend Rust.
+
+**1. Xây dựng một MCP Server (Plugin):**
+Bạn có thể viết MCP Server bằng bất kỳ ngôn ngữ nào (Python, TypeScript, Rust, Go). Server này sẽ cung cấp các `tools` (công cụ/hàm) và `resources` (tài nguyên/dữ liệu) thông qua chuẩn giao tiếp stdio hoặc HTTP/SSE.
+- Ví dụ: Viết một script Python chứa một `tool` để tự động lấy báo cáo từ hệ thống CRM nội bộ.
+- Sử dụng các [MCP SDKs chính thức](https://modelcontextprotocol.io) để phát triển nhanh chóng.
+
+**2. Đăng ký Plugin vào Office Hub:**
+Sau khi hoàn thiện MCP Server, bạn chỉ cần khai báo nó vào cấu hình của Office Hub (ví dụ: `config.yaml`):
+```yaml
+mcp_servers:
+  plugin-crm-noi-bo:
+    command: "python"
+    args: ["/duong/dan/toi/crm_server.py"]
+```
+Ngay sau khi khởi động lại, các Agent của Office Hub sẽ tự động "hiểu" và biết cách gọi công cụ CRM của bạn khi người dùng yêu cầu.
+
+**3. Tích hợp Workflows & Agents chuyên sâu:**
+Nếu bạn muốn xây dựng một đặc vụ (Agent) hoàn toàn mới với logic phức tạp, bạn có thể định nghĩa Agent đó tại thư mục `src-tauri/src/agents/`. Bộ não trung tâm (Orchestrator) sẽ sử dụng `rule_engine.rs` để phân tích ngữ nghĩa câu lệnh của người dùng và tự động định tuyến (route) đến Agent mới của bạn.
 
 ---
 *Bản quyền thuộc về những người đóng góp cho dự án Office Hub AI (MIT License).*
