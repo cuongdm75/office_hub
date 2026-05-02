@@ -1,10 +1,11 @@
 # 🏢 Office Hub AI
 
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/cuongdm75/office_hub/actions)
 [![Version: v1.0.0](https://img.shields.io/badge/Version-v1.0.0-success.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.80+-orange)](https://www.rust-lang.org)
+[![E2E Tests](https://img.shields.io/badge/E2E%20Tests-7%2F7%20Passing-brightgreen.svg)](#-e2e-test-results)
 
 *(Tiếng Việt ở bên dưới / Vietnamese below)*
 
@@ -12,273 +13,358 @@
 
 ## 🇬🇧 English
 
-> **Office Hub AI** — A lightweight, agentic overlay deeply integrated into Microsoft Office. It automates workflows from Web to Office via a multi-agent orchestration architecture and an independent Model Context Protocol (MCP) ecosystem.
+> **Office Hub AI** — A lightweight, agentic overlay deeply integrated into Microsoft Office. It automates workflows from Web to Office via a multi-agent orchestration architecture powered by an independent Model Context Protocol (MCP) ecosystem running entirely on your local machine.
 
-Office Hub is an open-source Desktop and Mobile companion application that brings autonomous AI agents to your local machine, allowing you to manipulate Excel spreadsheets, draft Word documents, analyze data with Polars, and conduct web research—all locally without exposing your sensitive documents to untrusted 3rd party clouds.
-
-### 📸 System Screenshots
-
-#### Desktop Interface (Tauri + React)
-![Desktop App Interface](docs/assets/desktop_ui.png)
-*Modern dark-mode multi-agent chat interface with real-time memory tracking and status metrics.*
-
-#### Mobile Companion App (React Native)
-![Mobile App Interface](docs/assets/mobile_ui.png)
-*Remote dashboard connecting securely to your desktop agents via local network.*
-
-### ✨ Key Features for Users
-- **Multi-Agent Orchestrator:** An advanced AI ecosystem (Web Researcher, Office Master, Analyst) collaborating autonomously via Model Context Protocol (MCP).
-- **Office Mastery:** Automatically generates, edits, and extracts data from Word documents, Excel spreadsheets, and PowerPoint presentations via native Win32 COM and Office.js Add-ins.
-- **Analytic & Chart Engine:** Blazing-fast data processing using **Polars SQL**, capable of transforming millions of rows and rendering dynamic ECharts automatically.
-- **Web Researcher:** Deep web searching and visual layout extraction using an integrated headless browser engine (`obscura`).
-- **Mobile Companion:** Real-time remote control of your Desktop agents via the Office Hub Mobile app using secure SSE + REST architecture.
-- **Workspace Isolation:** Your chats, context histories, and files are completely isolated by project workspace to ensure absolute data privacy.
-
-### 🛠️ Full Tech Stack
-
-Office Hub utilizes a bleeding-edge technology stack optimized for performance, security, and developer experience:
-
-- **Core Backend:** Rust, Tauri v2, Axum (HTTP/SSE Server), Tokio (Async runtime), Polars (Dataframe), Reqwest, Rusqlite
-- **Desktop Frontend:** React 18, TypeScript, Vite, Tailwind CSS v3, Zustand (State Management), ECharts, React Flow
-- **Mobile Companion:** React Native, Expo, Zustand, React Navigation
-- **Office Integration:** Microsoft Win32 COM APIs, Office.js Web Add-ins (React + Vite)
-- **AI Infrastructure:** Model Context Protocol (MCP), GenAI framework (with multi-provider support: Gemini, OpenAI, Anthropic, Local Ollama)
-
-### 🚀 Getting Started (End Users / No Code Required)
-
-With just 5 simple steps, you can install and use Office Hub immediately without any programming knowledge:
-
-1. **Download the Software:**
-   - Go to the [Releases page](https://github.com/cuongdm75/office_hub/releases/latest).
-   - Download the `OfficeHub-Setup.exe` file (for Windows Desktop) and `OfficeHub.apk` (if you use an Android phone).
-
-2. **Install on Desktop:**
-   - Double-click the downloaded `OfficeHub-Setup.exe` file to install it like any regular software.
-   - Open the Office Hub AI app from your Desktop.
-
-3. **Configure Artificial Intelligence (AI):**
-   - On the first launch, switch to the **Settings** tab (gear icon).
-   - Enter the API Key of the AI you want to use (e.g., Google Gemini, OpenAI, or connect Local Ollama if available).
-
-4. **Integrate with Word / Excel (Install Add-in):**
-   - Open Microsoft Word or Excel on your computer.
-   - Click the **Insert** tab -> **Get Add-ins** -> **My Add-ins**.
-   - Select **Upload My Add-in**.
-   - Choose the `manifest.xml` file (included in the release package downloaded in Step 1).
-   - The Office Hub window will instantly appear on the right side of your Word/Excel screen!
-
-5. **Connect Mobile Companion App:**
-   - Install the `OfficeHub.apk` file on your Android phone.
-   - Open the Office Hub app on your phone.
-   - On the desktop app, click the **QR Code** button to scan the code, or directly enter your computer's **IP Address** into the phone to connect. You can now control the AI remotely!
+Office Hub is an open-source Desktop + Mobile companion that brings autonomous AI agents to your PC. It can manipulate Excel spreadsheets, draft Word documents, analyze data with Polars SQL, conduct deep web research, and orchestrate complex multi-step workflows—all **locally**, without exposing your sensitive documents to untrusted third-party clouds.
 
 ---
 
-### 💻 Developer Guide (Open Source)
+### 📸 System Screenshots
 
-We welcome contributions! Please review the tech stack above before starting.
+#### Desktop Interface — Chat & History
+![Desktop App - Chat Interface](docs/assets/desktop_ui.png)
+*Dark-mode multi-agent chat interface with workspace isolation, categorized session history, and real-time agent status.*
+
+#### Desktop Interface — AI Dashboard & Telemetry
+![Desktop App - AI Dashboard](docs/assets/ai_dashboard_ui.png)
+*Real-time telemetry dashboard: total token consumption, task count, active agents, and 21 loaded MCP skills.*
+
+#### Desktop Interface — Visual Agent Monitor
+![Desktop App - Agent Monitor](docs/assets/monitor_ui.png)
+*DAG-based live orchestration view showing all agents (Orchestrator, Web Researcher, Analyst, Outlook) with real-time task and token telemetry.*
+
+#### Mobile Companion App (React Native)
+![Mobile App Interface](docs/assets/mobile_ui.png)
+*Secure mobile companion connecting to your desktop AI hub via QR Code pairing or manual IP+token entry over SSE+REST.*
+
+---
+
+### ✨ Key Features
+
+| Feature | Description |
+|---|---|
+| **Multi-Agent Orchestrator** | Autonomous AI ecosystem (Orchestrator, Web Researcher, Office Master, Analyst, Outlook) collaborating via MCP. Routes user intent automatically using `rule_engine.rs`. |
+| **Office Mastery (COM + Add-in)** | Automatically generates, edits, formats, and extracts data from **Word**, **Excel**, and **PowerPoint** via native Win32 COM automation and an embedded Office.js Add-in. |
+| **15 Built-in MCP Tools** | Internal skills including: `office_master`, `analyst`, `web_researcher`, `office_com_server`, `outlook`, `search_server`, `analytic_server`, `chart_server`, `native_chart_server`, `folder_scanner`, `converter`, `win32_admin`, `web_fetch_server`, `memory_server`, `system`. |
+| **Polars SQL Analytics** | Blazing-fast in-process data processing for millions of rows. Renders dynamic **ECharts** and **native chart images** automatically from data. |
+| **Web Researcher** | Deep web search and structured web-page content extraction using an integrated headless engine (`obscura`). |
+| **Knowledge Base** | Persistent local knowledge store with Markdown editing. Attach files and notes to workspaces for AI context injection. |
+| **Workflow Builder** | Visual node-based workflow editor (React Flow) for designing and saving multi-step agent automation pipelines. |
+| **Visual Agent Monitor** | Real-time DAG view of the live orchestration graph, showing each agent's current task, tool executions, and token consumption. |
+| **AI Dashboard** | LLM telemetry across all providers: total requests, success/failure rates per model, token usage per agent, cache hit rate, and fallback count. |
+| **Multi-Provider LLM Gateway** | Hybrid LLM gateway supporting **Gemini**, **OpenAI**, **Anthropic**, and **local Ollama** with automatic fallback routing. |
+| **Workspace Isolation** | Chat history, context, memory, and files are completely isolated by workspace using SQLite partitioning. |
+| **Mobile Companion** | Real-time control of desktop agents from an Android/iOS app via secure SSE + REST architecture. QR Code pairing support. |
+| **Office Add-in** | Embedded HTTPS server serves the Office.js add-in panel directly inside Word/Excel/Outlook with zero separate server required. |
+| **Theme Engine** | Full Light / Dark / System theme support with persistent preference, applied via CSS custom properties. |
+| **CRDT Sync** | Conflict-free replicated data types for real-time collaborative session state between desktop and mobile. |
+
+---
+
+### 🛠️ Full Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Core Backend** | Rust 1.80+, Tauri v2, Axum (HTTP/SSE), Tokio async runtime, Rusqlite |
+| **Data Processing** | Polars (DataFrame SQL engine), Plotters (native chart rendering) |
+| **Networking** | WebSocket (port 9001), SSE+REST hybrid (port 9002), embedded HTTPS (port 3000) |
+| **Desktop Frontend** | React 18, TypeScript, Vite, Tailwind CSS v3, Zustand, ECharts, React Flow (`@xyflow/react`) |
+| **Mobile Companion** | React Native, Expo, Zustand, React Navigation |
+| **Office Integration** | Win32 COM APIs, Office.js Web Add-ins (React + Vite), `office-addin-dev-certs` |
+| **AI Infrastructure** | Model Context Protocol (MCP), GenAI multi-provider gateway (Gemini, OpenAI, Anthropic, Ollama) |
+| **Persistence** | SQLite (per-workspace), local filesystem knowledge store |
+
+---
+
+### ✅ E2E Test Results
+
+All 7 integration tests pass against the live backend:
+
+```
+============================================================
+  Office Hub - E2E Office Add-in WebSocket Tests
+  Target: ws://127.0.0.1:9001
+============================================================
+  [OK] [134ms]   PASS: Connect & Auth
+  [OK] [1542ms]  PASS: Reconnect Resilience (3 cycles)
+  [OK] [16777ms] PASS: ChatRequest - Basic Reply
+  [OK] [5554ms]  PASS: ChatRequest - With Document Content
+  [OK] [1ms]     PASS: Ping/Pong
+  [OK] [3000ms]  PASS: OfficeAddinEvent - DocumentOpened (Word)
+  [OK] [3015ms]  PASS: OfficeAddinEvent - Outlook Email
+
+  Result: 7/7 tests passed
+============================================================
+```
+
+Run the suite anytime: `python test/e2e_addin_ws.py`
+
+---
+
+### 🚀 Getting Started (End Users — No Code Required)
+
+#### Step 1 — Download
+Go to [Releases](https://github.com/cuongdm75/office_hub/releases/latest) and download:
+- `OfficeHub-Setup.exe` — Windows desktop installer
+- `OfficeHub.apk` — Android companion app (optional)
+
+#### Step 2 — Install & Launch
+Double-click `OfficeHub-Setup.exe`. Open **Office Hub AI** from your Desktop shortcut.
+
+#### Step 3 — Configure AI
+On first launch, open **Settings** (gear icon at the bottom of the sidebar) → **LLM** tab.  
+Enter an API key for at least one provider (Google Gemini, OpenAI, or Anthropic). Local Ollama is detected automatically.
+
+#### Step 4 — Install the Office Add-in
+1. Open Microsoft Word or Excel.
+2. Click **Insert** → **Get Add-ins** → **My Add-ins** → **Upload My Add-in**.
+3. Select `manifest.xml` from the release package.
+4. The Office Hub panel appears on the right side of your document!
+
+> **Alternative (Registry):** Run `.\install_addin_ribbon.ps1` as Administrator to install the add-in via the Windows Registry for all Office apps at once.
+
+#### Step 5 — Connect Mobile (Optional)
+Install `OfficeHub.apk` on your Android phone. In the desktop app, navigate to **Settings → Mobile** tab to reveal the QR code, then scan it from your phone to pair instantly.
+
+---
+
+### 💻 Developer Guide
 
 #### Prerequisites
-- **OS:** Windows 10/11 (64-bit) is required for COM automation and Office Add-in features.
+- **OS:** Windows 10/11 64-bit (required for COM automation and Office Add-in)
 - **Rust:** 1.80+ (`rustup update stable`)
 - **Node.js:** 20+
-- **Microsoft Office:** 2016 / 2019 / 2021 / 365 (Developer Registry enabled)
+- **Microsoft Office:** 2016 / 2019 / 2021 / 365
 
-#### Local Setup & Development
+#### Local Setup
 
-1. **Clone the repository:**
-   ```powershell
-   git clone https://github.com/cuongdm75/office_hub.git
-   cd office_hub
-   ```
+```powershell
+# 1. Clone
+git clone https://github.com/cuongdm75/office_hub.git
+cd office_hub
 
-2. **Install Dependencies:**
-   ```powershell
-   npm install
-   cd office-addin && npm install
-   cd ../mobile && npm install
-   ```
+# 2. Install all dependencies
+npm install
+cd office-addin && npm install
+cd ../mobile && npm install
+cd ..
 
-3. **Run the Application:**
-   To start the full stack (Tauri Desktop App + Backend Server + Office Add-in Dev Server):
-   ```powershell
-   .\Start-OfficeHub.ps1
-   ```
-   *Note: This script will automatically install local HTTPS certificates required by Office Add-ins.*
+# 3. Start full stack (Vite dev + Rust backend + embedded add-in server)
+npm run tauri:dev
+```
 
-4. **Build for Production:**
-   ```powershell
-   # Build Desktop (.exe / .msi)
-   npm run tauri:build
+The startup script `.\Start-OfficeHub.ps1` can also be used for running only the pre-built binary (no Rust recompile):
+```powershell
+# Requires: cargo build completed in src-tauri/
+.\Start-OfficeHub.ps1
+```
 
-   # Build Mobile (.apk)
-   cd mobile
-   npx eas-cli build -p android --profile preview
-   ```
+#### Build for Production
 
-#### Project Structure
-- `src-tauri/`: Rust backend, Agent Orchestrator, LLM Gateway, Axum servers.
-- `src/`: Tauri React Frontend (Dashboard, Chat UI).
-- `office-addin/`: Office Web Add-in for seamless Word/Excel/PPT extraction.
-- `mobile/`: React Native mobile companion app.
-- `mcp-servers/`: Independent Python/Rust servers communicating via MCP Protocol.
+```powershell
+# Desktop (.exe + .msi installer)
+npm run tauri:build
 
-#### Extensibility & Plugins (MCP Servers)
-Office Hub AI is designed to be highly extensible via the **Model Context Protocol (MCP)**. This allows developers to add new capabilities, connect to internal APIs, or write custom automation scripts without modifying the core Rust backend.
+# Mobile (.apk via EAS)
+cd mobile
+npx eas-cli build -p android --profile preview
+```
 
-**1. Building an MCP Server:**
-You can write an MCP server in any language (Python, TypeScript, Rust, Go). The server exposes `tools` (functions) and `resources` (data) over standard input/output (stdio) or HTTP/SSE.
-- Example: Create a Python script that provides a tool to fetch data from your company's internal CRM.
-- Use the official [MCP SDKs](https://modelcontextprotocol.io) to speed up development.
+#### Run E2E Tests
 
-**2. Registering your Plugin:**
-Once your MCP server is ready, register it in the Office Hub configuration (e.g., `config.yaml`):
+```powershell
+# Backend must be running first
+python test/e2e_addin_ws.py
+```
+
+---
+
+### 📁 Project Structure
+
+```
+office-hub/
+├── src/                    # React desktop frontend (Chat, Files, Workflows, Monitor…)
+│   ├── components/
+│   │   ├── ChatPane/       # Main chat UI + session history sidebar
+│   │   ├── AgentMonitor/   # Real-time DAG agent visualization (React Flow)
+│   │   ├── AgentManager/   # AI Dashboard + MCP skill manager
+│   │   ├── FileBrowser/    # Workspace file browser
+│   │   ├── KnowledgeBase/  # Local knowledge store with Markdown editor
+│   │   ├── WorkflowBuilder/# Visual workflow node editor
+│   │   └── Settings/       # LLM config, system, mobile pairing
+│   └── store/              # Zustand global state
+├── src-tauri/src/          # Rust backend
+│   ├── agents/             # Agent implementations (office_master, analyst, web_researcher, outlook, converter…)
+│   ├── mcp/                # MCP broker + 15 internal tool servers
+│   ├── llm_gateway/        # Hybrid multi-provider LLM gateway with fallback
+│   ├── orchestrator/       # Intent routing + rule engine
+│   ├── websocket/          # WebSocket server (port 9001, Office Add-in protocol)
+│   ├── sse_server.rs       # SSE+REST server (port 9002, mobile companion)
+│   ├── knowledge.rs        # Persistent knowledge base engine
+│   └── workflow/           # Workflow execution engine
+├── office-addin/           # Office.js Add-in (Word/Excel/Outlook panel)
+├── mobile/                 # React Native companion app
+├── test/                   # E2E test suite
+│   └── e2e_addin_ws.py     # WebSocket protocol integration tests (7 tests)
+└── mcp-servers/            # Example external MCP server (extensibility)
+```
+
+---
+
+### 🔌 Extending via MCP Servers
+
+Office Hub is built on an open MCP architecture. You can add custom tools without touching the Rust core.
+
+**1. Write a server** in any language (Python, TypeScript, Go, Rust):
+```python
+# my_crm_server.py — exposes a CRM lookup tool
+from mcp.server import MCPServer
+server = MCPServer("crm")
+
+@server.tool("get_contract")
+def get_contract(contract_id: str) -> str:
+    return f"Contract {contract_id}: ..."
+```
+
+**2. Register it** in `config.yaml`:
 ```yaml
 mcp_servers:
-  my-crm-plugin:
+  my-crm:
     command: "python"
     args: ["/path/to/my_crm_server.py"]
 ```
 
-**3. Custom Workflows & Agents:**
-For deeper integration, you can define new Agents inside `src-tauri/src/agents/`. The Orchestrator will automatically route user intents to your custom Agent based on the Rules Engine defined in `rule_engine.rs`.
+**3. Agents auto-discover** the new tool on next startup and route user requests to it automatically.
+
+**4. Custom Agents:** Define new agents in `src-tauri/src/agents/`. The Orchestrator's `rule_engine.rs` will automatically route matching user intents to your agent.
 
 ---
 ---
 
 ## 🇻🇳 Tiếng Việt
 
-> **Office Hub AI** — Trợ lý AI siêu nhẹ, tích hợp sâu vào Microsoft Office, tự động hóa quy trình từ Web đến Office thông qua kiến trúc đa Agent điều phối và hệ sinh thái MCP (Model Context Protocol) độc lập.
-
-Office Hub là dự án mã nguồn mở (Open Source) bao gồm ứng dụng Desktop và Mobile, mang sức mạnh của AI Agents xuống máy tính cá nhân của bạn. Ứng dụng có thể tự động xử lý bảng tính Excel, soạn thảo Word, phân tích dữ liệu với Polars, và nghiên cứu Web—tất cả diễn ra cục bộ, đảm bảo tính bảo mật dữ liệu tuyệt đối.
-
-### 📸 Ảnh chụp màn hình hệ thống
-
-#### Giao diện Ứng dụng Desktop (Tauri + React)
-![Desktop App Interface](docs/assets/desktop_ui.png)
-*Giao diện Dark Mode hiện đại, tích hợp chat đa luồng Agent cùng trình theo dõi bộ nhớ theo thời gian thực.*
-
-#### Giao diện Ứng dụng Mobile (React Native)
-![Mobile App Interface](docs/assets/mobile_ui.png)
-*Ứng dụng Mobile đồng hành kết nối bảo mật qua mạng LAN để điều khiển và giám sát tiến trình hệ thống từ xa.*
-
-### ✨ Tính năng nổi bật
-- **Hệ thống Multi-Agent:** Kiến trúc điều phối đa đặc vụ (Web Researcher, Office Master, Analyst) phối hợp tự chủ thông qua giao thức MCP.
-- **Tự động hoá Office Mastery:** Tự động tạo, sửa đổi, định dạng và trích xuất dữ liệu từ Word, Excel, PowerPoint thông qua công nghệ Win32 COM và Office.js Add-ins.
-- **Analytic & Chart Engine:** Công cụ phân tích và biểu diễn dữ liệu bằng **Polars SQL**, tốc độ cực nhanh cho hàng triệu dòng, tự động trích xuất các biểu đồ ECharts.
-- **Web Researcher:** Máy dò tìm thông tin và nghiên cứu web chuyên sâu tích hợp engine trình duyệt ẩn danh (`obscura`).
-- **Mobile Companion:** Điều khiển AI Agents từ xa theo thời gian thực thông qua ứng dụng Mobile bằng kiến trúc bảo mật SSE + REST.
-- **Workspace Isolation:** Cách ly tuyệt đối không gian làm việc. Ngữ cảnh, lịch sử chat và các tài liệu được khoanh vùng độc lập theo từng dự án.
-
-### 🛠️ Công nghệ sử dụng (Tech Stack)
-
-Office Hub được xây dựng dựa trên các công nghệ tiên tiến nhất về hiệu năng và bảo mật:
-
-- **Core Backend:** Rust, Tauri v2, Axum (HTTP/SSE Server), Tokio (Async runtime), Polars (Dataframe), Reqwest, Rusqlite
-- **Desktop Frontend:** React 18, TypeScript, Vite, Tailwind CSS v3, Zustand, ECharts, React Flow
-- **Mobile Companion:** React Native, Expo, Zustand, React Navigation
-- **Office Integration:** Microsoft Win32 COM APIs, Office.js Web Add-ins (React + Vite)
-- **AI Infrastructure:** Model Context Protocol (MCP), Framework GenAI (Hỗ trợ đa LLM: Gemini, OpenAI, Anthropic, Ollama cục bộ)
-
-### 🚀 Hướng dẫn cài đặt cho người dùng (Không cần lập trình)
-
-Chỉ với 5 bước đơn giản, bạn có thể cài đặt và sử dụng Office Hub ngay lập tức mà không cần biết viết code:
-
-1. **Tải phần mềm (Download):**
-   - Truy cập vào trang [Releases (Phát hành mới nhất)](https://github.com/cuongdm75/office_hub/releases/latest).
-   - Tải file `OfficeHub-Setup.exe` (cho máy tính Windows) và `OfficeHub.apk` (nếu bạn dùng điện thoại Android).
-
-2. **Cài đặt trên Máy tính (Desktop App):**
-   - Nháy đúp vào file `OfficeHub-Setup.exe` vừa tải về để cài đặt như các phần mềm thông thường.
-   - Mở ứng dụng Office Hub AI từ màn hình Desktop của bạn.
-
-3. **Cấu hình Trí tuệ nhân tạo (AI):**
-   - Trong lần đầu mở ứng dụng, hãy chuyển sang tab **Cài đặt (Settings)** (biểu tượng bánh răng).
-   - Điền API Key của AI mà bạn muốn sử dụng (ví dụ: Google Gemini, OpenAI, hoặc kết nối Local Ollama nếu có).
-
-4. **Tích hợp vào Word / Excel (Cài đặt Add-in):**
-   - Mở phần mềm Microsoft Word hoặc Excel trên máy tính của bạn.
-   - Bấm vào tab **Insert (Chèn)** -> **Get Add-ins (Tải Add-in)** -> **My Add-ins (Add-in của tôi)**.
-   - Chọn **Upload My Add-in (Tải Add-in của tôi lên)**.
-   - Chọn file `manifest.xml` (file này đính kèm cùng bộ cài đặt tải về ở Bước 1).
-   - Cửa sổ Office Hub sẽ lập tức xuất hiện bên phải màn hình Word/Excel của bạn!
-
-5. **Kết nối Ứng dụng Điện thoại (Mobile Companion):**
-   - Cài đặt file `OfficeHub.apk` vào điện thoại Android của bạn.
-   - Mở ứng dụng Office Hub trên điện thoại.
-   - Trên ứng dụng máy tính, nhấn vào nút **Mã QR** để quét mã, hoặc nhập trực tiếp **Địa chỉ IP** của máy tính vào điện thoại để kết nối. Giờ đây bạn có thể điều khiển AI từ xa!
+> **Office Hub AI** — Trợ lý AI siêu nhẹ, tích hợp sâu vào Microsoft Office. Tự động hóa quy trình từ Web đến Office thông qua kiến trúc đa Agent điều phối và hệ sinh thái **15 MCP tools** nội bộ, hoạt động hoàn toàn cục bộ trên máy tính của bạn.
 
 ---
 
-### 💻 Hướng dẫn cho Lập trình viên (Developer Guide)
+### 📸 Ảnh chụp màn hình
 
-Chúng tôi hoan nghênh mọi sự đóng góp mã nguồn! 
+#### Giao diện Desktop — Chat & Lịch sử
+![Desktop App - Chat](docs/assets/desktop_ui.png)
+*Giao diện Dark Mode với bộ chọn Workspace, lịch sử chat phân loại, và trạng thái Agent theo thời gian thực.*
+
+#### Giao diện Desktop — AI Dashboard
+![Desktop App - Dashboard](docs/assets/ai_dashboard_ui.png)
+*Dashboard telemetry: tổng token tiêu thụ, số tác vụ, agents hoạt động, và 21 MCP Skills được nạp.*
+
+#### Giao diện Desktop — Visual Agent Monitor
+![Desktop App - Monitor](docs/assets/monitor_ui.png)
+*Đồ thị DAG trực quan theo dõi toàn bộ luồng điều phối đa Agent theo thời gian thực.*
+
+#### Ứng dụng Mobile (React Native)
+![Mobile App](docs/assets/mobile_ui.png)
+*Kết nối bảo mật bằng QR Code hoặc nhập thủ công IP + token để điều khiển AI từ điện thoại.*
+
+---
+
+### ✨ Tính năng nổi bật
+
+| Tính năng | Mô tả |
+|---|---|
+| **Multi-Agent Orchestrator** | Hệ điều phối đa đặc vụ (Orchestrator, Web Researcher, Office Master, Analyst, Outlook) hợp tác qua MCP. |
+| **Office Mastery** | Tự động tạo, sửa, định dạng Word/Excel/PowerPoint qua Win32 COM + Office.js Add-in nhúng. |
+| **15 MCP Tools nội bộ** | `office_master`, `analyst`, `web_researcher`, `outlook`, `search_server`, `analytic_server`, `chart_server`, `native_chart_server`, `folder_scanner`, `converter`, `win32_admin`, `web_fetch_server`, `memory_server`, `system`, `office_com_server`. |
+| **Polars SQL Analytics** | Xử lý hàng triệu dòng dữ liệu tốc độ cao, tự động xuất biểu đồ ECharts và ảnh chart nội bộ. |
+| **Web Researcher** | Nghiên cứu web chuyên sâu với engine trình duyệt ẩn danh `obscura`. |
+| **Knowledge Base** | Kho lưu trữ kiến thức cục bộ với trình soạn Markdown, gắn file theo từng Workspace. |
+| **Workflow Builder** | Trình thiết kế luồng công việc dạng node trực quan (React Flow). |
+| **Visual Agent Monitor** | Đồ thị DAG theo dõi trực tiếp từng Agent: tác vụ hiện tại, công cụ đang chạy, token tiêu thụ. |
+| **AI Dashboard** | Thống kê telemetry: requests, tỷ lệ thành công/thất bại theo model, token theo agent, cache hits. |
+| **LLM Gateway đa nhà cung cấp** | Hỗ trợ Gemini, OpenAI, Anthropic, Ollama cục bộ với tự động fallback. |
+| **Workspace Isolation** | Cách ly tuyệt đối chat, ngữ cảnh, memory, file theo từng dự án qua SQLite partitioning. |
+| **Mobile Companion** | Điều khiển AI từ Android/iOS qua SSE+REST. Ghép nối bằng QR Code. |
+
+---
+
+### 🛠️ Công nghệ
+
+| Tầng | Công nghệ |
+|---|---|
+| **Core Backend** | Rust 1.80+, Tauri v2, Axum, Tokio, Rusqlite |
+| **Xử lý dữ liệu** | Polars (DataFrame SQL), Plotters (chart ảnh nội bộ) |
+| **Mạng** | WebSocket (cổng 9001), SSE+REST (cổng 9002), HTTPS nhúng (cổng 3000) |
+| **Frontend Desktop** | React 18, TypeScript, Vite, Tailwind CSS v3, Zustand, ECharts, React Flow |
+| **Mobile** | React Native, Expo, Zustand, React Navigation |
+| **Office** | Win32 COM APIs, Office.js Add-in (React + Vite) |
+| **AI** | MCP, LLM Gateway đa nhà cung cấp (Gemini, OpenAI, Anthropic, Ollama) |
+
+---
+
+### 🚀 Hướng dẫn cài đặt (Người dùng — Không cần lập trình)
+
+1. **Tải phần mềm:** Truy cập [trang Releases](https://github.com/cuongdm75/office_hub/releases/latest), tải `OfficeHub-Setup.exe` và `OfficeHub.apk` (tùy chọn).
+
+2. **Cài đặt Desktop:** Nháy đúp `OfficeHub-Setup.exe`. Mở Office Hub AI từ màn hình Desktop.
+
+3. **Cấu hình AI:** Vào **Settings** (biểu tượng bánh răng) → tab **LLM** → nhập API Key (Gemini, OpenAI, Anthropic, hoặc để trống nếu dùng Ollama).
+
+4. **Cài Add-in vào Office:**
+   - Mở Word hoặc Excel → **Insert** → **Get Add-ins** → **My Add-ins** → **Upload My Add-in**.
+   - Chọn file `manifest.xml` trong gói cài đặt.
+   - Hoặc chạy `.\install_addin_ribbon.ps1` (quyền Admin) để cài vào toàn bộ ứng dụng Office.
+
+5. **Kết nối Mobile (Tùy chọn):** Cài `OfficeHub.apk` → Vào **Settings → Mobile** trên Desktop để lấy QR Code → Quét từ điện thoại.
+
+---
+
+### 💻 Hướng dẫn cho Lập trình viên
 
 #### Yêu cầu hệ thống
-- **OS:** Bắt buộc dùng Windows 10/11 (64-bit) để hỗ trợ giao thức COM và Office Add-in.
+- **OS:** Windows 10/11 (64-bit) — bắt buộc cho COM và Office Add-in
 - **Rust:** 1.80+ (`rustup update stable`)
 - **Node.js:** 20+
-- **Microsoft Office:** Phiên bản 2016 / 2019 / 2021 / 365 (Yêu cầu bật Developer Registry cho Add-in)
+- **Microsoft Office:** 2016 / 2019 / 2021 / 365
 
-#### Cài đặt và Chạy môi trường Dev
+#### Cài đặt và Chạy Dev
 
-1. **Clone mã nguồn:**
-   ```powershell
-   git clone https://github.com/cuongdm75/office_hub.git
-   cd office_hub
-   ```
+```powershell
+git clone https://github.com/cuongdm75/office_hub.git
+cd office_hub
+npm install
+cd office-addin && npm install
+cd ../mobile && npm install
+cd ..
+npm run tauri:dev
+```
 
-2. **Cài đặt Dependencies:**
-   ```powershell
-   npm install
-   cd office-addin && npm install
-   cd ../mobile && npm install
-   ```
+#### Build bản chính thức
 
-3. **Chạy ứng dụng (Development):**
-   Để khởi động toàn bộ hệ thống (Tauri Desktop App + Backend Server + Office Add-in Dev Server):
-   ```powershell
-   .\Start-OfficeHub.ps1
-   ```
-   *Lưu ý: Script này sẽ tự động cài đặt chứng chỉ HTTPS cục bộ (localhost) bắt buộc cho Office Add-in.*
+```powershell
+npm run tauri:build          # Desktop (.exe + .msi)
+cd mobile
+npx eas-cli build -p android --profile preview   # Mobile (.apk)
+```
 
-4. **Build bản chính thức (Production):**
-   ```powershell
-   # Build Desktop (.exe / .msi)
-   npm run tauri:build
+#### Chạy E2E Tests
 
-   # Build Mobile (.apk)
-   cd mobile
-   npx eas-cli build -p android --profile preview
-   ```
+```powershell
+python test/e2e_addin_ws.py   # 7/7 tests pass
+```
 
-#### Cấu trúc dự án
-- `src-tauri/`: Rust backend, bộ điều phối Agent Orchestrator, LLM Gateway, Axum servers.
-- `src/`: React Frontend cho app Desktop (Dashboard, Chat UI).
-- `office-addin/`: Web Add-in chạy ngầm trong Word/Excel/PPT để đọc xuất dữ liệu.
-- `mobile/`: Ứng dụng điện thoại React Native điều khiển từ xa.
-- `mcp-servers/`: Các server độc lập (Python/Rust) giao tiếp qua chuẩn MCP (Model Context Protocol).
+---
 
-#### Khả năng mở rộng & Phát triển Plugin (MCP Servers)
-Office Hub AI được thiết kế với kiến trúc mở thông qua giao thức **MCP (Model Context Protocol)**. Lập trình viên có thể dễ dàng thêm các tính năng mới, kết nối với API nội bộ của công ty, hoặc viết các kịch bản tự động hóa riêng mà không cần can thiệp vào lõi Backend Rust.
+### 🔌 Mở rộng bằng MCP Server
 
-**1. Xây dựng một MCP Server (Plugin):**
-Bạn có thể viết MCP Server bằng bất kỳ ngôn ngữ nào (Python, TypeScript, Rust, Go). Server này sẽ cung cấp các `tools` (công cụ/hàm) và `resources` (tài nguyên/dữ liệu) thông qua chuẩn giao tiếp stdio hoặc HTTP/SSE.
-- Ví dụ: Viết một script Python chứa một `tool` để tự động lấy báo cáo từ hệ thống CRM nội bộ.
-- Sử dụng các [MCP SDKs chính thức](https://modelcontextprotocol.io) để phát triển nhanh chóng.
-
-**2. Đăng ký Plugin vào Office Hub:**
-Sau khi hoàn thiện MCP Server, bạn chỉ cần khai báo nó vào cấu hình của Office Hub (ví dụ: `config.yaml`):
 ```yaml
+# config.yaml — đăng ký plugin tùy chỉnh
 mcp_servers:
   plugin-crm-noi-bo:
     command: "python"
     args: ["/duong/dan/toi/crm_server.py"]
 ```
-Ngay sau khi khởi động lại, các Agent của Office Hub sẽ tự động "hiểu" và biết cách gọi công cụ CRM của bạn khi người dùng yêu cầu.
 
-**3. Tích hợp Workflows & Agents chuyên sâu:**
-Nếu bạn muốn xây dựng một đặc vụ (Agent) hoàn toàn mới với logic phức tạp, bạn có thể định nghĩa Agent đó tại thư mục `src-tauri/src/agents/`. Bộ não trung tâm (Orchestrator) sẽ sử dụng `rule_engine.rs` để phân tích ngữ nghĩa câu lệnh của người dùng và tự động định tuyến (route) đến Agent mới của bạn.
+Khi khởi động lại, các Agent sẽ tự động nhận diện và sử dụng công cụ mới. Để tạo Agent hoàn toàn mới, định nghĩa trong `src-tauri/src/agents/` — Orchestrator sẽ tự route qua `rule_engine.rs`.
 
 ---
-*Bản quyền thuộc về những người đóng góp cho dự án Office Hub AI (MIT License).*
+
+*Copyright © Office Hub AI Contributors — MIT License*
