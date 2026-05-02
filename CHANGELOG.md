@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-05-01
+## [1.0.0] - 2026-05-02
 
 ### Added
 - **Embedded Add-in HTTPS Server**: The Office Web Add-in server (Word/Excel/PowerPoint) is now built into the Rust core and starts automatically with Office Hub — no separate `npm run dev` process required. Served via `axum-server` + `rustls` on `https://localhost:3000`.
@@ -34,3 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - System prompt isolation based on agent privilege levels.
 - Tailscale tunnel communication security for local and mobile clients.
 - WebSocket auth token auto-generated and persisted to `config.yaml` on first run.
+
+### Documentation
+- README rewritten with full feature table (15 MCP tools, AI Dashboard, Visual Agent Monitor, Knowledge Base, Workflow Builder, CRDT, Theme Engine).
+- Replaced error screenshot with live UI captures: Chat interface, AI Dashboard (56K tokens, 21 skills), Visual Agent Monitor DAG.
+- Added bilingual EN/VI README, E2E test results section, full project structure tree, and MCP extensibility guide.
+- All 7/7 E2E WebSocket integration tests passing (`test/e2e_addin_ws.py`).
