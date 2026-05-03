@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Smartphone, RefreshCw, Network, QrCode } from 'lucide-react';
+import { RefreshCw, Network, QrCode, Copy, Check, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -30,8 +30,11 @@ interface QrPayload {
   qrData: string;
   qrSvg: string;
   pairingInfo: {
-    wsUrl: string;
-    expiresAt: string;
+    url: string;       // primary SSE URL — matches Rust `pub url` → camelCase `url`
+    urls: string[];    // all candidate URLs
+    token: string | null;
+    expiresAt: string; // ISO 8601 from chrono
+    version: string;
   };
 }
 
@@ -39,6 +42,8 @@ export default function MobileTab() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [qrPayload, setQrPayload] = useState<QrPayload | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
     loadStatus();
@@ -194,15 +199,53 @@ export default function MobileTab() {
                   />
                 </div>
                 
-                <div className="w-full">
-                  <p className="font-medium text-slate-800 dark:text-slate-200">Scan with Office Hub Mobile</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Primary: <span className="font-mono">{qrPayload.pairingInfo.wsUrl}</span>
-                  </p>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-4">
-                    Expires at {new Date(qrPayload.pairingInfo.expiresAt).toLocaleTimeString()}
-                  </p>
+                {/* URL display */}
+                <div className="w-full text-left space-y-1">
+                  <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Server Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-[var(--bg-input)] px-3 py-2 rounded-lg text-[var(--text-primary)] break-all border border-[var(--border-default)]">
+                      {qrPayload.pairingInfo.url}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(qrPayload.pairingInfo.url);
+                        setCopiedUrl(true); setTimeout(() => setCopiedUrl(false), 2000);
+                      }}
+                      className="p-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] transition-colors shrink-0"
+                      title="Copy URL"
+                    >
+                      {copiedUrl ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} className="text-[var(--text-muted)]" />}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Token display — critical for manual entry */}
+                {qrPayload.pairingInfo.token && (
+                  <div className="w-full text-left space-y-1">
+                    <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Access Token</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-[var(--bg-input)] px-3 py-2 rounded-lg text-[var(--text-primary)] break-all border border-[var(--border-default)] font-mono">
+                        {qrPayload.pairingInfo.token}
+                      </code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(qrPayload.pairingInfo.token!);
+                          setCopied(true); setTimeout(() => setCopied(false), 2000);
+                          toast.success('Token copied!');
+                        }}
+                        className="p-2 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] transition-colors shrink-0"
+                        title="Copy token"
+                      >
+                        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} className="text-[var(--text-muted)]" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)]">Paste this into the mobile app if QR auto-connect fails.</p>
+                  </div>
+                )}
+
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  Expires at {new Date(qrPayload.pairingInfo.expiresAt).toLocaleTimeString()}
+                </p>
 
                 <button
                   onClick={handleGenerateQr}

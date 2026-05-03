@@ -140,11 +140,25 @@ impl SystemManager {
     // ── QR Code ───────────────────────────────────────────────────────────────
 
     /// Generate QR code payload for mobile pairing.
-    /// Returns the SVG string of the QR code.
+    /// Always includes a token — falls back to auto-generating one if the
+    /// persisted ws_auth_token is somehow None (e.g. config save failed on
+    /// first launch).
     pub async fn generate_pairing_qr(&self) -> anyhow::Result<PairingQrPayload> {
         let net = self.network_info.read().await;
         let cfg = self.config.read().await;
-        qrcode::generate_pairing_qr(&net, cfg.ws_auth_token.as_deref())
+        // Guarantee a non-null token in the QR payload.
+        // If config has a real token, use it; otherwise generate a temporary one.
+        let token_guard;  // keeps the owned String alive
+        let token: &str = match cfg.ws_auth_token.as_deref() {
+            Some(t) if !t.is_empty() => t,
+            _ => {
+                token_guard = uuid::Uuid::new_v4().to_string().replace('-', "");
+                warn!("ws_auth_token is not set — using a temporary QR token. \
+                       Save config via Settings to make it permanent.");
+                &token_guard
+            }
+        };
+        qrcode::generate_pairing_qr(&net, Some(token))
     }
 
     // ── Status ────────────────────────────────────────────────────────────────
