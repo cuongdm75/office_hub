@@ -148,13 +148,15 @@ impl SystemManager {
         let cfg = self.config.read().await;
         // Guarantee a non-null token in the QR payload.
         // If config has a real token, use it; otherwise generate a temporary one.
-        let token_guard;  // keeps the owned String alive
+        let token_guard; // keeps the owned String alive
         let token: &str = match cfg.ws_auth_token.as_deref() {
             Some(t) if !t.is_empty() => t,
             _ => {
                 token_guard = uuid::Uuid::new_v4().to_string().replace('-', "");
-                warn!("ws_auth_token is not set — using a temporary QR token. \
-                       Save config via Settings to make it permanent.");
+                warn!(
+                    "ws_auth_token is not set - using a temporary QR token. \
+                     Save config via Settings to make it permanent."
+                );
                 &token_guard
             }
         };
